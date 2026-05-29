@@ -370,14 +370,92 @@ const VIEWS = {
       listCard('Upcoming','#B5687C',[{t:'Dentist check-up',s:'12 Jun · 10:30am'},{t:'GP — annual review',s:'28 Jun · 9:00am'},{t:'Vitamin D',s:'Daily · 1 tablet'}])+'</div>';
   },
   finances(){
-    const budgets=[['Groceries',320,500,'#5E8C61'],['Eating out',180,200,'#C2724F'],['Transport',95,150,'#5683A8']];
+    const DEPARTURE=new Date(2026,10,29);
+    const BONDS=4420,PROJ_GBP=18254.24,TOTAL_GBP=22674.24;
+    const M=[
+      {d:'31/05/26',a:111.02,g:58.92},{d:'14/06/26',a:823.29,g:436.92},
+      {d:'28/06/26',a:1281.35,g:680.01},{d:'12/07/26',a:1987.35,g:1054.69},
+      {d:'26/07/26',a:6460.38,g:3428.52},{d:'09/08/26',a:8432.41,g:4475.08},
+      {d:'23/08/26',a:10181.41,g:5403.27},{d:'06/09/26',a:11554.47,g:6131.96},
+      {d:'20/09/26',a:13478.47,g:7153.02},{d:'04/10/26',a:14589.53,g:7742.66},
+      {d:'18/10/26',a:16513.53,g:8763.73},{d:'01/11/26',a:17904.54,g:9501.94},
+      {d:'15/11/26',a:31696.54,g:16821.35},{d:'29/11/26',a:34396.54,g:18254.24},
+    ];
+    const BILLS=[
+      {n:'UK Phone',day:6},{n:'Loan',day:6},{n:'WiFi',day:12},
+      {n:'Aus Phone',day:14},{n:'Insurance',day:26},{n:'Apple',day:27},
+      {n:'Hayu',day:28},{n:'Netflix',day:28},
+    ];
+    const SPEND=[
+      {n:'Rent',a:8010,c:'#5B7894'},{n:'Food',a:7975,c:'#C2724F'},
+      {n:'Wants',a:3739,c:'#9466A5'},{n:'Loan',a:1325,c:'#B5687C'},
+      {n:'Gym',a:1197,c:'#5E8C61'},{n:'Electricity',a:575,c:'#B9A23F'},
+    ];
+    function pd(s){const p=s.split('/');return new Date(2000+Number(p[2]),Number(p[1])-1,Number(p[0]));}
+    const gbp=v=>'&#163;'+Number(v).toLocaleString('en-GB',{maximumFractionDigits:0});
+    const aud=v=>'A$'+Number(v).toLocaleString('en-AU',{maximumFractionDigits:0});
+    const now=new Date();
+    const wLeft=Math.floor(Math.max(0,Math.round((DEPARTURE-now)/86400000))/7);
+    let prevM=null,nextM=null;
+    for(let i=0;i<M.length;i++){if(pd(M[i].d)<=now)prevM=M[i];else{nextM=M[i];break;}}
+    if(!nextM)nextM=M[M.length-1];
+    const pDt=prevM?pd(prevM.d):new Date(2026,4,18),nDt=pd(nextM.d);
+    const segPct=Math.min(100,Math.max(0,Math.round((now-pDt)/(nDt-pDt)*100)));
+    const overPct=Math.round((prevM?prevM.a:0)/34396.54*100);
+    const balKey='forge.finance.bal.'+(currentUser?currentUser.id:'x');
+    const savedBal=lsGet(balKey);
+    const actAud=savedBal!==null?Number(savedBal):null;
+    const projNow=(prevM?prevM.a:0)+(nextM.a-(prevM?prevM.a:0))*segPct/100;
+    const diff=actAud!==null?actAud-projNow:null;
+    const todayD=now.getDate();
+    const upcoming=[...BILLS].sort((a,b)=>a.day-b.day).filter(b=>b.day>=todayD).slice(0,4);
+    const suf=n=>{const v=n%100;const s=['th','st','nd','rd'];return s[(v-20)%10]||s[v]||s[0];};
+    const nDtStr=nDt.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
     return '<div class="stack">'+
-      '<div class="card dark"><div class="small">Total balance</div><h2>$4,820.50</h2>'+
-        '<div style="font-size:13px;opacity:.82;margin-top:4px;display:flex;align-items:center;gap:6px">'+icon('trend',14)+' +$210 this week</div></div>'+
-      '<div class="card"><div class="ctitle">Monthly budgets</div><div style="display:grid;gap:16px;padding:4px">'+
-        budgets.map(b=>'<div><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:7px"><span style="font-weight:600">'+b[0]+'</span><span style="color:var(--sub)">$'+b[1]+' / $'+b[2]+'</span></div>'+
-        '<div class="bar"><div style="width:'+(b[1]/b[2]*100)+'%;background:'+b[3]+'"></div></div></div>').join('')+
-      '</div></div></div>';
+      '<div class="card" style="background:linear-gradient(135deg,#23493A,#173026);color:var(--cream);padding:22px">'+
+        '<div style="font-size:12px;opacity:.8;letter-spacing:.06em;text-transform:uppercase">&#9992;&#65039; Countdown to England</div>'+
+        '<div class="serif" style="font-size:38px;font-weight:600;margin-top:8px;line-height:1">'+gbp(TOTAL_GBP)+'</div>'+
+        '<div style="font-size:13px;opacity:.8;margin-top:4px">projected on landing &middot; '+wLeft+' weeks to go</div>'+
+        '<div style="margin-top:14px;height:6px;background:rgba(255,255,255,.15);border-radius:6px;overflow:hidden">'+
+          '<div style="width:'+overPct+'%;height:100%;background:var(--gold);border-radius:6px"></div></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:11px;opacity:.65;margin-top:5px"><span>May 26</span><span>'+overPct+'% of the way</span><span>Nov 26</span></div>'+
+        '<div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12);display:flex;gap:18px">'+
+          '<div><div style="font-size:11px;opacity:.65">Aus savings (GBP)</div><div style="font-weight:700;font-size:16px">'+gbp(PROJ_GBP)+'</div></div>'+
+          '<div><div style="font-size:11px;opacity:.65">Premium bonds</div><div style="font-weight:700;font-size:16px">'+gbp(BONDS)+'</div></div>'+
+          '<div><div style="font-size:11px;opacity:.65">FX rate</div><div style="font-weight:700;font-size:16px">0.5307</div></div>'+
+        '</div></div>'+
+      '<div class="card"><div class="ctitle">Next milestone</div>'+
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">'+
+          '<div><div style="font-weight:700;font-size:22px;color:var(--ink)">'+gbp(nextM.g)+'</div>'+
+            '<div style="font-size:12px;color:var(--sub);margin-top:2px">by '+nDtStr+'</div></div>'+
+          (prevM?'<div style="text-align:right"><div style="font-size:11px;color:var(--sub)">last checkpoint</div>'+
+            '<div style="font-weight:600;font-size:14px;color:var(--sub)">'+gbp(prevM.g)+'</div></div>':'')+
+        '</div>'+
+        '<div class="bar"><div style="width:'+segPct+'%;background:var(--accent)"></div></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--sub);margin-top:5px">'+
+          '<span>'+segPct+'% through this fortnight</span>'+
+          (diff!==null?'<span style="font-weight:600;color:'+(diff>=0?'#5E8C61':'#B5687C')+'">'+(diff>=0?'&#9650; ahead ':'&#9660; behind ')+aud(Math.abs(diff))+'</span>':'')+
+        '</div></div>'+
+      '<div class="card" style="display:flex;align-items:center;gap:12px">'+
+        '<div style="flex:1">'+
+          '<div style="font-weight:600;font-size:15px">'+(actAud!==null?'Your balance: '+aud(actAud):'Log your actual balance')+'</div>'+
+          '<div style="font-size:12.5px;color:var(--sub);margin-top:2px">'+
+            (actAud!==null?'vs projected '+aud(projNow)+' &mdash; tap to update':'See if you\'re ahead or behind plan')+
+          '</div></div>'+
+        '<button onclick="updateFinBal()" style="padding:10px 16px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">'+(actAud!==null?'Update':'Log')+'</button></div>'+
+      '<div class="card"><div class="ctitle">Where the money goes (full period)</div>'+
+        '<div style="display:grid;gap:11px;padding-top:2px">'+
+          SPEND.map(s=>'<div><div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:5px">'+
+            '<span style="font-weight:600">'+s.n+'</span><span style="color:var(--sub)">'+aud(s.a)+'</span></div>'+
+            '<div class="bar"><div style="width:'+(s.a/SPEND[0].a*100)+'%;background:'+s.c+'"></div></div></div>').join('')+
+        '</div></div>'+
+      '<div class="card"><div class="ctitle">Bills this month</div>'+
+        (upcoming.length?upcoming.map(b=>'<div class="row">'+
+          '<div style="width:36px;height:36px;border-radius:10px;background:#F3E2DA;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#C2724F">'+b.day+'</div>'+
+          '<div style="flex:1"><div class="rt">'+b.n+'</div></div>'+
+          '<div style="font-size:12px;color:var(--sub)">'+b.day+suf(b.day)+'</div></div>').join(''):
+          '<div class="row"><div class="rs">No more bills this month</div></div>')+
+      '</div></div>';
   },
   calendar(){
     let cells='';
@@ -583,6 +661,12 @@ function saveNewUser(){
 }
 function deleteUser(id){ if(!confirm('Remove this user and all their data on this device?')) return; saveUsers(loadUsers().filter(u=>u.id!==id)); lsDel('forge.store.'+id); go('users'); }
 function renameUser(id){ const us=loadUsers(); const u=us.find(x=>x.id===id); if(!u) return; const n=prompt('Name:', u.name); if(n && n.trim()){ u.name=n.trim(); saveUsers(us); if(currentUser && currentUser.id===id) currentUser.name=u.name; go('users'); } }
+function updateFinBal(){
+  const balKey='forge.finance.bal.'+(currentUser?currentUser.id:'x');
+  const curr=lsGet(balKey);
+  const v=prompt('Your current AUD savings balance (number only):', curr||'');
+  if(v!==null && v.trim()!=='' && !isNaN(Number(v))){ lsSet(balKey,v.trim()); go('finances'); }
+}
 </script>
 </body>
 </html>
