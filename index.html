@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F6F2E9" />
+<title>Forge — Build your life</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ---- THEME (these are easy to change later for custom colours) ---- */
+  :root{
+    --ink:#26231E; --sub:#8A8377; --cream:#F6F2E9; --paper:#FBF8F1;
+    --accent:#23493A; --accent-2:#173026; --gold:#B4925A; --line:rgba(38,35,30,.07);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:'DM Sans',system-ui,sans-serif; color:var(--ink);
+    background:#E9E4D8; display:flex; justify-content:center;
+    -webkit-font-smoothing:antialiased;
+  }
+  .serif{font-family:'Fraunces',Georgia,serif;}
+  /* app shell: fills phone screens, centred & framed on desktop */
+  #app{
+    width:100%; max-width:480px; min-height:100vh; background:var(--cream);
+    display:flex; flex-direction:column; position:relative; overflow:hidden;
+  }
+  @media(min-width:520px){ #app{ box-shadow:0 0 60px rgba(38,35,30,.12);} }
+
+  /* ---- HEADER ---- */
+  header{ padding:18px 20px 14px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(180,146,90,.22); }
+  .logo{ width:42px; height:42px; border-radius:13px; background:var(--paper);
+    display:flex; align-items:center; justify-content:center; color:var(--accent);
+    font-family:'Fraunces',serif; font-weight:700; font-size:25px; line-height:1;
+    border:1.5px solid var(--gold); box-shadow:0 4px 12px rgba(38,35,30,.1); flex-shrink:0; }
+  .htext{ flex:1; }
+  .htext h1{ font-family:'Fraunces',serif; font-size:23px; font-weight:600; line-height:1; }
+  .htext span{ font-size:11px; color:var(--sub); letter-spacing:.1em; text-transform:uppercase; display:block; margin-top:4px; }
+  .pill{ display:flex; align-items:center; gap:8px; padding:7px 12px; border-radius:30px;
+    background:var(--paper); border:1px solid var(--line); cursor:pointer; transition:background .2s; }
+  .pill:hover{ background:rgba(38,35,30,.05); }
+  .pill .av{ width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,#23493A,#B4925A);
+    color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .pill .nm{ font-size:13.5px; font-weight:600; }
+  .back{ width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; margin-left:-6px; transition:background .18s,transform .18s; }
+  .back:hover{ background:rgba(38,35,30,.06);} .back:active{ transform:scale(.9);}
+
+  /* ---- BODY / STAGE ---- */
+  #stage{ flex:1; overflow-y:auto; padding:4px 18px 30px; }
+  #stage::-webkit-scrollbar{ width:0; }
+
+  /* ---- TILES ---- */
+  .feature{ border-radius:26px; padding:20px; margin-bottom:14px; cursor:pointer;
+    background:linear-gradient(135deg,#23493A,#173026); color:var(--cream);
+    box-shadow:0 8px 22px rgba(23,48,38,.3); transition:transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s; }
+  .feature:hover{ transform:translateY(-4px); box-shadow:0 14px 30px rgba(23,48,38,.38); }
+  .feature .lbl{ display:flex; align-items:center; gap:8px; font-size:12px; opacity:.9; letter-spacing:.06em; text-transform:uppercase; }
+  .feature h2{ font-family:'Fraunces',serif; font-size:22px; font-weight:600; margin-top:8px; }
+  .feature p{ font-size:13.5px; opacity:.88; margin-top:4px; }
+
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:13px; }
+  .tile{ border-radius:24px; padding:18px; min-height:132px; cursor:pointer;
+    display:flex; flex-direction:column; justify-content:space-between;
+    box-shadow:0 2px 6px rgba(38,35,30,.05); transition:transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s; }
+  .tile:hover{ transform:translateY(-4px); box-shadow:0 14px 30px rgba(38,35,30,.1); }
+  .tile:active{ transform:translateY(-1px) scale(.99); }
+  .tile .chip{ width:42px; height:42px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+    color:#fff; box-shadow:0 3px 8px rgba(38,35,30,.12); }
+  .tile .t{ font-weight:700; font-size:16.5px; }
+  .tile .s{ font-size:12px; color:rgba(38,35,30,.55); margin-top:2px; }
+
+  /* request-feature footer button */
+  .reqbtn{ margin-top:18px; width:100%; padding:15px; border:1.5px dashed rgba(38,35,30,.2);
+    border-radius:20px; background:transparent; color:var(--sub); font-family:'DM Sans',sans-serif;
+    font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    gap:8px; transition:border-color .2s,color .2s; }
+  .reqbtn:hover{ border-color:var(--accent); color:var(--accent); }
+
+  /* ---- CARDS & ROWS (section content) ---- */
+  .card{ background:var(--paper); border-radius:22px; padding:18px; border:1px solid var(--line);
+    box-shadow:0 1px 3px rgba(38,35,30,.04); }
+  .stack{ display:grid; gap:14px; }
+  .ctitle{ font-size:12px; font-weight:600; color:var(--sub); letter-spacing:.06em; text-transform:uppercase; margin:2px 2px 12px; }
+  .row{ display:flex; align-items:center; gap:12px; padding:12px 8px; border-radius:12px; transition:background .18s; }
+  .row:hover{ background:rgba(38,35,30,.035); }
+  .dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .row .rt{ font-weight:600; font-size:15px; } .row .rs{ font-size:12.5px; color:var(--sub); margin-top:1px; }
+  .dark{ background:var(--ink); color:var(--cream); }
+  .dark .small{ font-size:13px; opacity:.7; } .dark h2{ font-family:'Fraunces',serif; font-size:30px; font-weight:600; margin-top:2px; }
+  .two{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .stat .k{ display:flex; align-items:center; gap:7px; color:var(--sub); font-size:12px; margin-bottom:8px; }
+  .stat .v{ font-weight:700; font-size:22px; } .stat .d{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .checkbox{ width:20px; height:20px; border-radius:6px; border:2px solid rgba(38,35,30,.2); flex-shrink:0; }
+  .circlebox{ width:20px; height:20px; border-radius:50%; border:2px solid rgba(38,35,30,.2); flex-shrink:0; }
+
+  /* calendar */
+  .cal{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; text-align:center; }
+  .cal .h{ font-size:11px; color:var(--sub); font-weight:600; padding-bottom:4px; }
+  .cal .cell{ aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border-radius:12px; font-size:13px; font-weight:500; }
+  .cal .today{ background:var(--accent); color:#fff; font-weight:700; }
+  .evdot{ width:4px; height:4px; border-radius:50%; background:var(--accent); margin-top:2px; }
+
+  /* budget bars */
+  .bar{ height:8px; border-radius:8px; background:rgba(38,35,30,.07); overflow:hidden; }
+  .bar>div{ height:100%; border-radius:8px; }
+
+  /* FAB */
+  .fab{ position:absolute; bottom:24px; right:22px; width:56px; height:56px; border-radius:50%;
+    background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 8px 20px rgba(35,73,58,.4); cursor:pointer; border:none;
+    transition:transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s; }
+  .fab:hover{ transform:translateY(-2px) rotate(90deg); box-shadow:0 10px 26px rgba(35,73,58,.5); }
+
+  /* modal */
+  .overlay{ position:absolute; inset:0; background:rgba(38,35,30,.4); display:flex; align-items:flex-end;
+    justify-content:center; z-index:50; animation:fade .25s ease; }
+  .sheet{ width:100%; background:var(--cream); border-radius:26px 26px 0 0; padding:24px 22px 30px;
+    animation:up .32s cubic-bezier(.2,.85,.25,1); }
+  .sheet h3{ font-family:'Fraunces',serif; font-size:20px; font-weight:600; }
+  .sheet p{ font-size:13.5px; color:var(--sub); margin-top:4px; margin-bottom:14px; }
+  .sheet textarea{ width:100%; min-height:96px; border:1px solid var(--line); border-radius:14px; padding:12px;
+    font-family:'DM Sans',sans-serif; font-size:14.5px; resize:none; background:var(--paper); color:var(--ink); }
+  .sheet textarea:focus{ outline:none; border-color:var(--accent); }
+  .btnrow{ display:flex; gap:10px; margin-top:14px; }
+  .btn{ flex:1; padding:14px; border-radius:14px; border:none; font-family:'DM Sans',sans-serif;
+    font-size:15px; font-weight:600; cursor:pointer; }
+  .btn-primary{ background:var(--accent); color:#fff; } .btn-ghost{ background:rgba(38,35,30,.07); color:var(--ink); }
+  .done{ text-align:center; padding:10px 0 4px; }
+  .done .tick{ width:54px; height:54px; border-radius:50%; background:var(--accent); color:#fff;
+    display:flex; align-items:center; justify-content:center; margin:0 auto 12px; }
+
+  /* animations */
+  @keyframes fade{ from{opacity:0;transform:scale(.99);} to{opacity:1;transform:none;} }
+  @keyframes up{ from{transform:translateY(100%);} to{transform:none;} }
+  @keyframes slidein{ from{opacity:0;transform:translateX(26px);} to{opacity:1;transform:none;} }
+  @keyframes stag{ from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:none;} }
+  .anim-home{ animation:fade .4s ease both; }
+  .anim-section{ animation:slidein .42s cubic-bezier(.2,.85,.25,1) both; }
+  .anim-section .card,.anim-section .feature,.anim-section .two{ animation:stag .5s cubic-bezier(.2,.8,.2,1) both; }
+  svg{ display:block; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="hdr"></header>
+  <div id="stage"></div>
+</div>
+
+<script>
+/* =========================================================================
+   FORGE — single-file app shell (Phase 1)
+   Next phases will add: login + cloud sync (Firebase), colour themes,
+   and the smart features. For now data lives in memory for the session.
+   ========================================================================= */
+
+/* ---- tiny icon helper (self-contained SVGs, no external libraries) ---- */
+const P = { /* inner markup for 24x24 stroke icons */
+  work:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="3" y1="12" x2="21" y2="12"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="3" x2="8" y2="6"/><line x1="16" y1="3" x2="16" y2="6"/>',
+  fitness:'<rect x="2" y="9" width="3" height="6" rx="1"/><rect x="19" y="9" width="3" height="6" rx="1"/><rect x="5.5" y="10.5" width="2.5" height="3"/><rect x="16" y="10.5" width="2.5" height="3"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  health:'<rect x="3" y="3" width="18" height="18" rx="5"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  finances:'<rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.4"/>',
+  reminders:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.5 21a1.5 1.5 0 0 1-3 0"/>',
+  goals:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
+  notes:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  contacts:'<circle cx="9" cy="8" r="3.2"/><path d="M3.6 20a5.4 5.4 0 0 1 10.8 0"/><path d="M16 5.3a3.2 3.2 0 0 1 0 6"/><path d="M17.6 14.2a5.4 5.4 0 0 1 2.9 5.8"/>',
+  documents:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+  travel:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
+  back:'<polyline points="15 18 9 12 15 6"/>',
+  plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/>',
+  wallet:'<rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/>',
+  flame:'<path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-2 1-3 1-3s0 2 2 2c0-3 2-5 2-8z"/>',
+  cake:'<path d="M4 21h16v-7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z"/><path d="M4 16c2 0 2 1.5 4 1.5S10 16 12 16s2 1.5 4 1.5S18 16 20 16"/><line x1="12" y1="6" x2="12" y2="10"/>',
+  drop:'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
+  moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5z"/>',
+  trend:'<polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
+  pin:'<path d="M12 21s7-6 7-11a7 7 0 0 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/>',
+  check:'<polyline points="20 6 9 17 4 12"/>',
+  file:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+};
+function icon(name, size=22, sw=2){
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+sw+'" stroke-linecap="round" stroke-linejoin="round">'+(P[name]||'')+'</svg>';
+}
+
+/* ---- tabs (the tiles on the home screen) ---- */
+const TABS = [
+  {id:'work',     label:'Work',     sub:'Tasks & projects',     bg:'#E4E9EE', chip:'#5B7894'},
+  {id:'calendar', label:'Calendar', sub:'Your schedule',        bg:'#F3E2DA', chip:'#C2724F'},
+  {id:'fitness',  label:'Fitness',  sub:'Move & train',         bg:'#E1EADF', chip:'#5E8C61'},
+  {id:'health',   label:'Health',   sub:'Meds & checkups',      bg:'#F3E0E4', chip:'#B5687C'},
+  {id:'finances', label:'Finances', sub:'Money & budgets',      bg:'#F4E9D6', chip:'#C29A4A'},
+  {id:'reminders',label:'Reminders',sub:"Don't forget",         bg:'#E6E3F1', chip:'#7A72A8'},
+  {id:'goals',    label:'Goals',    sub:'Habits & streaks',     bg:'#DCEAEA', chip:'#3F8587'},
+  {id:'notes',    label:'Notes',    sub:'Capture ideas',        bg:'#F5EFD7', chip:'#B9A23F'},
+  {id:'contacts', label:'People',   sub:'Birthdays & contacts', bg:'#EDE3F0', chip:'#9466A5'},
+  {id:'documents',label:'Documents',sub:'Files & records',      bg:'#E8E5DE', chip:'#8A8276'},
+  {id:'travel',   label:'Travel',   sub:'Trips & plans',        bg:'#DEE9F2', chip:'#5683A8'},
+];
+
+/* ---- session data (in memory for now; becomes cloud data later) ---- */
+const store = {
+  work:[ {t:'Finish Q2 report',s:'Due tomorrow'},{t:'Review pull requests',s:'3 pending'},{t:'Email supplier',s:'Today'},{t:'Plan team offsite',s:'Next week'} ],
+  reminders:[ {t:'Pay electricity bill',s:'Due today'},{t:'Renew car rego',s:'3 Jun'},{t:'Call dentist',s:'This week'} ],
+  goals:[ {t:'Workout',s:'🔥 12 day streak'},{t:'Read 20 mins',s:'🔥 8 day streak'},{t:'No takeaway',s:'🔥 5 day streak'},{t:'Meditate',s:'Start today'} ],
+  notes:[ {t:'App ideas',s:'Edited 2h ago'},{t:'Groceries',s:'Edited yesterday'},{t:'Books to read',s:'Edited 3 days ago'} ],
+  documents:[ {t:'Passport.pdf',s:'Added 12 May'},{t:'Lease agreement.pdf',s:'Added 2 Apr'},{t:'Insurance.pdf',s:'Added 18 Mar'},{t:'Payslip — May.pdf',s:'Added 25 May'} ],
+};
+
+/* ---- helpers to build common bits ---- */
+function listCard(title, accent, items, right){
+  return '<div class="card"><div class="ctitle">'+title+'</div>'+
+    items.map(it=>'<div class="row"><span class="dot" style="background:'+accent+'"></span>'+
+      '<div style="flex:1"><div class="rt">'+it.t+'</div>'+(it.s?'<div class="rs">'+it.s+'</div>':'')+'</div>'+
+      (right||'')+'</div>').join('')+'</div>';
+}
+function ring(pct,color,value,label){
+  const r=27,c=2*Math.PI*r;
+  return '<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+
+    '<svg width="64" height="64" style="transform:rotate(-90deg)">'+
+    '<circle cx="32" cy="32" r="'+r+'" fill="none" stroke="rgba(38,35,30,.08)" stroke-width="8"/>'+
+    '<circle cx="32" cy="32" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+(c-c*pct/100)+'"/></svg>'+
+    '<div style="text-align:center;margin-top:-2px"><div style="font-weight:700;font-size:15px">'+value+'</div><div style="font-size:11px;color:var(--sub)">'+label+'</div></div></div>';
+}
+
+/* ---- section content renderers ---- */
+const VIEWS = {
+  today(){
+    return '<div class="stack">'+
+      '<div class="card dark"><div class="small">Friday, 29 May</div>'+
+        '<div class="serif" style="font-size:26px;font-weight:600;margin-top:2px">Good evening</div>'+
+        '<div style="font-size:14px;opacity:.82;margin-top:6px">3 things on today · 1 reminder due · balance looking healthy</div></div>'+
+      '<div class="two">'+
+        '<div class="card stat"><div class="k">'+icon('wallet',14)+' Balance</div><div class="v">$4,820</div><div class="d" style="color:#5E8C61">+$210 this week</div></div>'+
+        '<div class="card stat"><div class="k">'+icon('flame',14)+' Streaks</div><div class="v">12 days</div><div class="d">Workout · Reading</div></div>'+
+      '</div>'+
+      '<div class="card"><div class="ctitle">Today\'s agenda</div>'+
+        [['9:00','Team stand-up','Work','#5B7894'],['12:30','Lunch w/ Sam','Personal','#C2724F'],['18:00','Leg day','Fitness','#5E8C61']]
+          .map(a=>'<div class="row"><div style="width:44px;font-size:13px;font-weight:600;color:var(--sub)">'+a[0]+'</div>'+
+          '<div style="width:4px;height:30px;border-radius:4px;background:'+a[3]+'"></div>'+
+          '<div style="flex:1"><div class="rt">'+a[1]+'</div><div class="rs">'+a[2]+'</div></div></div>').join('')+
+      '</div></div>';
+  },
+  work(){ return '<div class="stack">'+listCard('In progress','#5B7894',store.work,icon('check',16)+'')+'</div>'; },
+  reminders(){ return '<div class="stack">'+listCard('Due soon','#7A72A8',store.reminders,'<span class="circlebox"></span>')+'</div>'; },
+  goals(){ return '<div class="stack">'+listCard('Habits','#3F8587',store.goals)+'</div>'; },
+  notes(){ return '<div class="stack">'+listCard('Recent notes','#B9A23F',store.notes)+'</div>'; },
+  documents(){ return '<div class="stack">'+listCard('Files','#8A8276',store.documents,icon('file',16))+'</div>'; },
+  fitness(){
+    return '<div class="stack"><div class="card" style="display:flex;justify-content:space-around;padding:22px 14px">'+
+      ring(78,'#5E8C61','78%','Move')+ring(55,'#C2724F','55%','Exercise')+ring(92,'#5683A8','92%','Stand')+'</div>'+
+      listCard('This week','#5E8C61',[{t:'Push day',s:'Mon · 52 min'},{t:'5km run',s:"Wed · 27 min · 4'42\"/km"},{t:'Leg day',s:'Today · 18:00'}])+'</div>';
+  },
+  health(){
+    return '<div class="stack"><div class="two">'+
+      '<div class="card stat"><div class="k">'+icon('drop',14)+' Water</div><div class="v">1.6 L</div><div class="d">of 2.5 L</div></div>'+
+      '<div class="card stat"><div class="k">'+icon('moon',14)+' Sleep</div><div class="v">7h 12m</div><div class="d">last night</div></div></div>'+
+      listCard('Upcoming','#B5687C',[{t:'Dentist check-up',s:'12 Jun · 10:30am'},{t:'GP — annual review',s:'28 Jun · 9:00am'},{t:'Vitamin D',s:'Daily · 1 tablet'}])+'</div>';
+  },
+  finances(){
+    const budgets=[['Groceries',320,500,'#5E8C61'],['Eating out',180,200,'#C2724F'],['Transport',95,150,'#5683A8']];
+    return '<div class="stack">'+
+      '<div class="card dark"><div class="small">Total balance</div><h2>$4,820.50</h2>'+
+        '<div style="font-size:13px;opacity:.82;margin-top:4px;display:flex;align-items:center;gap:6px">'+icon('trend',14)+' +$210 this week</div></div>'+
+      '<div class="card"><div class="ctitle">Monthly budgets</div><div style="display:grid;gap:16px;padding:4px">'+
+        budgets.map(b=>'<div><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:7px"><span style="font-weight:600">'+b[0]+'</span><span style="color:var(--sub)">$'+b[1]+' / $'+b[2]+'</span></div>'+
+        '<div class="bar"><div style="width:'+(b[1]/b[2]*100)+'%;background:'+b[3]+'"></div></div></div>').join('')+
+      '</div></div></div>';
+  },
+  calendar(){
+    let cells='';
+    for(let i=0;i<35;i++){ const n=i-3; const on=n===29; const ev=[12,18,29].includes(n);
+      cells+='<div class="cell'+(on?' today':'')+'" style="color:'+(on?'#fff':(n>0&&n<=31?'var(--ink)':'transparent'))+'">'+(n>0&&n<=31?n:'')+(ev&&!on?'<span class="evdot"></span>':'')+'</div>'; }
+    return '<div class="stack">'+
+      '<div class="card"><div class="serif" style="font-size:18px;font-weight:600;margin-bottom:14px">May 2026</div>'+
+        '<div class="cal">'+['M','T','W','T','F','S','S'].map(d=>'<div class="h">'+d+'</div>').join('')+cells+'</div></div>'+
+      listCard('Today','#C2724F',[{t:'Team stand-up',s:'9:00 – 9:30am'},{t:'Lunch with Sam',s:'12:30pm · Cafe Luna'},{t:'Leg day',s:'6:00pm · Gym'}],icon('clock',15))+'</div>';
+  },
+  contacts(){
+    const b=[['Mum','2 Jun','in 4 days'],['Jordan','11 Jun','in 13 days'],['Aunty Lou','24 Jun','in 26 days']];
+    return '<div class="stack"><div class="card"><div class="ctitle">Upcoming birthdays</div>'+
+      b.map(x=>'<div class="row"><div style="width:38px;height:38px;border-radius:50%;background:#EDE3F0;color:#9466A5;display:flex;align-items:center;justify-content:center">'+icon('cake',17)+'</div>'+
+      '<div style="flex:1"><div class="rt">'+x[0]+'</div><div class="rs">'+x[1]+'</div></div><div style="font-size:12px;color:var(--sub)">'+x[2]+'</div></div>').join('')+'</div></div>';
+  },
+  travel(){
+    return '<div class="stack">'+
+      '<div class="card" style="background:linear-gradient(135deg,#5683A8,#3F6B5B);color:var(--cream);padding:22px">'+
+        '<div style="display:flex;align-items:center;gap:6px;font-size:13px;opacity:.85">'+icon('pin',14)+' Next trip</div>'+
+        '<div class="serif" style="font-size:24px;font-weight:600;margin-top:4px">Byron Bay</div>'+
+        '<div style="font-size:13px;opacity:.85;margin-top:4px">14 – 18 Jul · in 46 days</div></div>'+
+      listCard('Packing list','#5683A8',[{t:'Sunscreen & hat'},{t:'Hiking shoes'},{t:'Chargers & adapters'},{t:'Beach towel'}],'<span class="checkbox"></span>')+'</div>';
+  },
+};
+
+/* sections that support the + button (adding an item this session) */
+const ADDABLE = { work:'task', reminders:'reminder', goals:'habit', notes:'note', documents:'document' };
+
+/* ---- render the header for a given view ---- */
+function renderHeader(tabId){
+  const hdr=document.getElementById('hdr');
+  if(!tabId){
+    hdr.innerHTML =
+      '<div class="logo">F</div>'+
+      '<div class="htext"><h1>Forge</h1><span>Build your life</span></div>'+
+      '<div class="pill" onclick="alert(\'Profile & settings — coming in a later phase (this is where colour themes will live).\')"><span class="av">H</span><span class="nm">You</span></div>';
+  } else {
+    const tab = tabId==='today' ? {label:'Today',sub:'Your day at a glance'} : TABS.find(t=>t.id===tabId);
+    hdr.innerHTML =
+      '<div class="back" onclick="go(null)">'+icon('back',22)+'</div>'+
+      '<div class="htext"><h1 class="serif">'+tab.label+'</h1><span>'+tab.sub+'</span></div>';
+  }
+}
+
+/* ---- main navigation ---- */
+let activeTab=null;
+function go(tabId){
+  activeTab=tabId;
+  const stage=document.getElementById('stage');
+  renderHeader(tabId);
+  // remove any existing FAB
+  const oldFab=document.querySelector('.fab'); if(oldFab) oldFab.remove();
+
+  if(!tabId){
+    stage.className=''; void stage.offsetWidth;
+    stage.innerHTML =
+      '<div class="anim-home">'+
+        '<div class="feature" onclick="go(\'today\')">'+
+          '<div class="lbl">'+icon('sun',15)+' Today</div>'+
+          '<h2>Good evening</h2><p>3 events · 1 reminder due · tap to see your day</p></div>'+
+        '<div class="grid">'+
+          TABS.map(t=>'<div class="tile" style="background:'+t.bg+'" onclick="go(\''+t.id+'\')">'+
+            '<div class="chip" style="background:'+t.chip+'">'+icon(t.id,21,2.2)+'</div>'+
+            '<div><div class="t">'+t.label+'</div><div class="s">'+t.sub+'</div></div></div>').join('')+
+        '</div>'+
+        '<button class="reqbtn" onclick="openRequest()">'+icon('plus',16)+' Request a feature</button>'+
+      '</div>';
+    document.getElementById('stage').scrollTop=0;
+    return;
+  }
+
+  // section view
+  stage.innerHTML='<div class="anim-section">'+ (VIEWS[tabId]?VIEWS[tabId]():'') +'</div>';
+  stage.scrollTop=0;
+  // add a FAB on addable sections
+  if(ADDABLE[tabId]){
+    const fab=document.createElement('button');
+    fab.className='fab'; fab.innerHTML=icon('plus',26,2.6);
+    fab.onclick=()=>addItem(tabId);
+    document.getElementById('app').appendChild(fab);
+  }
+}
+
+/* ---- add an item to a list section (session only for now) ---- */
+function addItem(tabId){
+  const what=ADDABLE[tabId];
+  const text=prompt('New '+what+':');
+  if(text && text.trim()){
+    store[tabId].unshift({t:text.trim(), s:'Just added'});
+    go(tabId);
+  }
+}
+
+/* ---- "Request a feature" sheet ---- */
+function openRequest(){
+  const o=document.createElement('div'); o.className='overlay'; o.id='ovl';
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()">'+
+    '<h3>Request a feature</h3>'+
+    '<p>Tell me what would make Forge more useful for you — it goes straight to my list.</p>'+
+    '<textarea id="reqtext" placeholder="e.g. a meal planner tab, dark mode, reminders that repeat..."></textarea>'+
+    '<div class="btnrow"><button class="btn btn-ghost" onclick="closeOverlay()">Cancel</button>'+
+    '<button class="btn btn-primary" onclick="sendRequest()">Send</button></div></div>';
+  o.onclick=closeOverlay;
+  document.getElementById('app').appendChild(o);
+  setTimeout(()=>{const t=document.getElementById('reqtext'); if(t)t.focus();},100);
+}
+function closeOverlay(){ const o=document.getElementById('ovl'); if(o)o.remove(); }
+function sendRequest(){
+  const t=document.getElementById('reqtext'); const v=t?t.value.trim():'';
+  if(!v){ if(t)t.focus(); return; }
+  // Phase 2: this will save to your private admin list (Firebase) + email you.
+  const o=document.getElementById('ovl');
+  o.querySelector('.sheet').innerHTML='<div class="done"><div class="tick">'+icon('check',26,2.6)+'</div>'+
+    '<h3>Thanks!</h3><p>Your request has been noted. (Once we add sync, this will land in my inbox automatically.)</p>'+
+    '<button class="btn btn-primary" onclick="closeOverlay()" style="margin-top:6px">Done</button></div>';
+}
+
+/* ---- boot ---- */
+go(null);
+</script>
+</body>
+</html>
