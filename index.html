@@ -197,6 +197,15 @@
   .key.fn{ font-size:14px; letter-spacing:.03em; color:rgba(246,242,233,.7); background:transparent; border:none; }
   .pin-reset{ margin-top:26px; font-size:12px; color:rgba(246,242,233,.45); letter-spacing:.03em;
     background:none; border:none; cursor:pointer; }
+
+  /* accounts */
+  .sheet input{ width:100%; border:1px solid var(--line); border-radius:14px; padding:13px 14px;
+    font-family:'DM Sans',sans-serif; font-size:15px; background:var(--paper); color:var(--ink); margin-bottom:10px; }
+  .sheet input:focus{ outline:none; border-color:var(--accent); }
+  .badge{ font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; padding:3px 9px;
+    border-radius:20px; background:rgba(35,73,58,.1); color:var(--accent); }
+  .uav{ width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,#23493A,#B4925A);
+    color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -278,7 +287,7 @@ const TABS = [
 ];
 
 /* ---- session data (in memory for now; becomes cloud data later) ---- */
-const store = {
+const DEFAULTS = {
   work:[ {t:'Finish Q2 report',s:'Due tomorrow'},{t:'Review pull requests',s:'3 pending'},{t:'Email supplier',s:'Today'},{t:'Plan team offsite',s:'Next week'} ],
   reminders:[ {t:'Pay electricity bill',s:'Due today'},{t:'Renew car rego',s:'3 Jun'},{t:'Call dentist',s:'This week'} ],
   goals:[ {t:'Workout',s:'🔥 12 day streak'},{t:'Read 20 mins',s:'🔥 8 day streak'},{t:'No takeaway',s:'🔥 5 day streak'},{t:'Meditate',s:'Start today'} ],
@@ -286,12 +295,11 @@ const store = {
   documents:[ {t:'Passport.pdf',s:'Added 12 May'},{t:'Lease agreement.pdf',s:'Added 2 Apr'},{t:'Insurance.pdf',s:'Added 18 Mar'},{t:'Payslip — May.pdf',s:'Added 25 May'} ],
 };
 
-/* persistence: Forge remembers your entries on this device.
-   (Cloud sync across devices arrives when we add logins.) */
-const SAVE_KEY='forge.store.v1';
-function loadStore(){ try{ const raw=localStorage.getItem(SAVE_KEY); if(raw){ const saved=JSON.parse(raw); Object.keys(saved).forEach(k=>{ if(Array.isArray(saved[k])) store[k]=saved[k]; }); } }catch(e){} }
-function saveStore(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(store)); }catch(e){} }
-loadStore();
+/* ---- accounts & per-user data (all stored on this device) ---- */
+let currentUser=null;
+let store=JSON.parse(JSON.stringify(DEFAULTS));
+function loadStoreFor(id){ store=JSON.parse(JSON.stringify(DEFAULTS)); const raw=lsGet('forge.store.'+id); if(raw){ try{ const s=JSON.parse(raw); Object.keys(s).forEach(k=>{ if(Array.isArray(s[k])) store[k]=s[k]; }); }catch(e){} } }
+function saveStore(){ if(currentUser) lsSet('forge.store.'+currentUser.id, JSON.stringify(store)); }
 
 /* ---- helpers to build common bits ---- */
 function listCard(title, accent, items, right){
@@ -322,7 +330,7 @@ const VIEWS = {
       .slice(0,4);
     return '<div class="stack">'+
       '<div class="card dark"><div class="small">'+dateStr+'</div>'+
-        '<div class="serif" style="font-size:26px;font-weight:600;margin-top:2px">'+greet+'</div>'+
+        '<div class="serif" style="font-size:26px;font-weight:600;margin-top:2px">'+greet+(currentUser?', '+currentUser.name.split(' ')[0]:'')+'</div>'+
         '<div style="font-size:14px;opacity:.82;margin-top:6px">'+tasks+' task'+(tasks!==1?'s':'')+' · '+rem+' reminder'+(rem!==1?'s':'')+' · '+habits+' habits on track</div></div>'+
       '<div class="two">'+
         '<div class="card stat"><div class="k">'+icon('wallet',14)+' Balance</div><div class="v">$4,820</div><div class="d" style="color:#5E8C61">+$210 this week</div></div>'+
@@ -331,6 +339,19 @@ const VIEWS = {
       '<div class="card"><div class="ctitle">Needs your attention</div>'+
         (attention.length?attention.map(a=>'<div class="row"><span class="dot" style="background:'+a.c+'"></span><div style="flex:1"><div class="rt">'+a.t+'</div><div class="rs">'+a.s+'</div></div></div>').join(''):'<div class="row"><div style="flex:1"><div class="rs">All clear — nothing needs you right now.</div></div></div>')+
       '</div></div>';
+  },
+  users(){
+    const us=loadUsers();
+    return '<div class="stack"><div class="card"><div class="ctitle">Who can use Forge</div>'+
+      us.map(u=>'<div class="row"><div class="uav">'+u.name.charAt(0).toUpperCase()+'</div>'+
+        '<div style="flex:1"><div class="rt">'+u.name+'</div><div class="rs">'+(u.role==='master'?'Master account — that\'s you':'Has their own PIN & space')+'</div></div>'+
+        (u.role==='master'
+          ? '<button onclick="renameUser(\''+u.id+'\')" style="background:none;border:none;color:var(--sub);font-size:13px;cursor:pointer;margin-right:8px">Rename</button><span class="badge">Master</span>'
+          : '<button onclick="renameUser(\''+u.id+'\')" style="background:none;border:none;color:var(--sub);font-size:13px;cursor:pointer;margin-right:6px">Rename</button><button onclick="deleteUser(\''+u.id+'\')" style="background:none;border:none;color:#B5687C;font-size:13px;cursor:pointer">Remove</button>')+
+      '</div>').join('')+
+      '</div>'+
+      '<button class="reqbtn" onclick="openAddUser()">'+icon('plus',16)+' Add a user</button>'+
+    '</div>';
   },
   work(){ return '<div class="stack">'+listCard('In progress','#5B7894',store.work,icon('check',16)+'')+'</div>'; },
   reminders(){ return '<div class="stack">'+listCard('Due soon','#7A72A8',store.reminders,'<span class="circlebox"></span>')+'</div>'; },
@@ -390,12 +411,15 @@ const ADDABLE = { work:'task', reminders:'reminder', goals:'habit', notes:'note'
 function renderHeader(tabId){
   const hdr=document.getElementById('hdr');
   if(!tabId){
+    const nm = currentUser ? currentUser.name : 'You';
+    const ini = nm.charAt(0).toUpperCase();
     hdr.innerHTML =
       '<div class="logo">F</div>'+
       '<div class="htext"><h1>Forge</h1><span>Build your life</span></div>'+
-      '<div class="pill" onclick="alert(\'Profile & settings — coming in a later phase (this is where colour themes will live).\')"><span class="av">H</span><span class="nm">You</span></div>';
+      '<div class="pill" onclick="lockForge()"><span class="av">'+ini+'</span><span class="nm">'+nm.split(' ')[0]+'</span></div>';
   } else {
-    const tab = tabId==='today' ? {label:'Today',sub:'Your day at a glance'} : TABS.find(t=>t.id===tabId);
+    const special={today:{label:'Today',sub:'Your day at a glance'}, users:{label:'Accounts',sub:'Manage who can use Forge'}};
+    const tab = special[tabId] || TABS.find(t=>t.id===tabId);
     hdr.innerHTML =
       '<div class="back" onclick="go(null)">'+icon('back',22)+'</div>'+
       '<div class="htext"><h1 class="serif">'+tab.label+'</h1><span>'+tab.sub+'</span></div>';
@@ -413,15 +437,22 @@ function go(tabId){
 
   if(!tabId){
     stage.className=''; void stage.offsetWidth;
+    const h=new Date().getHours();
+    const greet=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+    const fname=currentUser?currentUser.name.split(' ')[0]:'';
+    const masterTile=(currentUser && currentUser.role==='master')
+      ? '<div class="tile" style="background:#EFE9DC" onclick="go(\'users\')"><div class="chip" style="background:#B4925A">'+icon('contacts',21,2.2)+'</div><div><div class="t">Accounts</div><div class="s">Manage users</div></div></div>'
+      : '';
     stage.innerHTML =
       '<div class="anim-home">'+
         '<div class="feature" onclick="go(\'today\')">'+
           '<div class="lbl">'+icon('sun',15)+' Today</div>'+
-          '<h2>Good evening</h2><p>3 events · 1 reminder due · tap to see your day</p></div>'+
+          '<h2>'+greet+(fname?', '+fname:'')+'</h2><p>Tap to see your day at a glance</p></div>'+
         '<div class="grid">'+
           TABS.map(t=>'<div class="tile" style="background:'+t.bg+'" onclick="go(\''+t.id+'\')">'+
             '<div class="chip" style="background:'+t.chip+'">'+icon(t.id,21,2.2)+'</div>'+
             '<div><div class="t">'+t.label+'</div><div class="s">'+t.sub+'</div></div></div>').join('')+
+          masterTile+
         '</div>'+
         '<button class="reqbtn" onclick="openRequest()">'+icon('plus',16)+' Request a feature</button>'+
       '</div>';
@@ -481,13 +512,16 @@ function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; 
 function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
 function tinyHash(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))>>>0; } return ''+h; }
-const PIN_KEY='forge.pin.v1';
+const USERS_KEY='forge.users.v1';
+function loadUsers(){ const raw=lsGet(USERS_KEY); if(raw){ try{ const u=JSON.parse(raw); if(u && u.length) return u; }catch(e){} } const seed=[{id:'master',name:'Harvey',pin:tinyHash('7202'),role:'master'}]; lsSet(USERS_KEY, JSON.stringify(seed)); return seed; }
+function saveUsers(list){ lsSet(USERS_KEY, JSON.stringify(list)); }
 
 /* ---- boot: cinematic intro -> PIN -> app ---- */
 (function intro(){
   const w=document.getElementById('introWord');
   'FORGE'.split('').forEach((ch,i)=>{ const s=document.createElement('span'); s.textContent=ch; s.style.animationDelay=(0.5+i*0.09)+'s'; w.appendChild(s); });
-  go(null); // render the app underneath, ready for when it unlocks
+  loadUsers();   // ensure your master account exists
+  go(null);      // render app underneath, ready for unlock
   setTimeout(()=>{
     const intro=document.getElementById('intro');
     intro.classList.add('hide');
@@ -495,21 +529,14 @@ const PIN_KEY='forge.pin.v1';
   }, 2700);
 })();
 
-let pinEntry='', pinMode='enter', pinFirst='';
-function startPin(){
-  pinMode = lsGet(PIN_KEY) ? 'enter' : 'create';
-  pinEntry=''; pinFirst='';
-  document.getElementById('pin').style.display='flex';
-  buildKeypad(); renderPin();
-}
+let pinEntry='';
+function startPin(){ pinEntry=''; const p=document.getElementById('pin'); p.style.display='flex'; buildKeypad(); renderPin(); }
 function renderPin(){
-  const titles={enter:'Enter your PIN', create:'Create a PIN', confirm:'Confirm your PIN'};
-  const subs={enter:'Welcome back to Forge', create:'Pick a 4-digit code to lock Forge', confirm:'Enter it once more'};
-  document.getElementById('pinTitle').textContent=titles[pinMode];
-  document.getElementById('pinSub').textContent=subs[pinMode];
+  document.getElementById('pinTitle').textContent='Enter your PIN';
+  document.getElementById('pinSub').textContent='Welcome to Forge';
   const dots=document.getElementById('pinDots'); dots.className='dots'; dots.innerHTML='';
   for(let i=0;i<4;i++){ const d=document.createElement('div'); d.className='dot-pin'+(i<pinEntry.length?' on':''); dots.appendChild(d); }
-  document.getElementById('pinReset').style.display = lsGet(PIN_KEY)?'block':'none';
+  document.getElementById('pinReset').style.display='none';
 }
 function buildKeypad(){
   const kp=document.getElementById('keypad'); kp.innerHTML='';
@@ -520,21 +547,42 @@ function buildKeypad(){
     else { b.className='key'; b.textContent=k; b.onclick=()=>pinPush(k); }
     kp.appendChild(b);
   });
-  document.getElementById('pinReset').onclick=()=>{ if(confirm('Reset your PIN? Your data stays — you just set a new code.')){ lsDel(PIN_KEY); startPin(); } };
 }
 function pinPush(n){ if(pinEntry.length>=4) return; pinEntry+=n; renderPin(); if(pinEntry.length===4) setTimeout(pinSubmit,180); }
 function pinDel(){ pinEntry=pinEntry.slice(0,-1); renderPin(); }
 function pinError(){ const d=document.getElementById('pinDots'); d.classList.add('err'); if(navigator.vibrate) navigator.vibrate(120); setTimeout(()=>{ pinEntry=''; renderPin(); },430); }
-function unlock(){ const p=document.getElementById('pin'); p.classList.add('hide'); setTimeout(()=>p.remove(),640); }
+function unlock(){ const p=document.getElementById('pin'); p.classList.add('hide'); setTimeout(()=>{ p.style.display='none'; p.classList.remove('hide'); },640); }
+function lockForge(){ currentUser=null; pinEntry=''; const p=document.getElementById('pin'); p.style.display='flex'; renderPin(); }
+function activateUser(u){ currentUser={id:u.id,name:u.name,role:u.role}; loadStoreFor(u.id); }
 function pinSubmit(){
-  if(pinMode==='create'){ pinFirst=pinEntry; pinMode='confirm'; pinEntry=''; renderPin(); return; }
-  if(pinMode==='confirm'){
-    if(pinEntry===pinFirst){ lsSet(PIN_KEY, tinyHash(pinEntry)); unlock(); }
-    else { pinMode='create'; pinFirst=''; pinError(); }
-    return;
-  }
-  if(tinyHash(pinEntry)===lsGet(PIN_KEY)) unlock(); else pinError();
+  const u=loadUsers().find(x=>x.pin===tinyHash(pinEntry));
+  if(u){ activateUser(u); unlock(); go(null); } else pinError();
 }
+
+/* ---- master-only account management ---- */
+function openAddUser(){
+  const o=document.createElement('div'); o.className='overlay'; o.id='ovl';
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()">'+
+    '<h3>Add a user</h3><p>They log in with their own PIN and get a private space on this device.</p>'+
+    '<input id="uName" placeholder="Name" maxlength="20" autocomplete="off"/>'+
+    '<input id="uPin" placeholder="4-digit PIN" inputmode="numeric" maxlength="4" autocomplete="off"/>'+
+    '<div class="btnrow"><button class="btn btn-ghost" onclick="closeOverlay()">Cancel</button>'+
+    '<button class="btn btn-primary" onclick="saveNewUser()">Create</button></div></div>';
+  o.onclick=closeOverlay; document.getElementById('app').appendChild(o);
+  setTimeout(()=>{ const n=document.getElementById('uName'); if(n)n.focus(); },100);
+}
+function saveNewUser(){
+  const name=(document.getElementById('uName').value||'').trim();
+  const pin=(document.getElementById('uPin').value||'').trim();
+  if(!name){ document.getElementById('uName').focus(); return; }
+  if(!/^[0-9]{4}$/.test(pin)){ alert('PIN must be exactly 4 digits.'); return; }
+  const us=loadUsers();
+  if(us.some(u=>u.pin===tinyHash(pin))){ alert('That PIN is already in use — pick another.'); return; }
+  us.push({id:'u'+Date.now(), name:name, pin:tinyHash(pin), role:'user'});
+  saveUsers(us); closeOverlay(); go('users');
+}
+function deleteUser(id){ if(!confirm('Remove this user and all their data on this device?')) return; saveUsers(loadUsers().filter(u=>u.id!==id)); lsDel('forge.store.'+id); go('users'); }
+function renameUser(id){ const us=loadUsers(); const u=us.find(x=>x.id===id); if(!u) return; const n=prompt('Name:', u.name); if(n && n.trim()){ u.name=n.trim(); saveUsers(us); if(currentUser && currentUser.id===id) currentUser.name=u.name; go('users'); } }
 </script>
 </body>
 </html>
