@@ -590,6 +590,14 @@ function buildKeypad(){
   });
 }
 function bindKey(b,fn){b.addEventListener('pointerdown',function(e){e.preventDefault();fn();},{passive:false});}
+// physical keyboard support for the PIN screen (desktop)
+document.addEventListener('keydown',function(e){
+  var kp=document.getElementById('keypad');
+  if(!kp||!authEl||authEl.style.display==='none')return;                 // only when the PIN keypad is showing
+  var ae=document.activeElement; if(ae&&/^(INPUT|TEXTAREA)$/.test(ae.tagName))return;  // don't hijack typed fields
+  if(e.key>='0'&&e.key<='9'){e.preventDefault();pinPush(e.key);}
+  else if(e.key==='Backspace'){e.preventDefault();pinDel();}
+});
 function pinPush(n){if(pinBusy||pinEntry.length>=4)return;pinEntry+=n;updateDots();if(pinEntry.length===4){pinBusy=true;setTimeout(pinSubmit,120);}}
 function pinDel(){if(pinBusy)return;pinEntry=pinEntry.slice(0,-1);updateDots();}
 function pinError(){var d=document.getElementById('pinDots');if(d)d.classList.add('err');if(navigator.vibrate)navigator.vibrate(80);setTimeout(function(){pinEntry='';pinBusy=false;if(d)d.classList.remove('err');updateDots();},440);}
@@ -626,7 +634,12 @@ function showSignupScreen(){
   document.getElementById('suBack').onclick=showPinScreen;
   var go=document.getElementById('suGo');
   go.onclick=doSignup;
-  setTimeout(function(){var n=document.getElementById('suName');if(n)n.focus();},120);
+  var nm=document.getElementById('suName'),p1=document.getElementById('suPin'),p2=document.getElementById('suPin2');
+  nm.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();p1.focus();}};
+  p1.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();p2.focus();}};
+  p2.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();doSignup();}};
+  p1.oninput=p2.oninput=function(){this.value=this.value.replace(/[^0-9]/g,'');};   // PIN digits only
+  setTimeout(function(){if(nm)nm.focus();},120);
 }
 async function doSignup(){
   var name=(document.getElementById('suName').value||'').trim();
