@@ -519,6 +519,18 @@ const EXTRA_TABS=[
 ];
 function CATALOG(){return TABS.concat(EXTRA_TABS);}
 function catalogById(id){var a=CATALOG();for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
+// ---- CATEGORIES (group the tabs into a few calm areas) ----
+const CATS=[
+  {id:'time',label:'Time',sub:'Tasks, plans & reminders',icon:'clock',chip:'#60A5FA',tabs:['work','reminders','goals','notes','projects','calendar','countdown','habits','study']},
+  {id:'money',label:'Money',sub:'Finances & spending',icon:'wallet',chip:'#2DD4BF',tabs:['finances','subs']},
+  {id:'food',label:'Food',sub:'Recipes, meals & shopping',icon:'fork',chip:'#FB923C',tabs:['recipes','mealplanner','shopping']},
+  {id:'fitness',label:'Fitness',sub:'Workouts & wellbeing',icon:'fitness',chip:'#34D399',tabs:['fitness','workouts','health','sleep','water','meds','mood']},
+  {id:'home',label:'Home & Life',sub:'Car, docs, travel, people',icon:'home',chip:'#A78BFA',tabs:['car','documents','home2','travel','contacts']},
+  {id:'personal',label:'Personal',sub:'Journal, books & more',icon:'book',chip:'#F472B6',tabs:['journal','books','movies','wishlist','gifts','pets']},
+];
+function catById(cid){cid=String(cid||'').replace(/^cat_/,'');for(var i=0;i<CATS.length;i++)if(CATS[i].id===cid)return CATS[i];return null;}
+function catOf(tabId){for(var i=0;i<CATS.length;i++)if(CATS[i].tabs.indexOf(tabId)>=0)return CATS[i];return null;}
+function catEnabledTabs(cat){var en=enabledTabs();return cat.tabs.filter(function(t){return en.indexOf(t)>=0;});}
 function tabsKey(){return 'forge.tabs.'+(currentUser?currentUser.id:'x');}
 var _tabsCache=null;                                   // null = not yet chosen
 function hasChosenTabs(){return _tabsCache!==null;}
@@ -542,7 +554,7 @@ function setEnabledTabs(a){_tabsCache=a;lsSet(tabsKey(),JSON.stringify(a));if(cu
 function addTab(id){var a=enabledTabs();if(a.indexOf(id)<0){a.push(id);setEnabledTabs(a);}refreshScreen();toast('Added ✓');}
 function removeTab(id){setEnabledTabs(enabledTabs().filter(function(x){return x!==id;}));refreshScreen();toast('Removed');}
 const ADDABLE={work:'task',reminders:'reminder',goals:'habit',notes:'note',documents:'document',shopping:'item',subs:'subscription',workouts:'workout',recipes:'recipe',mood:'note',sleep:'entry',water:'log',meds:'medication',projects:'project',journal:'entry',books:'book',movies:'title',study:'topic',wishlist:'wish',gifts:'gift',pets:'pet',home2:'job',habits:'habit',fitness:'workout',health:'entry'};
-function tabTitle(id){var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
+function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
 
 // ============================================================
 // AUTH SCREENS (PIN + signup) — rendered into #stage-overlay layers
@@ -746,7 +758,7 @@ function endTutorial(openCustomise){
 // ============================================================
 // HEADER + HOME
 // ============================================================
-var activeTab=null,current=null;
+var activeTab=null,current=null,backTarget=null;
 function renderHeader(tabId){
   var hdr=document.getElementById('hdr');
   var dot='<div id="syncDot" class="sync-dot"></div>';
@@ -770,12 +782,16 @@ function homeHTML(){
   var fname=currentUser?currentUser.name.split(' ')[0]:'';
   var en=enabledTabs();
   var hero='<div class="tile hero" onclick="go(\'today\')"><div style="display:flex;align-items:center;gap:8px;font-size:12px;opacity:.9;letter-spacing:.06em;text-transform:uppercase">'+icon('sun',15)+' Today</div><div class="hero-greet serif">'+greet+(fname?', '+esc(fname):'')+'</div><div class="hero-sub">Your day at a glance</div></div>';
-  var tiles=en.map(function(id){var t=catalogById(id);if(!t)return '';return '<div class="tile" style="--tc:'+t.chip+'" onclick="go(\''+id+'\')"><div class="chip">'+icon(t.icon||id,21,2.2)+'</div><div><div class="t">'+esc(t.label)+'</div><div class="s">'+esc(t.sub)+'</div></div></div>';}).join('');
-  var emptyHint=en.length===0?'<div class="tile hero" style="grid-column:1/-1;padding:20px 22px" onclick="go(\'tabs\')"><div style="display:flex;align-items:center;gap:8px;font-size:12px;opacity:.9;letter-spacing:.06em;text-transform:uppercase">'+icon('star',15)+' Get started</div><div class="serif" style="font-size:20px;font-weight:700;margin-top:8px">Add your first tabs</div><div style="font-size:13.5px;opacity:.85;margin-top:3px">Forge is empty until you choose what to track.</div></div>':'';
+  var cats=CATS.map(function(c){
+    var on=c.tabs.filter(function(t){return en.indexOf(t)>=0;});
+    var sub=on.length?on.slice(0,3).map(function(t){var ct=catalogById(t);return ct?ct.label:t;}).join(' · '):'Tap to set up';
+    return '<div class="tile" style="--tc:'+c.chip+'" onclick="go(\'cat_'+c.id+'\')"><div class="chip">'+icon(c.icon,21,2.2)+'</div><div><div class="t">'+esc(c.label)+'</div><div class="s">'+esc(sub)+'</div></div></div>';
+  }).join('');
+  var aiTile=(en.indexOf('ai')>=0)?'<div class="tile" style="--tc:#C084FC" onclick="go(\'ai\')"><div class="chip">'+icon('spark',21,2.2)+'</div><div><div class="t">Forge AI</div><div class="s">Ask about your world</div></div></div>':'';
   var ownerTile=isOwner()?'<div class="tile" style="--tc:#2DD4BF" onclick="go(\'owner\')"><div class="chip">'+icon('grid',21,2.2)+'</div><div><div class="t">Dashboard</div><div class="s">Owner only</div></div></div>':'';
   var customise='<div class="tile ghost" onclick="go(\'tabs\')"><div class="chip ghostchip">'+icon('grid',20,2.2)+'</div><div><div class="t">Customise</div><div class="s">Add or remove tabs</div></div></div>';
   var req='<div class="tile ghost" onclick="openRequest()"><div class="chip ghostchip">'+icon('plus',20,2.4)+'</div><div><div class="t">Request a feature</div><div class="s">Tell me what to build</div></div></div>';
-  return '<div class="home-grid" id="homeGrid">'+hero+emptyHint+tiles+ownerTile+customise+req+'</div>';
+  return '<div class="home-grid" id="homeGrid">'+hero+cats+aiTile+ownerTile+customise+req+'</div>';
 }
 
 function buildScreen(tab){
@@ -787,8 +803,9 @@ function buildScreen(tab){
 }
 async function loadAndRender(tab,el){var html=await renderTab(tab);if(el&&el.parentNode)el.innerHTML=html;}
 
-function go(tab,instant){
+function go(tab,instant,parent){
   if(tab===activeTab&&current&&!instant)return;
+  backTarget=parent||null;
   var forward=(tab!==null);
   var stage=document.getElementById('stage');
   var oldEl=current?current.el:null;
@@ -806,7 +823,7 @@ function go(tab,instant){
   }
   activeTab=tab;current={tab:tab,el:newEl};newEl.scrollTop=0;
 }
-function back(){if(activeTab!==null)go(null);}
+function back(){if(backTarget){go(backTarget);}else if(activeTab!==null){go(null);}}
 
 function manageFab(tab){
   var old=document.querySelector('.fab');if(old)old.remove();
@@ -833,10 +850,10 @@ async function refreshScreen(){
 
 // edge swipe-back
 (function(){
-  var startX=0,startY=0,decided=false,dragging=false,secEl=null,homeEl=null,W=0;
-  function start(e){if(activeTab===null||!current)return;var t=e.touches?e.touches[0]:e;if(t.clientX>32)return;startX=t.clientX;startY=t.clientY;W=window.innerWidth||360;decided=false;dragging=false;secEl=current.el;homeEl=null;}
-  function move(e){if(activeTab===null||!secEl)return;var t=e.touches?e.touches[0]:e;var dx=t.clientX-startX,dy=t.clientY-startY;if(!decided){if(Math.abs(dx)<6&&Math.abs(dy)<6)return;if(Math.abs(dy)>Math.abs(dx)){secEl=null;return;}decided=true;dragging=true;homeEl=buildScreen(null);homeEl.classList.add('enter-left');document.getElementById('stage').insertBefore(homeEl,secEl);layoutHome(homeEl);secEl.classList.add('dragging');homeEl.classList.add('dragging');renderHeader(null);}if(!dragging)return;if(e.cancelable)e.preventDefault();dx=Math.max(0,dx);var p=Math.min(1,dx/W);secEl.style.transform='translateX('+dx+'px)';homeEl.style.transform='translateX('+(-24+24*p)+'%)';homeEl.style.filter='brightness('+(0.92+0.08*p)+')';}
-  function end(e){if(!dragging||!secEl||!homeEl){secEl=null;homeEl=null;dragging=false;decided=false;return;}var t=(e.changedTouches?e.changedTouches[0]:e);var dx=Math.max(0,t.clientX-startX);var s=secEl,hm=homeEl,EASE='transform .4s cubic-bezier(.22,.85,.26,1)';s.classList.remove('dragging');hm.classList.remove('dragging');if(dx>W*0.30){s.style.transition=EASE;s.style.transform='translateX(100%)';hm.classList.remove('enter-left');hm.style.transition=EASE+',filter .4s ease';hm.style.transform='translateX(0)';hm.style.filter='none';var fin=function(){if(s&&s.parentNode)s.parentNode.removeChild(s);hm.classList.add('show');hm.style.transition='';hm.style.transform='';hm.style.filter='';};s.addEventListener('transitionend',fin,{once:true});setTimeout(fin,520);activeTab=null;current={tab:null,el:hm};manageFab(null);renderHeader(null);}else{s.style.transition=EASE;s.style.transform='translateX(0)';var rem=function(){if(hm&&hm.parentNode)hm.parentNode.removeChild(hm);s.style.transition='';s.style.transform='';};s.addEventListener('transitionend',rem,{once:true});setTimeout(rem,520);renderHeader(activeTab);}secEl=null;homeEl=null;dragging=false;decided=false;}
+  var startX=0,startY=0,decided=false,dragging=false,secEl=null,homeEl=null,W=0,parent=null;
+  function start(e){if(activeTab===null||!current)return;var t=e.touches?e.touches[0]:e;if(t.clientX>32)return;startX=t.clientX;startY=t.clientY;W=window.innerWidth||360;decided=false;dragging=false;secEl=current.el;homeEl=null;parent=backTarget;}
+  function move(e){if(activeTab===null||!secEl)return;var t=e.touches?e.touches[0]:e;var dx=t.clientX-startX,dy=t.clientY-startY;if(!decided){if(Math.abs(dx)<6&&Math.abs(dy)<6)return;if(Math.abs(dy)>Math.abs(dx)){secEl=null;return;}decided=true;dragging=true;homeEl=buildScreen(parent);homeEl.classList.add('enter-left');document.getElementById('stage').insertBefore(homeEl,secEl);if(parent===null)layoutHome(homeEl);secEl.classList.add('dragging');homeEl.classList.add('dragging');renderHeader(parent);}if(!dragging)return;if(e.cancelable)e.preventDefault();dx=Math.max(0,dx);var p=Math.min(1,dx/W);secEl.style.transform='translateX('+dx+'px)';homeEl.style.transform='translateX('+(-24+24*p)+'%)';homeEl.style.filter='brightness('+(0.92+0.08*p)+')';}
+  function end(e){if(!dragging||!secEl||!homeEl){secEl=null;homeEl=null;dragging=false;decided=false;return;}var t=(e.changedTouches?e.changedTouches[0]:e);var dx=Math.max(0,t.clientX-startX);var s=secEl,hm=homeEl,EASE='transform .4s cubic-bezier(.22,.85,.26,1)';s.classList.remove('dragging');hm.classList.remove('dragging');if(dx>W*0.30){s.style.transition=EASE;s.style.transform='translateX(100%)';hm.classList.remove('enter-left');hm.style.transition=EASE+',filter .4s ease';hm.style.transform='translateX(0)';hm.style.filter='none';var fin=function(){if(s&&s.parentNode)s.parentNode.removeChild(s);hm.classList.add('show');hm.style.transition='';hm.style.transform='';hm.style.filter='';};s.addEventListener('transitionend',fin,{once:true});setTimeout(fin,520);activeTab=parent;current={tab:parent,el:hm};backTarget=null;manageFab(parent);renderHeader(parent);}else{s.style.transition=EASE;s.style.transform='translateX(0)';var rem=function(){if(hm&&hm.parentNode)hm.parentNode.removeChild(hm);s.style.transition='';s.style.transform='';};s.addEventListener('transitionend',rem,{once:true});setTimeout(rem,520);renderHeader(activeTab);}secEl=null;homeEl=null;dragging=false;decided=false;}
   var st=document.getElementById('stage');
   st.addEventListener('touchstart',start,{passive:true});
   st.addEventListener('touchmove',move,{passive:false});
@@ -955,6 +972,7 @@ function logout(){currentUser=null;showPinScreen();}
 // TAB ROUTER
 // ============================================================
 async function renderTab(tab){
+  if(/^cat_/.test(tab))return catScreenHTML(tab);
   if(tab==='today')return renderToday();
   if(tab==='users')return renderUsers();
   if(tab==='tabs')return renderTabManager();
@@ -1015,12 +1033,36 @@ function renderContacts(){
 function renderTravel(){
   return Promise.resolve('<div class="stack"><div class="card" style="background:linear-gradient(135deg,#34D399,#2DD4BF);color:#04130D;padding:22px"><div style="font-size:13px;opacity:.85;display:flex;align-items:center;gap:6px">'+icon('pin',14)+' Next trip</div><div class="serif" style="font-size:24px;font-weight:600;margin-top:4px">Byron Bay</div><div style="font-size:13px;opacity:.85;margin-top:4px">14 – 18 Jul · in 46 days</div></div></div>');
 }
+function catScreenHTML(cid){
+  var c=catById(cid);
+  if(!c)return '<div class="stack"><div class="card"><div class="rs">Unknown section</div></div></div>';
+  var en=enabledTabs();
+  var tiles=c.tabs.map(function(t){
+    var ct=catalogById(t);if(!ct)return '';
+    if(en.indexOf(t)>=0){
+      return '<div class="tile" style="--tc:'+ct.chip+'" onclick="go(\''+t+'\',false,\'cat_'+c.id+'\')"><div class="chip">'+icon(ct.icon||t,21,2.2)+'</div><div><div class="t">'+esc(ct.label)+'</div><div class="s">'+esc(ct.sub)+'</div></div></div>';
+    }
+    return '<div class="tile ghost" onclick="addTab(\''+t+'\')"><div class="chip ghostchip">'+icon('plus',20,2.4)+'</div><div><div class="t">'+esc(ct.label)+'</div><div class="s">Tap to add</div></div></div>';
+  }).join('');
+  return '<div class="home-grid">'+tiles+'</div>';
+}
 async function renderTabManager(){
-  var en=enabledTabs();var all=CATALOG();
-  var enHtml=en.length?en.map(function(id){var t=catalogById(id);if(!t)return '';return '<div class="trow"><div class="chip sm" style="--tc:'+t.chip+'">'+icon(t.icon||id,16,2.2)+'</div><div style="flex:1"><div class="rt">'+esc(t.label)+'</div><div class="rs">'+esc(t.sub)+'</div></div><button class="tbtn rm" onclick="removeTab(\''+id+'\')">Remove</button></div>';}).join(''):'<div class="rs" style="padding:8px 4px">No tabs yet — add some below.</div>';
-  var avail=all.filter(function(t){return en.indexOf(t.id)<0;});
-  var avHtml=avail.length?avail.map(function(t){return '<div class="trow"><div class="chip sm" style="--tc:'+t.chip+'">'+icon(t.icon||t.id,16,2.2)+'</div><div style="flex:1"><div class="rt">'+esc(t.label)+'</div><div class="rs">'+esc(t.sub)+'</div></div><button class="tbtn add" onclick="addTab(\''+t.id+'\')">Add</button></div>';}).join(''):'<div class="rs" style="padding:8px 4px">You\'ve added everything!</div>';
-  return '<div class="stack"><div class="card"><div class="ctitle">Your tabs</div>'+enHtml+'</div><div class="card"><div class="ctitle">Add a tab</div>'+avHtml+'</div></div>';
+  var en=enabledTabs();
+  var groups=CATS.map(function(c){
+    var rows=c.tabs.map(function(id){
+      var t=catalogById(id);if(!t)return '';
+      var on=en.indexOf(id)>=0;
+      return '<div class="trow"><div class="chip sm" style="--tc:'+t.chip+'">'+icon(t.icon||id,16,2.2)+'</div><div style="flex:1"><div class="rt">'+esc(t.label)+'</div><div class="rs">'+esc(t.sub)+'</div></div>'+
+        (on?'<button class="tbtn rm" onclick="removeTab(\''+id+'\')">Remove</button>':'<button class="tbtn add" onclick="addTab(\''+id+'\')">Add</button>')+'</div>';
+    }).join('');
+    return '<div class="card"><div class="ctitle">'+esc(c.label)+'</div>'+rows+'</div>';
+  }).join('');
+  var other=CATALOG().filter(function(t){return !catOf(t.id);});   // e.g. Forge AI
+  if(other.length){
+    var orows=other.map(function(t){var on=en.indexOf(t.id)>=0;return '<div class="trow"><div class="chip sm" style="--tc:'+t.chip+'">'+icon(t.icon||t.id,16,2.2)+'</div><div style="flex:1"><div class="rt">'+esc(t.label)+'</div><div class="rs">'+esc(t.sub)+'</div></div>'+(on?'<button class="tbtn rm" onclick="removeTab(\''+t.id+'\')">Remove</button>':'<button class="tbtn add" onclick="addTab(\''+t.id+'\')">Add</button>')+'</div>';}).join('');
+    groups+='<div class="card"><div class="ctitle">Assistant</div>'+orows+'</div>';
+  }
+  return '<div class="stack">'+groups+'</div>';
 }
 
 // ---------- USERS ----------
