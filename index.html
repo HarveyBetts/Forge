@@ -693,6 +693,7 @@ async function pinSubmit(){
     var u=r.data&&r.data[0];
     if(u){
       currentUser={id:u.id,name:u.name,role:u.role,avatar_url:u.avatar_url};
+      lsSet('forge.session',JSON.stringify(currentUser));
       setSyncState('');
       recordLogin();
       await loadTabs();
@@ -738,6 +739,7 @@ async function doSignup(){
     var prof=await createProfile(name,'user',hash);   // forge_signup: errors if PIN taken
     if(!prof)throw new Error('no profile');
     currentUser={id:prof.id,name:prof.name,role:prof.role,avatar_url:null};
+    lsSet('forge.session',JSON.stringify(currentUser));
     setSyncState('');
     recordLogin();
     await loadTabs();
@@ -1105,7 +1107,7 @@ function openChangePIN(){
     closeOverlay();toast('PIN updated ✓');
   });
 }
-function logout(){currentUser=null;showPinScreen();}
+function logout(){try{localStorage.removeItem('forge.session');}catch(e){}if(typeof _tabsChannel!=='undefined'&&_tabsChannel){try{sb.removeChannel(_tabsChannel);}catch(e){}_tabsChannel=null;}currentUser=null;showPinScreen();}
 
 // ============================================================
 // TAB ROUTER
@@ -1557,7 +1559,14 @@ document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&['+',
   setTimeout(function(){
     var intro=document.getElementById('intro');
     // mount auth/invite BEHIND the intro first, so when intro lifts the next screen is already there
-    if(fromInvite){showInvite();}else{showPinScreen();}
+    // remembered session → skip PIN, straight to home (no flash: build from local tabs, refresh from cloud)
+    var sess=null;try{sess=JSON.parse(lsGet('forge.session')||'null');}catch(e){}
+    if(!fromInvite&&sess&&sess.id){
+      currentUser=sess;
+      loadTabs().then(function(){if(current&&current.tab===null)go(null,true);});
+      enterApp(false);
+    } else if(fromInvite){showInvite();}
+    else{showPinScreen();}
     // ensure the freshly-mounted auth sits above home but below intro until lift
     intro.classList.add('hide');
     setTimeout(function(){if(intro&&intro.parentNode)intro.parentNode.removeChild(intro);},720);
