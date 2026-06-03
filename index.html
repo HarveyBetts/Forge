@@ -1501,6 +1501,15 @@ function showInvite(){
 // ============================================================
 function sizeApp(){var vv=window.visualViewport;var h=(vv&&vv.height)?vv.height:window.innerHeight;document.documentElement.style.setProperty('--app-h',h+'px');var app=document.getElementById('app');if(app)app.style.height=h+'px';var home=document.querySelector('.screen.is-home');if(home)layoutHome(home);}
 window.addEventListener('resize',sizeApp);
+// Re-pull cloud tabs whenever the app regains focus, so devices stay identical
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'&&currentUser){
+    var before=JSON.stringify(enabledTabs());
+    loadTabs().then(function(){
+      if(JSON.stringify(enabledTabs())!==before&&current&&current.tab===null){go(null,true);}
+    });
+  }
+});
 if(window.visualViewport){window.visualViewport.addEventListener('resize',sizeApp);window.visualViewport.addEventListener('scroll',sizeApp);}
 window.addEventListener('orientationchange',function(){setTimeout(sizeApp,180);setTimeout(sizeApp,400);});
 // block pinch-zoom + double-tap-zoom (lock like a native app)
