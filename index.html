@@ -238,6 +238,17 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 .ai-bar input{flex:1;border:1px solid var(--line);background:var(--surface-2);border-radius:24px;padding:13px 16px;font:16px 'Hanken Grotesk',sans-serif;color:var(--ink);}
 .ai-bar input:focus{outline:none;border-color:var(--accent);}
 .ai-bar button{width:46px;height:46px;border-radius:50%;border:none;background:var(--grad);color:var(--accent-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ai-empty{text-align:center;color:var(--sub);padding:34px 10px;display:flex;flex-direction:column;align-items:center;}
+.ai-empty .rt{color:var(--ink);font-weight:600;font-size:16px;}
+.ai-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px;max-width:340px;}
+.ai-chip{background:var(--surface-2);border:1px solid var(--line);color:var(--ink);border-radius:20px;padding:9px 14px;font:500 13px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:.15s;}
+.ai-chip:hover{border-color:var(--accent);color:var(--accent);}
+.ai-msg.typing{display:inline-flex;gap:5px;align-items:center;padding:14px 16px;}
+.ai-msg.typing span{width:6px;height:6px;border-radius:50%;background:var(--sub);animation:aidot 1s infinite;}
+.ai-msg.typing span:nth-child(2){animation-delay:.15s;}
+.ai-msg.typing span:nth-child(3){animation-delay:.3s;}
+@keyframes aidot{0%,60%,100%{opacity:.25;transform:translateY(0);}30%{opacity:.9;transform:translateY(-3px);}}
+.cat-ai{border-style:solid;color:var(--accent);}
 .reqbtn{margin-top:18px;width:100%;padding:15px;border:1px dashed var(--hair);border-radius:18px;background:transparent;color:var(--sub);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:border-color .2s,color .2s;}
 .reqbtn:active{border-color:var(--accent);color:var(--accent);}
 .toast{position:absolute;bottom:calc(34px + env(safe-area-inset-bottom,0px));left:50%;transform:translate(-50%,16px);background:var(--surface-3);color:var(--ink);border:1px solid var(--hair);padding:11px 18px;border-radius:24px;font-size:13.5px;font-weight:700;opacity:0;transition:all .3s;z-index:300;pointer-events:none;box-shadow:0 12px 30px -10px rgba(0,0,0,.6);white-space:nowrap;}
@@ -303,6 +314,10 @@ svg{display:block;}
 .setup-go{width:100%;padding:16px;border-radius:15px;border:none;background:var(--grad);color:var(--accent-ink);font:800 16px 'Hanken Grotesk',sans-serif;cursor:pointer;box-shadow:var(--shadow);transition:transform .15s,opacity .2s;}
 .setup-go:active{transform:scale(.98);}
 .setup-skip{background:none;border:none;color:var(--sub);font:600 13.5px 'Hanken Grotesk',sans-serif;cursor:pointer;}
+.cat-add{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:520px;margin:14px auto 4px;padding:14px;border-radius:14px;border:1px dashed var(--hair);background:var(--surface);color:var(--accent);font:600 14.5px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:background .15s,border-color .15s,transform .08s;}
+.cat-add:hover{background:color-mix(in srgb,var(--accent) 5%,var(--surface));border-color:var(--accent);}
+.cat-add:active{transform:scale(.99);}
+.cat-empty{text-align:center;color:var(--sub);font-size:14px;margin:20px 0 4px;}
 /* ============ DESKTOP ============ */
 @media(min-width:900px){
   body{align-items:stretch;}
@@ -868,12 +883,12 @@ function homeHTML(){
   var fname=currentUser?currentUser.name.split(' ')[0]:'';
   var en=enabledTabs();
   var hero='<div class="tile hero" onclick="go(\'today\')"><div style="display:flex;align-items:center;gap:8px;font-size:12px;opacity:.9;letter-spacing:.06em;text-transform:uppercase">'+icon('sun',15)+' Today</div><div class="hero-greet serif">'+greet+(fname?', '+esc(fname):'')+'</div><div class="hero-sub">Your day at a glance</div></div>';
-  var cats=CATS.map(function(c){
+  var cats=CATS.filter(function(c){return c.tabs.some(function(t){return en.indexOf(t)>=0;});}).map(function(c){
     var on=c.tabs.filter(function(t){return en.indexOf(t)>=0;});
-    var sub=on.length?on.slice(0,3).map(function(t){var ct=catalogById(t);return ct?ct.label:t;}).join(' · '):'Tap to set up';
+    var sub=on.slice(0,3).map(function(t){var ct=catalogById(t);return ct?ct.label:t;}).join(' · ');
     return '<div class="tile" onclick="go(\'cat_'+c.id+'\')"><div class="chip">'+icon(c.icon,21,2.2)+'</div><div><div class="t">'+esc(c.label)+'</div><div class="s">'+esc(sub)+'</div></div></div>';
   }).join('');
-  var aiTile=(en.indexOf('ai')>=0)?'<div class="tile" onclick="go(\'ai\')"><div class="chip">'+icon('spark',21,2.2)+'</div><div><div class="t">Forge AI</div><div class="s">Ask about your world</div></div></div>':'';
+  var aiTile='<div class="tile" onclick="go(\'ai\')"><div class="chip">'+icon('spark',21,2.2)+'</div><div><div class="t">Forge AI</div><div class="s">Ask about your world</div></div></div>';
   var ownerTile=isOwner()?'<div class="tile" onclick="go(\'owner\')"><div class="chip">'+icon('grid',21,2.2)+'</div><div><div class="t">Dashboard</div><div class="s">Owner only</div></div></div>':'';
   var customise='<div class="tile ghost" onclick="go(\'tabs\')"><div class="chip ghostchip">'+icon('grid',20,2.2)+'</div><div><div class="t">Customise</div><div class="s">Add or remove tabs</div></div></div>';
   var req='<div class="tile ghost" onclick="openRequest()"><div class="chip ghostchip">'+icon('plus',20,2.4)+'</div><div><div class="t">Request a feature</div><div class="s">Tell me what to build</div></div></div>';
@@ -1123,14 +1138,39 @@ function catScreenHTML(cid){
   var c=catById(cid);
   if(!c)return '<div class="stack"><div class="card"><div class="rs">Unknown section</div></div></div>';
   var en=enabledTabs();
-  var tiles=c.tabs.map(function(t){
-    var ct=catalogById(t);if(!ct)return '';
-    if(en.indexOf(t)>=0){
-      return '<div class="tile" onclick="go(\''+t+'\',false,\'cat_'+c.id+'\')"><div class="chip">'+icon(ct.icon||t,21,2.2)+'</div><div><div class="t">'+esc(ct.label)+'</div><div class="s">'+esc(ct.sub)+'</div></div></div>';
-    }
-    return '<div class="tile ghost" onclick="addTab(\''+t+'\')"><div class="chip ghostchip">'+icon('plus',20,2.4)+'</div><div><div class="t">'+esc(ct.label)+'</div><div class="s">Tap to add</div></div></div>';
+  var onTabs=c.tabs.filter(function(t){return en.indexOf(t)>=0&&catalogById(t);});
+  var tiles=onTabs.map(function(t){
+    var ct=catalogById(t);
+    return '<div class="tile" onclick="go(\''+t+'\',false,\'cat_'+c.id+'\')"><div class="chip">'+icon(ct.icon||t,21,2.2)+'</div><div><div class="t">'+esc(ct.label)+'</div><div class="s">'+esc(ct.sub)+'</div></div></div>';
   }).join('');
-  return '<div class="home-grid">'+tiles+'</div>';
+  var hasMore=c.tabs.some(function(t){return en.indexOf(t)<0&&catalogById(t);});
+  var addBtn=hasMore?'<button class="cat-add" onclick="addToCatSheet(\''+c.id+'\')">'+icon('plus',18,2.4)+'<span>Add to '+esc(c.label)+'</span></button>':'';
+  var empty=onTabs.length?'':'<div class="cat-empty">Nothing here yet — add something below.</div>';
+  var aiBtn='<button class="cat-add cat-ai" onclick="openAICat(\''+c.id+'\')">'+icon('spark',18,2.2)+'<span>Ask Forge AI about '+esc(c.label)+'</span></button>';
+  return '<div class="home-grid">'+tiles+'</div>'+empty+addBtn+aiBtn;
+}
+// In-context picker for adding tabs to a category (replaces the old ghost tiles)
+function addToCatSheet(cid){
+  var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()" id="catAddSheet"></div>';
+  document.getElementById('app').appendChild(o);
+  renderCatAddSheet(cid);
+}
+function renderCatAddSheet(cid){
+  var c=catById(cid);var sh=document.getElementById('catAddSheet');if(!c||!sh)return;
+  var en=enabledTabs();
+  var avail=c.tabs.filter(function(t){return en.indexOf(t)<0&&catalogById(t);});
+  var rows=avail.map(function(t){var ct=catalogById(t);
+    return '<div class="trow"><div class="chip sm">'+icon(ct.icon||t,16,2.2)+'</div><div style="flex:1"><div class="rt">'+esc(ct.label)+'</div><div class="rs">'+esc(ct.sub)+'</div></div><button class="tbtn add" onclick="catAddPick(\''+c.id+'\',\''+t+'\')">Add</button></div>';
+  }).join('');
+  if(!rows)rows='<p style="color:var(--sub);font-size:14px;margin:8px 2px">Everything in '+esc(c.label)+' is already added.</p>';
+  sh.innerHTML='<h3>Add to '+esc(c.label)+'</h3><p>Pick what to add to this section.</p>'+rows+'<div class="btnrow"><button class="btn btn-primary" onclick="closeOverlay()">Done</button></div>';
+}
+function catAddPick(cid,t){
+  var a=enabledTabs();if(a.indexOf(t)<0){a.push(t);setEnabledTabs(a);}
+  renderCatAddSheet(cid);   // refresh the picker list
+  refreshScreen();          // update the category grid behind it
+  toast('Added ✓');
 }
 async function renderTabManager(){
   var en=enabledTabs();
@@ -1264,8 +1304,39 @@ function editCarField(f,label){openForm(label,'Date as YYYY-MM-DD, or any text.'
 // ============================================================
 // FORGE AI
 // ============================================================
+// ============================================================
+// FORGE AI — real model via the secure Supabase function, fed a
+// snapshot of the user's data so it can reason across every area.
+// ============================================================
+var AI_URL=SUPA_URL+'/functions/v1/forge-ai';
+var AI_DAILY_CAP=40;                                   // soft per-user/day cap (protects cost)
+var aiTyping=false;
+var _ctxCache={t:0,v:''};
+function aiUsageKey(){return 'forge.ai.'+(currentUser?currentUser.id:'x')+'.'+new Date().toDateString();}
+function aiUsage(){return parseInt(lsGet(aiUsageKey())||'0',10)||0;}
+function aiBump(){lsSet(aiUsageKey(),String(aiUsage()+1));}
+async function askAI(messages,system,maxTokens){
+  var res=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify({system:system,messages:messages,max_tokens:maxTokens||700})});
+  if(!res.ok){var msg='';try{msg=(await res.json()).error||'';}catch(e){}throw new Error(msg||('HTTP '+res.status));}
+  var data=await res.json();return (data.text||'').trim();
+}
+async function gatherUserContext(){
+  if(Date.now()-_ctxCache.t<30000&&_ctxCache.v)return _ctxCache.v;
+  var lines=[],today=new Date();
+  lines.push('Name: '+(currentUser?currentUser.name:'the user'));
+  lines.push('Today: '+today.toDateString());
+  try{var b=await getFinBalance();if(b!=null)lines.push('Logged balance: A$'+Number(b).toLocaleString());}catch(e){}
+  try{var en=enabledTabs();if(en.length)lines.push('Sections they use: '+en.join(', '));}catch(e){}
+  var listTabs=[['work','Tasks'],['reminders','Reminders'],['goals','Goals/Habits'],['notes','Notes'],['shopping','Shopping list'],['projects','Projects'],['books','Books'],['movies','Movies'],['wishlist','Wishlist'],['workouts','Workouts']];
+  for(var k=0;k<listTabs.length;k++){try{var it=await loadItems(listTabs[k][0]);if(it&&it.length)lines.push(listTabs[k][1]+' ('+it.length+'): '+it.slice(0,8).map(function(x){return x.t;}).join('; '));}catch(e){}}
+  try{var cs=await getCountdowns();if(cs&&cs.length)lines.push('Countdowns: '+cs.map(function(c){var d=Math.ceil((new Date(c.d+'T00:00:00')-today)/86400000);return c.n+' in '+Math.max(0,d)+'d ('+c.d+')';}).join('; '));}catch(e){}
+  try{var m=await getMeals();if(m){var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],ms=[];days.forEach(function(dd){if(m[dd]&&m[dd].d)ms.push(dd+': '+m[dd].d);});if(ms.length)lines.push('Meal plan — '+ms.join(', '));}}catch(e){}
+  try{var car=await getCar();if(car){var cb=[];if(car.rego)cb.push('rego '+car.rego);if(car.insurance)cb.push('insurance '+car.insurance);if(car.service)cb.push('service '+car.service);if(cb.length)lines.push('Car: '+cb.join(', '));}}catch(e){}
+  _ctxCache={t:Date.now(),v:lines.join('\n')};
+  return _ctxCache.v;
+}
 var aiMsgs=[];
-async function aiAnswer(q){
+async function aiAnswerLocal(q){
   q=(q||'').toLowerCase();var u=currentUser?currentUser.name.split(' ')[0]:'there';
   if(/balance|money|how much|savings/.test(q)){var b=await getFinBalance();return b?'Your logged balance is A$'+Number(b).toLocaleString()+'. Open Finances for the full picture.':'You haven\'t logged a balance yet — open Finances and tap Log.';}
   if(/task|to.?do|work/.test(q)){var t=await loadItems('work');return t.length?'You\'ve got '+t.length+' task'+(t.length!==1?'s':'')+'. Top one: '+t[0].t+'.':'No tasks right now — nice.';}
@@ -1278,9 +1349,43 @@ async function aiAnswer(q){
   if(/help|what can|who are/.test(q))return 'I\'m Forge AI. I answer from your own data — try "what\'s my balance", "how many tasks", "days until my trip", "what\'s for dinner", or "when\'s my rego due".';
   return 'I can\'t answer that yet — but ask me about your tasks, reminders, finances, habits, countdown, meals or car.';
 }
-function aiThreadHTML(){if(!aiMsgs.length)return '<div class="ai-empty">'+icon('spark',30,1.8)+'<div class="rt" style="margin-top:10px">Ask me anything about your Forge</div><div class="rs" style="margin-top:4px">"What\'s my balance?" · "Any tasks?" · "Days until my trip?"</div></div>';return aiMsgs.map(function(m){return '<div class="ai-msg '+m.r+'">'+esc(m.t)+'</div>';}).join('');}
+function aiThreadHTML(){
+  if(!aiMsgs.length&&!aiTyping)return '<div class="ai-empty">'+icon('spark',30,1.8)+'<div class="rt" style="margin-top:10px">Ask Forge AI anything</div><div class="rs" style="margin-top:4px">It knows your tasks, money, plans and more.</div><div class="ai-chips">'+['What should I focus on today?','Summarise my week','How are my finances looking?','Ideas for dinner this week'].map(function(s){return '<button class="ai-chip" onclick="aiQuick(this)">'+esc(s)+'</button>';}).join('')+'</div></div>';
+  var html=aiMsgs.map(function(m){return '<div class="ai-msg '+m.r+'">'+esc(m.t).replace(/\n/g,'<br>')+'</div>';}).join('');
+  if(aiTyping)html+='<div class="ai-msg ai typing"><span></span><span></span><span></span></div>';
+  return html;
+}
 function renderAI(){return Promise.resolve('<div class="ai-wrap"><div class="ai-thread" id="aiThread">'+aiThreadHTML()+'</div><div class="ai-bar"><input id="aiInput" placeholder="Ask Forge AI…" autocomplete="off" onkeydown="if(event.key===\'Enter\')aiSend()"/><button onclick="aiSend()">'+icon('send',18,2.2)+'</button></div></div>');}
-async function aiSend(){var i=document.getElementById('aiInput');var v=i?i.value.trim():'';if(!v)return;aiMsgs.push({r:'me',t:v});var ans=await aiAnswer(v);aiMsgs.push({r:'ai',t:ans});if(current&&current.tab==='ai'){var th=current.el.querySelector('#aiThread');if(th){th.innerHTML=aiThreadHTML();th.scrollTop=th.scrollHeight;}}if(i){i.value='';i.focus();}}
+function aiRepaint(){if(current&&current.tab==='ai'){var th=current.el.querySelector('#aiThread');if(th){th.innerHTML=aiThreadHTML();th.scrollTop=th.scrollHeight;}}}
+function aiQuick(btn){var i=document.getElementById('aiInput');if(i)i.value=btn.textContent;aiSend();}
+function openAIWith(seed){go('ai');setTimeout(function(){var i=document.getElementById('aiInput');if(i){i.value=seed;i.focus();}},420);}
+function openAICat(cid){var c=catById(cid);openAIWith('Help me with my '+(c?c.label:'tasks')+' — based on my data, what should I focus on?');}
+async function aiSend(){
+  var i=document.getElementById('aiInput');var v=i?i.value.trim():'';if(!v||aiTyping)return;
+  if(i)i.value='';
+  aiMsgs.push({r:'me',t:v});
+  if(aiUsage()>=AI_DAILY_CAP){aiMsgs.push({r:'ai',t:'You\u2019ve reached today\u2019s AI limit ('+AI_DAILY_CAP+' messages) \u2014 it resets tomorrow.'});aiRepaint();return;}
+  aiTyping=true;aiRepaint();
+  try{
+    var ctx=await gatherUserContext();
+    var first=currentUser?currentUser.name.split(' ')[0]:'the user';
+    var system='You are Forge AI, the friendly assistant inside '+first+'\u2019s personal life-dashboard app called Forge. '+
+      'Forge organises their life into Time, Money, Food, Fitness, Home and Personal. '+
+      'Be concise, warm and practical \u2014 a few short sentences unless they ask for more. '+
+      'Use the data snapshot below to answer specifically about THEM, and proactively spot useful connections (e.g. an upcoming countdown, an overdue car date, a meal plan that needs a shopping list). '+
+      'If they ask for something the app can\u2019t do directly, briefly tell them how to do it in the app. Never invent data you weren\u2019t given.\n\nTHEIR FORGE DATA:\n'+ctx;
+    var hist=aiMsgs.slice(-10).map(function(m){return {role:m.r==='me'?'user':'assistant',content:m.t};});
+    var ans=await askAI(hist,system,700);
+    aiBump();aiTyping=false;aiMsgs.push({r:'ai',t:ans||'(no answer)'});aiRepaint();
+  }catch(e){
+    aiTyping=false;
+    var local=await aiAnswerLocal(v);
+    var notLive=/HTTP 404|Failed to fetch|NetworkError|missing (ANTHROPIC|GEMINI)|Server missing/i.test(String(e&&e.message));
+    aiMsgs.push({r:'ai',t:local+(notLive?'\n\n(Full AI isn\u2019t switched on yet \u2014 once the forge-ai function is deployed I\u2019ll give proper answers.)':'')});
+    aiRepaint();
+  }
+  var inp=document.getElementById('aiInput');if(inp)inp.focus();
+}
 
 // ============================================================
 // OWNER DASHBOARD (tasks #9, #12)
