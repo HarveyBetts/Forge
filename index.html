@@ -103,9 +103,9 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 .tile.ghost{background:transparent;border:1px dashed var(--hair);box-shadow:none;}
 .tile.ghost::after{display:none;}
 .tile.ghost .t{color:var(--sub);}.tile.ghost .chip{color:var(--sub);background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line);}
-.screen.show .tile{animation:tIn .5s cubic-bezier(.2,.8,.2,1) both;}
+.screen.show .tile{animation:tIn .6s cubic-bezier(.16,1,.3,1) both;}
 .screen.show .tile:nth-child(1){animation-delay:.02s}.screen.show .tile:nth-child(2){animation-delay:.06s}.screen.show .tile:nth-child(3){animation-delay:.1s}.screen.show .tile:nth-child(4){animation-delay:.14s}.screen.show .tile:nth-child(5){animation-delay:.18s}.screen.show .tile:nth-child(6){animation-delay:.22s}.screen.show .tile:nth-child(7){animation-delay:.26s}.screen.show .tile:nth-child(8){animation-delay:.3s}.screen.show .tile:nth-child(9){animation-delay:.34s}.screen.show .tile:nth-child(10){animation-delay:.38s}.screen.show .tile:nth-child(11){animation-delay:.42s}.screen.show .tile:nth-child(12){animation-delay:.46s}
-@keyframes tIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes tIn{0%{opacity:0;transform:translateY(24px) scale(.93);}55%{opacity:1;}100%{opacity:1;transform:none;}}
 /* ============ CARDS ============ */
 .card{background:linear-gradient(180deg,var(--surface),var(--surface-2));border-radius:20px;padding:18px;border:1px solid var(--line);box-shadow:var(--shadow);}
 .stack{display:grid;gap:13px;}
@@ -251,8 +251,8 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 .cat-ai{border-style:solid;color:var(--accent);}
 .reqbtn{margin-top:18px;width:100%;padding:15px;border:1px dashed var(--hair);border-radius:18px;background:transparent;color:var(--sub);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:border-color .2s,color .2s;}
 .reqbtn:active{border-color:var(--accent);color:var(--accent);}
-.toast{position:absolute;bottom:calc(34px + env(safe-area-inset-bottom,0px));left:50%;transform:translate(-50%,16px);background:var(--surface-3);color:var(--ink);border:1px solid var(--hair);padding:11px 18px;border-radius:24px;font-size:13.5px;font-weight:700;opacity:0;transition:all .3s;z-index:300;pointer-events:none;box-shadow:0 12px 30px -10px rgba(0,0,0,.6);white-space:nowrap;}
-.toast.show{opacity:1;transform:translate(-50%,0);}
+.toast{position:absolute;bottom:calc(34px + env(safe-area-inset-bottom,0px));left:50%;transform:translate(-50%,20px) scale(.96);background:var(--surface-3);color:var(--ink);border:1px solid var(--hair);padding:11px 18px;border-radius:24px;font-size:13.5px;font-weight:700;opacity:0;transition:transform .45s cubic-bezier(.34,1.56,.64,1),opacity .3s;z-index:300;pointer-events:none;box-shadow:0 12px 30px -10px rgba(0,0,0,.6);white-space:nowrap;}
+.toast.show{opacity:1;transform:translate(-50%,0) scale(1);}
 svg{display:block;}
 @keyframes fade{from{opacity:0;}to{opacity:1;}}
 @keyframes up{from{transform:translateY(100%);}to{transform:none;}}
@@ -319,7 +319,10 @@ svg{display:block;}
 .cat-add:active{transform:scale(.99);}
 .cat-empty{text-align:center;color:var(--sub);font-size:14px;margin:20px 0 4px;}
 /* ============ PREMIUM MOTION ============ */
-.tile.hero{position:relative;}
+.tile.hero{position:relative;background:linear-gradient(120deg,#3D5AFF,#5E78FF,#3D5AFF);background-size:220% 220%;animation:heroflow 9s ease-in-out infinite;}
+@keyframes heroflow{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+.screen.enter-left{transform:translateX(-22%) scale(.96)!important;}
+.screen.exit-left{transform:translateX(-22%) scale(.96);}
 .tile.hero::before{content:'';position:absolute;top:0;left:-60%;width:48%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.16),transparent);transform:skewX(-18deg);pointer-events:none;animation:sheen 7.5s ease-in-out 1.6s infinite;}
 @keyframes sheen{0%{left:-60%;}26%,100%{left:135%;}}
 .skel-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow);}
@@ -923,7 +926,7 @@ function buildScreen(tab){
   else{el.innerHTML=skeletonHTML();loadAndRender(tab,el);}
   return el;
 }
-async function loadAndRender(tab,el){var html=await renderTab(tab);if(el&&el.parentNode){el.innerHTML=html;el.classList.add('content-in');setTimeout(function(){el.classList.remove('content-in');},480);}}
+async function loadAndRender(tab,el){var html=await renderTab(tab);if(el&&el.parentNode){el.innerHTML=html;el.classList.add('content-in');setTimeout(function(){el.classList.remove('content-in');},480);countUpScan(el);}}
 
 function go(tab,instant,parent){
   if(tab===activeTab&&current&&!instant)return;
@@ -1267,7 +1270,7 @@ async function renderFinOverview(){
   var balHtml=bal!==null?'<div style="font-weight:600;font-size:15px">Balance: '+aud(bal)+'</div><div style="font-size:12.5px;color:var(--sub);margin-top:2px">projected: '+aud(projNow)+' — tap to update</div>':'<div style="font-weight:600;font-size:15px">Log your AUD balance</div><div style="font-size:12.5px;color:var(--sub);margin-top:2px">See if you\'re ahead or behind</div>';
   var SPEND=[{n:'Rent',a:8010,c:'#60A5FA'},{n:'Food',a:7975,c:'#FB923C'},{n:'Wants',a:3739,c:'#A78BFA'},{n:'Loan',a:1325,c:'#FB7185'},{n:'Gym',a:1197,c:'#4D6BFF'},{n:'Electricity',a:575,c:'#FBBF24'}];
   return '<div class="stack">'+
-    '<div class="card" style="background:linear-gradient(135deg,#4D6BFF,#6E86FF);color:#FFFFFF;padding:22px"><div style="font-size:12px;opacity:.8;letter-spacing:.06em;text-transform:uppercase">✈️ Countdown to England</div><div class="serif" style="font-size:38px;font-weight:600;margin-top:8px;line-height:1">'+gbp(TOTAL_GBP)+'</div><div style="font-size:13px;opacity:.8;margin-top:4px">projected when you land · '+wLeft+' weeks to go</div><div style="margin-top:14px;height:6px;background:rgba(0,0,0,.14);border-radius:6px;overflow:hidden"><div style="width:'+timePct+'%;height:100%;background:#FFFFFF;border-radius:6px"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;opacity:.65;margin-top:5px"><span>18 May</span><span>'+timePct+'%</span><span>29 Nov</span></div><div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:18px"><div><div style="font-size:11px;opacity:.65">Aus (GBP)</div><div style="font-weight:700;font-size:16px">'+gbp(PROJ_GBP)+'</div></div><div><div style="font-size:11px;opacity:.65">Bonds</div><div style="font-weight:700;font-size:16px">'+gbp(BONDS)+'</div></div><div><div style="font-size:11px;opacity:.65">Rate</div><div style="font-weight:700;font-size:16px">0.5307</div></div></div></div>'+
+    '<div class="card" style="background:linear-gradient(135deg,#4D6BFF,#6E86FF);color:#FFFFFF;padding:22px"><div style="font-size:12px;opacity:.8;letter-spacing:.06em;text-transform:uppercase">✈️ Countdown to England</div><div class="serif cnt" data-to="'+TOTAL_GBP+'" data-fmt="gbp" style="font-size:38px;font-weight:600;margin-top:8px;line-height:1">'+gbp(TOTAL_GBP)+'</div><div style="font-size:13px;opacity:.8;margin-top:4px">projected when you land · '+wLeft+' weeks to go</div><div style="margin-top:14px;height:6px;background:rgba(0,0,0,.14);border-radius:6px;overflow:hidden"><div style="width:'+timePct+'%;height:100%;background:#FFFFFF;border-radius:6px"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;opacity:.65;margin-top:5px"><span>18 May</span><span>'+timePct+'%</span><span>29 Nov</span></div><div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:18px"><div><div style="font-size:11px;opacity:.65">Aus (GBP)</div><div style="font-weight:700;font-size:16px">'+gbp(PROJ_GBP)+'</div></div><div><div style="font-size:11px;opacity:.65">Bonds</div><div style="font-weight:700;font-size:16px">'+gbp(BONDS)+'</div></div><div><div style="font-size:11px;opacity:.65">Rate</div><div style="font-weight:700;font-size:16px">0.5307</div></div></div></div>'+
     '<div class="card"><div class="ctitle">Next milestone</div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px"><div><div style="font-weight:700;font-size:22px">'+gbp(nextM.g)+'</div><div style="font-size:12px;color:var(--sub);margin-top:2px">by '+nDtStr+'</div></div>'+(prevM?'<div style="text-align:right"><div style="font-size:11px;color:var(--sub)">last checkpoint</div><div style="font-weight:600;font-size:14px;color:var(--sub)">'+gbp(prevM.g)+'</div></div>':'')+'</div><div class="bar"><div style="width:'+segPct+'%;background:var(--accent)"></div></div><div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--sub);margin-top:5px"><span>'+segPct+'% of this fortnight</span>'+diffHtml+'</div></div>'+
     '<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1">'+balHtml+'</div><button onclick="updateFinBal()" style="padding:10px 16px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">'+(bal!==null?'Update':'Log')+'</button></div>'+
     '<div class="card"><div class="ctitle">Where the money goes</div><div style="display:grid;gap:11px;padding-top:2px">'+SPEND.map(function(s){return '<div><div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:5px"><span style="font-weight:600">'+s.n+'</span><span style="color:var(--sub)">'+aud(s.a)+'</span></div><div class="bar"><div style="width:'+(s.a/SPEND[0].a*100)+'%;background:'+s.c+'"></div></div></div>';}).join('')+'</div></div></div>';
@@ -1276,7 +1279,7 @@ function updateFinBal(){openForm('Log balance','Your current AUD savings.',[{key
 async function renderNetWorth(){
   var o=await getNetWorth();var sa=o.assets.reduce(function(s,x){return s+x.a;},0);var sl=o.liabilities.reduce(function(s,x){return s+x.a;},0);
   function rows(k){var arr=o[k];if(!arr.length)return '<div class="row"><div class="rs">Nothing yet.</div></div>';return arr.map(function(x){return '<div class="row"><div style="flex:1"><div class="rt">'+esc(x.n)+'</div></div><div class="rs" style="margin-right:8px">A$'+x.a.toLocaleString()+'</div><button class="del" onclick="delNW(\''+x.id+'\')">'+icon('x',14)+'</button></div>';}).join('');}
-  return '<div class="stack"><div class="card dark"><div class="small">Net worth</div><div class="serif" style="font-size:34px;font-weight:600;margin-top:2px">A$'+(sa-sl).toLocaleString()+'</div><div style="font-size:13px;opacity:.8;margin-top:4px">A$'+sa.toLocaleString()+' assets · A$'+sl.toLocaleString()+' owed</div></div><div class="card"><div class="ctitle">Assets</div>'+rows('assets')+'<button class="reqbtn" style="margin-top:10px" onclick="addNW(\'asset\')">'+icon('plus',16)+' Add asset</button></div><div class="card"><div class="ctitle">Liabilities</div>'+rows('liabilities')+'<button class="reqbtn" style="margin-top:10px" onclick="addNW(\'liability\')">'+icon('plus',16)+' Add liability</button></div></div>';
+  return '<div class="stack"><div class="card dark"><div class="small">Net worth</div><div class="serif cnt" data-to="'+(sa-sl)+'" data-fmt="aud" style="font-size:34px;font-weight:600;margin-top:2px">A$'+(sa-sl).toLocaleString()+'</div><div style="font-size:13px;opacity:.8;margin-top:4px">A$'+sa.toLocaleString()+' assets · A$'+sl.toLocaleString()+' owed</div></div><div class="card"><div class="ctitle">Assets</div>'+rows('assets')+'<button class="reqbtn" style="margin-top:10px" onclick="addNW(\'asset\')">'+icon('plus',16)+' Add asset</button></div><div class="card"><div class="ctitle">Liabilities</div>'+rows('liabilities')+'<button class="reqbtn" style="margin-top:10px" onclick="addNW(\'liability\')">'+icon('plus',16)+' Add liability</button></div></div>';
 }
 function addNW(k){openForm('Add '+(k==='asset'?'asset':'liability'),'',[{key:'n',label:'Name'},{key:'a',label:'Amount (A$)',numeric:true}],async function(v){if(!v.n){toast('Enter a name');return;}await addNetWorth(k,v.n,parseFloat(v.a)||0);closeOverlay();await refreshScreen();});}
 async function delNW(id){await deleteNetWorth(id);await refreshScreen();}
@@ -1381,6 +1384,19 @@ function aiRepaint(){if(current&&current.tab==='ai'){var th=current.el.querySele
 function aiQuick(btn){var i=document.getElementById('aiInput');if(i)i.value=btn.textContent;aiSend();}
 function openAIWith(seed){go('ai');setTimeout(function(){var i=document.getElementById('aiInput');if(i){i.value=seed;i.focus();}},420);}
 function openAICat(cid){var c=catById(cid);openAIWith('Help me with my '+(c?c.label:'tasks')+' — based on my data, what should I focus on?');}
+// Count-up engine — animates any .cnt[data-to] number into view
+function fmtCount(n,fmt){n=Math.round(n);if(fmt==='gbp')return '\u00A3'+n.toLocaleString('en-GB');if(fmt==='aud')return 'A$'+n.toLocaleString('en-AU');return n.toLocaleString();}
+function countUpScan(root){
+  if(!root||!root.querySelectorAll)return;
+  root.querySelectorAll('.cnt[data-to]').forEach(function(el){
+    if(el.getAttribute('data-done'))return; el.setAttribute('data-done','1');
+    var to=parseFloat(el.getAttribute('data-to'))||0,fmt=el.getAttribute('data-fmt')||'';
+    if(Math.abs(to)<1){el.textContent=fmtCount(to,fmt);return;}
+    var dur=950,start=null;
+    function step(ts){if(!start)start=ts;var p=Math.min(1,(ts-start)/dur);var e=1-Math.pow(1-p,3);el.textContent=fmtCount(to*e,fmt);if(p<1)requestAnimationFrame(step);}
+    requestAnimationFrame(step);
+  });
+}
 async function aiSend(){
   var i=document.getElementById('aiInput');var v=i?i.value.trim():'';if(!v||aiTyping)return;
   if(i)i.value='';
