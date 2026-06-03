@@ -82,9 +82,9 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 .screen.is-home{background:var(--mesh),var(--bg);}
 .screen.enter-right{transform:translateX(100%);}
 .screen.enter-left{transform:translateX(-22%);filter:brightness(.78);}
-.screen.show{transform:translateX(0);filter:none;transition:transform .42s cubic-bezier(.22,.85,.26,1),filter .42s ease;}
-.screen.exit-left{transform:translateX(-22%);filter:brightness(.78);transition:transform .42s cubic-bezier(.22,.85,.26,1),filter .42s ease;}
-.screen.exit-right{transform:translateX(100%);transition:transform .42s cubic-bezier(.22,.85,.26,1);}
+.screen.show{transform:translateX(0);filter:none;transition:transform .28s cubic-bezier(.22,.85,.26,1),filter .28s ease;}
+.screen.exit-left{transform:translateX(-22%);filter:brightness(.78);transition:transform .28s cubic-bezier(.22,.85,.26,1),filter .28s ease;}
+.screen.exit-right{transform:translateX(100%);transition:transform .28s cubic-bezier(.22,.85,.26,1);}
 .screen.dragging{transition:none!important;filter:none!important;}
 /* ============ HOME ============ */
 .home-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(9px,2.8vw,13px);}
@@ -103,7 +103,6 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 .tile.ghost{background:transparent;border:1px dashed var(--hair);box-shadow:none;}
 .tile.ghost::after{display:none;}
 .tile.ghost .t{color:var(--sub);}.tile.ghost .chip{color:var(--sub);background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line);}
-.screen.show .tile{animation:tIn .6s cubic-bezier(.16,1,.3,1) both;}
 .screen.show .tile:nth-child(1){animation-delay:.02s}.screen.show .tile:nth-child(2){animation-delay:.06s}.screen.show .tile:nth-child(3){animation-delay:.1s}.screen.show .tile:nth-child(4){animation-delay:.14s}.screen.show .tile:nth-child(5){animation-delay:.18s}.screen.show .tile:nth-child(6){animation-delay:.22s}.screen.show .tile:nth-child(7){animation-delay:.26s}.screen.show .tile:nth-child(8){animation-delay:.3s}.screen.show .tile:nth-child(9){animation-delay:.34s}.screen.show .tile:nth-child(10){animation-delay:.38s}.screen.show .tile:nth-child(11){animation-delay:.42s}.screen.show .tile:nth-child(12){animation-delay:.46s}
 @keyframes tIn{0%{opacity:0;transform:translateY(24px) scale(.93);}55%{opacity:1;}100%{opacity:1;transform:none;}}
 /* ============ CARDS ============ */
@@ -156,7 +155,7 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 /* ============ LOCK / INTRO (always dark, premium) ============ */
 .lock{position:absolute;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#17181C;background:radial-gradient(130% 100% at 50% -10%,#FBFCFE 0%,#F4F5F7 52%,#E9ECF1 100%);overflow:hidden;}
 .lock::after{content:'';position:absolute;inset:0;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:150px;opacity:.05;mix-blend-mode:soft-light;}
-.lock.hide{animation:lift .7s cubic-bezier(.6,0,.2,1) forwards;}
+.lock.hide{animation:lift .32s cubic-bezier(.6,0,.2,1) forwards;}
 @keyframes lift{to{opacity:0;transform:scale(1.03);visibility:hidden;}}
 .glow{position:absolute;width:440px;height:440px;border-radius:50%;background:radial-gradient(circle,rgba(77,107,255,.12),rgba(110,134,255,.08) 45%,transparent 70%);filter:blur(10px);top:42%;left:50%;transform:translate(-50%,-50%);animation:gpulse 5s ease-in-out infinite;}
 @keyframes gpulse{0%,100%{opacity:.6;transform:translate(-50%,-50%) scale(1);}50%{opacity:1;transform:translate(-50%,-50%) scale(1.12);}}
@@ -192,7 +191,7 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 .key:active{transform:scale(.92);background:color-mix(in srgb,#4D6BFF 18%,transparent);border-color:rgba(77,107,255,.4);}
 .key.blank{background:transparent;border:none;cursor:default;}
 .key.fn{font-size:clamp(12px,3.4vw,14px);letter-spacing:.02em;color:rgba(23,24,28,.55);background:transparent;border:none;font-weight:600;}
-.pin-alt{margin-top:30px;font-size:13.5px;color:#3D5AFF;letter-spacing:.01em;background:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;}
+.pin-alt{position:absolute;bottom:calc(30px + env(safe-area-inset-bottom,0px));left:0;right:0;margin:0 auto;font-size:14px;color:#3D5AFF;letter-spacing:.01em;background:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;z-index:4;}
 .pin-back{position:absolute;top:calc(20px + env(safe-area-inset-top,0px));left:20px;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.05);border:none;color:#17181C;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:4;}
 /* ============ SIGNUP ============ */
 .signup-field{width:100%;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.10);border-radius:15px;padding:15px 16px;color:#17181C;font:16px 'Hanken Grotesk',sans-serif;margin-bottom:12px;}
@@ -319,12 +318,7 @@ svg{display:block;}
 .cat-add:active{transform:scale(.99);}
 .cat-empty{text-align:center;color:var(--sub);font-size:14px;margin:20px 0 4px;}
 /* ============ PREMIUM MOTION ============ */
-.tile.hero{position:relative;background:linear-gradient(120deg,#3D5AFF,#5E78FF,#3D5AFF);background-size:220% 220%;animation:heroflow 9s ease-in-out infinite;}
-@keyframes heroflow{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
-.screen.enter-left{transform:translateX(-22%) scale(.96)!important;}
-.screen.exit-left{transform:translateX(-22%) scale(.96);}
-.tile.hero::before{content:'';position:absolute;top:0;left:-60%;width:48%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.16),transparent);transform:skewX(-18deg);pointer-events:none;animation:sheen 7.5s ease-in-out 1.6s infinite;}
-@keyframes sheen{0%{left:-60%;}26%,100%{left:135%;}}
+.tile.hero{position:relative;}
 .skel-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow);}
 .skel{position:relative;overflow:hidden;background:var(--surface-2);border-radius:7px;}
 .skel::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--ink) 7%,transparent),transparent);animation:shimmer 1.3s infinite;}
@@ -334,7 +328,7 @@ svg{display:block;}
 .skel-line{height:12px;margin:8px 0;}
 .skel-line.lg{height:15px;width:52%;margin-bottom:10px;}
 .skel-line.sm{width:74%;}
-.content-in>*{animation:fadeUp .42s cubic-bezier(.2,.8,.2,1) both;}
+.content-in>*{}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
 .row:active,.acct-item:active,.ai-chip:active,.tbtn:active,.seg-btn:active,.cat-add:active{transform:scale(.985);}
 .tile.hero:active{transform:scale(.99);}
@@ -642,8 +636,8 @@ function showPinScreen(){
       '<div class="pin-sub">Welcome to Forge</div>'+
       '<div class="dots" id="pinDots"></div>'+
       '<div class="keypad" id="keypad"></div>'+
-      '<button class="pin-alt" id="newAcctBtn">Create a new account</button>'+
-    '</div>');
+    '</div>'+
+    '<button class="pin-alt" id="newAcctBtn">Create a new account</button>');
   buildKeypad();renderPinDots();
   document.getElementById('newAcctBtn').onclick=showSignupScreen;
 }
@@ -926,7 +920,7 @@ function buildScreen(tab){
   else{el.innerHTML=skeletonHTML();loadAndRender(tab,el);}
   return el;
 }
-async function loadAndRender(tab,el){var html=await renderTab(tab);if(el&&el.parentNode){el.innerHTML=html;el.classList.add('content-in');setTimeout(function(){el.classList.remove('content-in');},480);countUpScan(el);}}
+async function loadAndRender(tab,el){var html=await renderTab(tab);if(el&&el.parentNode){el.innerHTML=html;countUpScan(el);}}
 
 function go(tab,instant,parent){
   if(tab===activeTab&&current&&!instant)return;
@@ -1374,7 +1368,7 @@ async function aiAnswerLocal(q){
   return 'I can\'t answer that yet — but ask me about your tasks, reminders, finances, habits, countdown, meals or car.';
 }
 function aiThreadHTML(){
-  if(!aiMsgs.length&&!aiTyping)return '<div class="ai-empty">'+icon('spark',30,1.8)+'<div class="rt" style="margin-top:10px">Ask Forge AI anything</div><div class="rs" style="margin-top:4px">It knows your tasks, money, plans and more.</div><div class="ai-chips">'+['What should I focus on today?','Summarise my week','How are my finances looking?','Ideas for dinner this week'].map(function(s){return '<button class="ai-chip" onclick="aiQuick(this)">'+esc(s)+'</button>';}).join('')+'</div></div>';
+  if(!aiMsgs.length&&!aiTyping)return '<div class="ai-empty">'+icon('spark',30,1.8)+'<div class="rt" style="margin-top:10px">Ask Forge AI anything</div><div class="rs" style="margin-top:4px">It knows your world — and can plan, add and organise for you.</div><div class="ai-chips">'+['Plan my dinners for this week','What should I focus on today?','Add milk, eggs & bread to my shopping','How are my finances looking?'].map(function(s){return '<button class="ai-chip" onclick="aiQuick(this)">'+esc(s)+'</button>';}).join('')+'</div></div>';
   var html=aiMsgs.map(function(m){return '<div class="ai-msg '+m.r+'">'+esc(m.t).replace(/\n/g,'<br>')+'</div>';}).join('');
   if(aiTyping)html+='<div class="ai-msg ai typing"><span></span><span></span><span></span></div>';
   return html;
@@ -1384,6 +1378,30 @@ function aiRepaint(){if(current&&current.tab==='ai'){var th=current.el.querySele
 function aiQuick(btn){var i=document.getElementById('aiInput');if(i)i.value=btn.textContent;aiSend();}
 function openAIWith(seed){go('ai');setTimeout(function(){var i=document.getElementById('aiInput');if(i){i.value=seed;i.focus();}},420);}
 function openAICat(cid){var c=catById(cid);openAIWith('Help me with my '+(c?c.label:'tasks')+' — based on my data, what should I focus on?');}
+// --- AI ACTIONS: let Forge AI actually DO things (whitelisted + safe) ---
+function normDay(d){d=String(d||'').trim().slice(0,3);return d.charAt(0).toUpperCase()+d.slice(1).toLowerCase();}
+function extractActions(text){
+  try{var m=String(text).match(/```forge\s*([\s\S]*?)```/i)||String(text).match(/```json\s*([\s\S]*?)```/i);if(!m)return null;var arr=JSON.parse(m[1].trim());return Array.isArray(arr)?arr:null;}catch(e){return null;}
+}
+async function runAIActions(actions){
+  var done=[];
+  for(var i=0;i<actions.length&&i<25;i++){
+    var a=actions[i]||{};var t=String(a.type||'').toLowerCase();
+    try{
+      if(t==='add_task'&&a.title){await addItemDB('work',a.title,a.note||null);done.push('Added task: '+a.title);}
+      else if(t==='add_reminder'&&a.title){await addItemDB('reminders',a.title,a.note||null);done.push('Added reminder: '+a.title);}
+      else if(t==='add_goal'&&a.title){await addItemDB('goals',a.title,a.note||null);done.push('Added goal: '+a.title);}
+      else if(t==='add_note'&&a.title){await addItemDB('notes',a.title,a.note||null);done.push('Added note: '+a.title);}
+      else if(t==='add_shopping'){var its=a.items||(a.title?[a.title]:[]);for(var j=0;j<its.length;j++){await addItemDB('shopping',String(its[j]),null);}if(its.length)done.push('Added '+its.length+' item'+(its.length!==1?'s':'')+' to shopping');}
+      else if(t==='add_to_list'&&a.title&&catalogById(a.tab)){await addItemDB(a.tab,a.title,a.note||null);done.push('Added to '+a.tab+': '+a.title);}
+      else if(t==='set_dinner'&&a.day&&a.meal){await setMealDB(normDay(a.day),'d',a.meal);done.push('Set '+normDay(a.day)+' dinner: '+a.meal);}
+      else if(t==='plan_week_dinners'&&a.meals){var n=0;for(var dk in a.meals){if(a.meals.hasOwnProperty(dk)&&a.meals[dk]){await setMealDB(normDay(dk),'d',a.meals[dk]);n++;}}if(n)done.push('Planned '+n+' dinner'+(n!==1?'s':''));}
+      else if(t==='add_countdown'&&a.name&&a.date){await addCountdownDB(a.name,a.date);done.push('Added countdown: '+a.name+' ('+a.date+')');}
+    }catch(e){/* skip a bad action, keep going */}
+  }
+  _ctxCache.t=0;             // invalidate context so the AI sees the new data next turn
+  return done;
+}
 // Count-up engine — animates any .cnt[data-to] number into view
 function fmtCount(n,fmt){n=Math.round(n);if(fmt==='gbp')return '\u00A3'+n.toLocaleString('en-GB');if(fmt==='aud')return 'A$'+n.toLocaleString('en-AU');return n.toLocaleString();}
 function countUpScan(root){
@@ -1406,14 +1424,23 @@ async function aiSend(){
   try{
     var ctx=await gatherUserContext();
     var first=currentUser?currentUser.name.split(' ')[0]:'the user';
-    var system='You are Forge AI, the friendly assistant inside '+first+'\u2019s personal life-dashboard app called Forge. '+
+    var system='You are Forge AI, the sharp, friendly assistant inside '+first+'\u2019s personal life-dashboard app called Forge. '+
       'Forge organises their life into Time, Money, Food, Fitness, Home and Personal. '+
       'Be concise, warm and practical \u2014 a few short sentences unless they ask for more. '+
-      'Use the data snapshot below to answer specifically about THEM, and proactively spot useful connections (e.g. an upcoming countdown, an overdue car date, a meal plan that needs a shopping list). '+
-      'If they ask for something the app can\u2019t do directly, briefly tell them how to do it in the app. Never invent data you weren\u2019t given.\n\nTHEIR FORGE DATA:\n'+ctx;
+      'Use the data snapshot below to answer specifically about THEM, and proactively spot useful connections (an upcoming countdown, an overdue car date, a meal plan that needs a shopping list). '+
+      'Never invent data you weren\u2019t given.'+
+      '\n\nACTIONS \u2014 you can DO things, not just answer. If the user asks you to add, create, plan or save something, perform it by appending ONE fenced block at the very END of your reply:\n```forge\n[ {"type":"add_task","title":"Call dentist"} ]\n```\n'+
+      'Allowed types ONLY: add_task{title,note?}, add_reminder{title,note?}, add_goal{title}, add_note{title}, add_shopping{items:[..]}, set_dinner{day,meal}, plan_week_dinners{meals:{Mon:"..",Tue:".."}}, add_countdown{name,date:"YYYY-MM-DD"}. '+
+      'Use real values, never placeholders. Days are Mon..Sun. Always also write a short friendly confirmation in your prose, but NEVER print the raw JSON there. Omit the block entirely when no action is needed.'+
+      '\n\nTHEIR FORGE DATA:\n'+ctx;
     var hist=aiMsgs.slice(-10).map(function(m){return {role:m.r==='me'?'user':'assistant',content:m.t};});
-    var ans=await askAI(hist,system,700);
-    aiBump();aiTyping=false;aiMsgs.push({r:'ai',t:ans||'(no answer)'});aiRepaint();
+    var ans=await askAI(hist,system,800);
+    aiBump();aiTyping=false;
+    var actions=extractActions(ans);
+    var clean=String(ans).replace(/```forge[\s\S]*?```/i,'').replace(/```json[\s\S]*?```/i,'').trim();
+    aiMsgs.push({r:'ai',t:clean||'Done.'});
+    if(actions&&actions.length){var did=await runAIActions(actions);if(did.length)aiMsgs.push({r:'ai',t:'\u2713 '+did.join('\n\u2713 ')});}
+    aiRepaint();
   }catch(e){
     aiTyping=false;
     var local=await aiAnswerLocal(v);
