@@ -913,12 +913,40 @@ function renderHeader(tabId){
 }
 function goHome(){go(null);}
 
+// ---- Smart "Today" briefing (computed from real data; AI-upgraded when available) ----
+async function buildBriefing(){
+  if(!currentUser)return '';
+  var parts=[];
+  try{
+    var wantTasks=enabledTabs().indexOf('work')>=0;
+    var res=await Promise.all([getCountdowns(),getMeals(),wantTasks?loadItems('work'):Promise.resolve([])]);
+    var cds=res[0]||[],meals=res[1]||{},tasks=res[2]||[];
+    var today=new Date();today.setHours(0,0,0,0);
+    var soon=null,sd=null;
+    cds.forEach(function(c){if(!c.d)return;var dt=new Date(c.d+'T00:00:00');if(isNaN(dt.getTime()))return;var days=Math.round((dt-today)/86400000);if(days>=0&&(sd===null||days<sd)){sd=days;soon=c;}});
+    if(soon){var nm=soon.n||'Countdown';parts.push(sd===0?nm+' today':sd===1?nm+' tomorrow':nm+' in '+sd+' days');}
+    var dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
+    var dinner=meals[dn]&&meals[dn].d;
+    if(dinner)parts.push('Dinner: '+dinner);
+    if(tasks&&tasks.length)parts.push(tasks.length+' task'+(tasks.length>1?'s':''));
+  }catch(e){}
+  return parts.slice(0,3).join('   ·   ');
+}
+function refreshBriefing(){
+  buildBriefing().then(function(t){
+    if(!t)return;                              // nothing to show → keep current text
+    lsSet('forge.brief',t);
+    var els=document.querySelectorAll('#briefLine');
+    for(var i=0;i<els.length;i++)els[i].textContent=t;
+  }).catch(function(){});
+}
 function homeHTML(){
   var h=new Date().getHours();
   var greet=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
   var fname=currentUser?currentUser.name.split(' ')[0]:'';
+  var brief=lsGet('forge.brief')||'Your day at a glance';
   var en=enabledTabs();
-  var hero='<div class="tile hero" onclick="go(\'today\')"><div style="display:flex;align-items:center;gap:8px;font-size:12px;opacity:.9;letter-spacing:.06em;text-transform:uppercase">'+icon('sun',15)+' Today</div><div class="hero-greet serif">'+greet+(fname?', '+esc(fname):'')+'</div><div class="hero-sub">Your day at a glance</div></div>';
+  var hero='<div class="tile hero" onclick="go(\'today\')"><div style="display:flex;align-items:center;gap:8px;font-size:12px;opacity:.9;letter-spacing:.06em;text-transform:uppercase">'+icon('sun',15)+' Today</div><div class="hero-greet serif">'+greet+(fname?', '+esc(fname):'')+'</div><div class="hero-sub" id="briefLine">'+esc(brief)+'</div></div>';
   var cats=CATS.filter(function(c){return c.tabs.some(function(t){return en.indexOf(t)>=0;});}).map(function(c){
     var on=c.tabs.filter(function(t){return en.indexOf(t)>=0;});
     var sub=on.slice(0,3).map(function(t){var ct=catalogById(t);return ct?ct.label:t;}).join(' · ');
@@ -938,7 +966,7 @@ function skeletonHTML(){
 function buildScreen(tab){
   var el=document.createElement('div');
   el.className='screen'+(tab===null?' is-home':'');
-  if(tab===null){el.innerHTML=homeHTML();}
+  if(tab===null){el.innerHTML=homeHTML();refreshBriefing();}
   else{el.innerHTML=skeletonHTML();loadAndRender(tab,el);}
   return el;
 }
@@ -984,7 +1012,7 @@ function layoutHome(scope){
 }
 async function refreshScreen(){
   if(!current)return;var sc=current.el.scrollTop;
-  if(current.tab===null){current.el.innerHTML=homeHTML();layoutHome(current.el);}
+  if(current.tab===null){current.el.innerHTML=homeHTML();layoutHome(current.el);refreshBriefing();}
   else{var html=await renderTab(current.tab);if(current.el&&current.el.parentNode)current.el.innerHTML=html;}
   current.el.scrollTop=sc;manageFab(current.tab);
 }
@@ -1466,9 +1494,9 @@ async function aiSend(){
     aiRepaint();
   }catch(e){
     aiTyping=false;
+    var em=String((e&&e.message)||e||'unknown error');
     var local=await aiAnswerLocal(v);
-    var notLive=/HTTP 404|Failed to fetch|NetworkError|missing (ANTHROPIC|GEMINI)|Server missing/i.test(String(e&&e.message));
-    aiMsgs.push({r:'ai',t:local+(notLive?'\n\n(Full AI isn\u2019t switched on yet \u2014 once the forge-ai function is deployed I\u2019ll give proper answers.)':'')});
+    aiMsgs.push({r:'ai',t:local+'\n\n\u26A0\uFE0F AI not connected \u2014 '+em});
     aiRepaint();
   }
   var inp=document.getElementById('aiInput');if(inp)inp.focus();
