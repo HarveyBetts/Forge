@@ -479,6 +479,10 @@ async function getFinGoals(){if(!currentUser)return[];try{var r=await sb.from('f
 async function addFinGoalDB(n,t,s){await sb.from('finance_goals').insert({user_id:currentUser.id,name:n,target:t,saved:s});}
 async function updateFinGoalDB(id,s){await sb.from('finance_goals').update({saved:s}).eq('id',id);}
 async function deleteFinGoalDB(id){await sb.from('finance_goals').delete().eq('id',id);}
+async function getInvestments(){if(!currentUser)return[];try{var r=await sb.from('investments').select('*').eq('user_id',currentUser.id).order('created_at');return (r.data||[]).map(function(x){return{id:x.id,n:x.name,v:Number(x.value)};});}catch(e){return[];}}
+async function addInvestmentDB(n,v){await sb.from('investments').insert({user_id:currentUser.id,name:n,value:v});}
+async function updateInvestmentDB(id,v){await sb.from('investments').update({value:v}).eq('id',id);}
+async function deleteInvestmentDB(id){await sb.from('investments').delete().eq('id',id);}
 async function getCountdowns(){if(!currentUser)return[];try{var r=await sb.from('countdowns').select('*').eq('user_id',currentUser.id).order('target_date');return (r.data||[]).map(function(x){return{id:x.id,n:x.name,d:x.target_date};});}catch(e){return[];}}
 async function addCountdownDB(n,d){await sb.from('countdowns').insert({user_id:currentUser.id,name:n,target_date:d});}
 async function deleteCountdownDB(id){await sb.from('countdowns').delete().eq('id',id);}
@@ -1283,9 +1287,10 @@ async function removeUser(id){if(!confirm('Remove this user and all their data?'
 var financeSub='overview';
 function setFinSub(s){financeSub=s;refreshScreen();}
 async function renderFinances(){
-  var seg='<div class="seg"><button class="seg-btn'+(financeSub==='overview'?' on':'')+'" onclick="setFinSub(\'overview\')">Overview</button><button class="seg-btn'+(financeSub==='networth'?' on':'')+'" onclick="setFinSub(\'networth\')">Net worth</button><button class="seg-btn'+(financeSub==='budget'?' on':'')+'" onclick="setFinSub(\'budget\')">Budget</button><button class="seg-btn'+(financeSub==='goals'?' on':'')+'" onclick="setFinSub(\'goals\')">Goals</button></div>';
+  var seg='<div class="seg"><button class="seg-btn'+(financeSub==='overview'?' on':'')+'" onclick="setFinSub(\'overview\')">Overview</button><button class="seg-btn'+(financeSub==='investments'?' on':'')+'" onclick="setFinSub(\'investments\')">Investments</button><button class="seg-btn'+(financeSub==='networth'?' on':'')+'" onclick="setFinSub(\'networth\')">Net worth</button><button class="seg-btn'+(financeSub==='budget'?' on':'')+'" onclick="setFinSub(\'budget\')">Budget</button><button class="seg-btn'+(financeSub==='goals'?' on':'')+'" onclick="setFinSub(\'goals\')">Goals</button></div>';
   var body;
   if(financeSub==='networth')body=await renderNetWorth();
+  else if(financeSub==='investments')body=await renderInvestments();
   else if(financeSub==='budget')body=await renderBudget();
   else if(financeSub==='goals')body=await renderFinGoals();
   else body=await renderFinOverview();
@@ -1293,37 +1298,41 @@ async function renderFinances(){
 }
 async function renderFinOverview(){
   var bal=await getFinBalance();
-  var START=new Date(2026,4,18),DEPARTURE=new Date(2026,10,29);
-  var BONDS=4420,PROJ_GBP=18254.24,TOTAL_GBP=22674.24;
-  var M=[{d:'31/05/26',a:111.02,g:58.92},{d:'14/06/26',a:823.29,g:436.92},{d:'28/06/26',a:1281.35,g:680.01},{d:'12/07/26',a:1987.35,g:1054.69},{d:'26/07/26',a:6460.38,g:3428.52},{d:'09/08/26',a:8432.41,g:4475.08},{d:'23/08/26',a:10181.41,g:5403.27},{d:'06/09/26',a:11554.47,g:6131.96},{d:'20/09/26',a:13478.47,g:7153.02},{d:'04/10/26',a:14589.53,g:7742.66},{d:'18/10/26',a:16513.53,g:8763.73},{d:'01/11/26',a:17904.54,g:9501.94},{d:'15/11/26',a:31696.54,g:16821.35},{d:'29/11/26',a:34396.54,g:18254.24}];
-  function pd(s){var p=s.split('/');return new Date(2000+ +p[2],+p[1]-1,+p[0]);}
-  function gbp(v){return '&#163;'+Number(v).toLocaleString('en-GB',{maximumFractionDigits:0});}
+  var inv=await getInvestments();
+  var nw=await getNetWorth();
   function aud(v){return 'A$'+Number(v).toLocaleString('en-AU',{maximumFractionDigits:0});}
-  var now=new Date();
-  var wLeft=Math.floor(Math.max(0,Math.round((DEPARTURE-now)/86400000))/7);
-  var timePct=Math.min(100,Math.max(0,Math.round((now-START)/(DEPARTURE-START)*100)));
-  var prevM=null,nextM=null,i;
-  for(i=0;i<M.length;i++){if(pd(M[i].d)<=now)prevM=M[i];else{nextM=M[i];break;}}
-  if(!nextM)nextM=M[M.length-1];
-  var pDt=prevM?pd(prevM.d):START,nDt=pd(nextM.d);
-  var segPct=Math.min(100,Math.max(0,Math.round((now-pDt)/(nDt-pDt)*100)));
-  var projNow=(prevM?prevM.a:0)+(nextM.a-(prevM?prevM.a:0))*segPct/100;
-  var diff=bal!==null?Number(bal)-projNow:null;
-  var nDtStr=nDt.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-  var diffHtml=diff!==null?'<span style="font-weight:600;color:'+(diff>=0?'#4D6BFF':'#FB7185')+'">'+(diff>=0?'▲ ahead ':'▼ behind ')+aud(Math.abs(diff))+'</span>':'';
-  var balHtml=bal!==null?'<div style="font-weight:600;font-size:15px">Balance: '+aud(bal)+'</div><div style="font-size:12.5px;color:var(--sub);margin-top:2px">projected: '+aud(projNow)+' — tap to update</div>':'<div style="font-weight:600;font-size:15px">Log your AUD balance</div><div style="font-size:12.5px;color:var(--sub);margin-top:2px">See if you\'re ahead or behind</div>';
-  var SPEND=[{n:'Rent',a:8010,c:'#60A5FA'},{n:'Food',a:7975,c:'#FB923C'},{n:'Wants',a:3739,c:'#A78BFA'},{n:'Loan',a:1325,c:'#FB7185'},{n:'Gym',a:1197,c:'#4D6BFF'},{n:'Electricity',a:575,c:'#FBBF24'}];
+  var cash=bal!=null?Number(bal):0;
+  var invTotal=inv.reduce(function(s,x){return s+x.v;},0);
+  var manualA=nw.assets.reduce(function(s,x){return s+x.a;},0);
+  var liab=nw.liabilities.reduce(function(s,x){return s+x.a;},0);
+  var assets=cash+invTotal+manualA;
+  var net=assets-liab;
   return '<div class="stack">'+
-    '<div class="card" style="background:linear-gradient(135deg,#4D6BFF,#6E86FF);color:#FFFFFF;padding:22px"><div style="font-size:12px;opacity:.8;letter-spacing:.06em;text-transform:uppercase">✈️ Countdown to England</div><div class="serif cnt" data-to="'+TOTAL_GBP+'" data-fmt="gbp" style="font-size:38px;font-weight:600;margin-top:8px;line-height:1">'+gbp(TOTAL_GBP)+'</div><div style="font-size:13px;opacity:.8;margin-top:4px">projected when you land · '+wLeft+' weeks to go</div><div style="margin-top:14px;height:6px;background:rgba(0,0,0,.14);border-radius:6px;overflow:hidden"><div style="width:'+timePct+'%;height:100%;background:#FFFFFF;border-radius:6px"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;opacity:.65;margin-top:5px"><span>18 May</span><span>'+timePct+'%</span><span>29 Nov</span></div><div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:18px"><div><div style="font-size:11px;opacity:.65">Aus (GBP)</div><div style="font-weight:700;font-size:16px">'+gbp(PROJ_GBP)+'</div></div><div><div style="font-size:11px;opacity:.65">Bonds</div><div style="font-weight:700;font-size:16px">'+gbp(BONDS)+'</div></div><div><div style="font-size:11px;opacity:.65">Rate</div><div style="font-weight:700;font-size:16px">0.5307</div></div></div></div>'+
-    '<div class="card"><div class="ctitle">Next milestone</div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px"><div><div style="font-weight:700;font-size:22px">'+gbp(nextM.g)+'</div><div style="font-size:12px;color:var(--sub);margin-top:2px">by '+nDtStr+'</div></div>'+(prevM?'<div style="text-align:right"><div style="font-size:11px;color:var(--sub)">last checkpoint</div><div style="font-weight:600;font-size:14px;color:var(--sub)">'+gbp(prevM.g)+'</div></div>':'')+'</div><div class="bar"><div style="width:'+segPct+'%;background:var(--accent)"></div></div><div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--sub);margin-top:5px"><span>'+segPct+'% of this fortnight</span>'+diffHtml+'</div></div>'+
-    '<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1">'+balHtml+'</div><button onclick="updateFinBal()" style="padding:10px 16px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">'+(bal!==null?'Update':'Log')+'</button></div>'+
-    '<div class="card"><div class="ctitle">Where the money goes</div><div style="display:grid;gap:11px;padding-top:2px">'+SPEND.map(function(s){return '<div><div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:5px"><span style="font-weight:600">'+s.n+'</span><span style="color:var(--sub)">'+aud(s.a)+'</span></div><div class="bar"><div style="width:'+(s.a/SPEND[0].a*100)+'%;background:'+s.c+'"></div></div></div>';}).join('')+'</div></div></div>';
+    '<div class="card dark"><div class="small">Net worth</div><div class="serif cnt" data-to="'+net+'" data-fmt="aud" style="font-size:36px;font-weight:600;margin-top:2px">'+aud(net)+'</div><div style="font-size:13px;opacity:.8;margin-top:4px">'+aud(assets)+' assets \u00B7 '+aud(liab)+' owed</div></div>'+
+    '<div class="card" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:#4D6BFF">'+icon('wallet',16,2.2)+'</div><div style="flex:1"><div class="rt">Cash balance</div><div class="rs">'+(bal!=null?aud(cash):'Not logged yet')+'</div></div><button onclick="updateFinBal()" style="padding:9px 15px;background:var(--accent);color:#fff;border:none;border-radius:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">'+(bal!=null?'Update':'Log')+'</button></div>'+
+    '<div class="card" onclick="setFinSub(\'investments\')" style="display:flex;align-items:center;gap:12px;cursor:pointer"><div class="chip sm" style="--tc:#1F9D6B">'+icon('trend',16,2.2)+'</div><div style="flex:1"><div class="rt">Investments</div><div class="rs">'+(inv.length?inv.length+' holding'+(inv.length>1?'s':''):'None yet \u2014 tap to add')+'</div></div><div style="font-weight:700;font-size:15px">'+aud(invTotal)+'</div></div>'+
+    '<div class="card" onclick="setFinSub(\'networth\')" style="display:flex;align-items:center;gap:12px;cursor:pointer"><div class="chip sm" style="--tc:#6E86FF">'+icon('grid',16,2.2)+'</div><div style="flex:1"><div class="rt">Assets &amp; debts</div><div class="rs">'+(manualA||liab?aud(manualA)+' assets \u00B7 '+aud(liab)+' owed':'Add property, car, loans\u2026')+'</div></div></div>'+
+    '</div>';
 }
 function updateFinBal(){openForm('Log balance','Your current AUD savings.',[{key:'bal',label:'Amount (A$)',numeric:true}],async function(v){if(!v.bal||isNaN(Number(v.bal))){toast('Enter a number');return;}await setFinBalance(Number(v.bal));closeOverlay();await refreshScreen();toast('Saved ✓');});}
 async function renderNetWorth(){
-  var o=await getNetWorth();var sa=o.assets.reduce(function(s,x){return s+x.a;},0);var sl=o.liabilities.reduce(function(s,x){return s+x.a;},0);
-  function rows(k){var arr=o[k];if(!arr.length)return '<div class="row"><div class="rs">Nothing yet.</div></div>';return arr.map(function(x){return '<div class="row"><div style="flex:1"><div class="rt">'+esc(x.n)+'</div></div><div class="rs" style="margin-right:8px">A$'+x.a.toLocaleString()+'</div><button class="del" onclick="delNW(\''+x.id+'\')">'+icon('x',14)+'</button></div>';}).join('');}
-  return '<div class="stack"><div class="card dark"><div class="small">Net worth</div><div class="serif cnt" data-to="'+(sa-sl)+'" data-fmt="aud" style="font-size:34px;font-weight:600;margin-top:2px">A$'+(sa-sl).toLocaleString()+'</div><div style="font-size:13px;opacity:.8;margin-top:4px">A$'+sa.toLocaleString()+' assets · A$'+sl.toLocaleString()+' owed</div></div><div class="card"><div class="ctitle">Assets</div>'+rows('assets')+'<button class="reqbtn" style="margin-top:10px" onclick="addNW(\'asset\')">'+icon('plus',16)+' Add asset</button></div><div class="card"><div class="ctitle">Liabilities</div>'+rows('liabilities')+'<button class="reqbtn" style="margin-top:10px" onclick="addNW(\'liability\')">'+icon('plus',16)+' Add liability</button></div></div>';
+  var o=await getNetWorth();
+  var bal=await getFinBalance();var inv=await getInvestments();
+  var cash=bal!=null?Number(bal):0;var invTotal=inv.reduce(function(s,x){return s+x.v;},0);
+  var sa=o.assets.reduce(function(s,x){return s+x.a;},0)+cash+invTotal;
+  var sl=o.liabilities.reduce(function(s,x){return s+x.a;},0);
+  function rows(k){
+    var auto='';
+    if(k==='assets'){
+      if(cash>0)auto+='<div class="row"><div style="flex:1"><div class="rt">Cash balance</div><div class="rs">from Overview</div></div><div class="rs" style="margin-right:8px">A$'+cash.toLocaleString()+'</div></div>';
+      if(invTotal>0)auto+='<div class="row"><div style="flex:1"><div class="rt">Investments</div><div class="rs">from portfolio</div></div><div class="rs" style="margin-right:8px">A$'+invTotal.toLocaleString()+'</div></div>';
+    }
+    var arr=o[k];
+    var manual=arr.length?arr.map(function(x){return '<div class="row"><div style="flex:1"><div class="rt">'+esc(x.n)+'</div></div><div class="rs" style="margin-right:8px">A$'+x.a.toLocaleString()+'</div><button class="del" onclick="delNW(\''+x.id+'\')">'+icon('x',14)+'</button></div>';}).join(''):'';
+    if(!auto&&!manual)return '<div class="row"><div class="rs">Nothing yet.</div></div>';
+    return auto+manual;
+  }
+  return '<div class="stack"><div class="card dark"><div class="small">Net worth</div><div class="serif cnt" data-to="'+(sa-sl)+'" data-fmt="aud" style="font-size:34px;font-weight:600;margin-top:2px">A$'+(sa-sl).toLocaleString()+'</div><div style="font-size:13px;opacity:.8;margin-top:4px">A$'+sa.toLocaleString()+' assets \u00B7 A$'+sl.toLocaleString()+' owed</div></div><div class="card"><div class="ctitle">Assets</div>'+rows('assets')+'<button class="reqbtn" style="margin-top:10px" onclick="addNW(\'asset\')">'+icon('plus',16)+' Add asset</button></div><div class="card"><div class="ctitle">Liabilities</div>'+rows('liabilities')+'<button class="reqbtn" style="margin-top:10px" onclick="addNW(\'liability\')">'+icon('plus',16)+' Add liability</button></div></div>';
 }
 function addNW(k){openForm('Add '+(k==='asset'?'asset':'liability'),'',[{key:'n',label:'Name'},{key:'a',label:'Amount (A$)',numeric:true}],async function(v){if(!v.n){toast('Enter a name');return;}await addNetWorth(k,v.n,parseFloat(v.a)||0);closeOverlay();await refreshScreen();});}
 async function delNW(id){await deleteNetWorth(id);await refreshScreen();}
@@ -1344,6 +1353,18 @@ async function renderFinGoals(){
 function addFG(){openForm('New savings goal','',[{key:'n',label:'Goal name'},{key:'target',label:'Target (A$)',numeric:true},{key:'saved',label:'Saved so far (A$)',numeric:true}],async function(v){if(!v.n){toast('Enter a goal name');return;}await addFinGoalDB(v.n,parseFloat(v.target)||0,parseFloat(v.saved)||0);closeOverlay();await refreshScreen();});}
 function addToFG(id,cur){openForm('Add to goal','',[{key:'amt',label:'Amount (A$)',numeric:true}],async function(v){await updateFinGoalDB(id,cur+(parseFloat(v.amt)||0));closeOverlay();await refreshScreen();});}
 async function delFG(id){await deleteFinGoalDB(id);await refreshScreen();}
+async function renderInvestments(){
+  var a=await getInvestments();
+  var total=a.reduce(function(s,x){return s+x.v;},0);
+  function aud(v){return 'A$'+Number(v).toLocaleString('en-AU',{maximumFractionDigits:0});}
+  var head='<div class="card dark"><div class="small">Portfolio value</div><div class="serif cnt" data-to="'+total+'" data-fmt="aud" style="font-size:34px;font-weight:600;margin-top:2px">'+aud(total)+'</div><div style="font-size:13px;opacity:.8;margin-top:4px">'+(a.length?a.length+' holding'+(a.length>1?'s':''):'No holdings yet')+'</div></div>';
+  if(!a.length)return '<div class="stack">'+head+'<div class="card"><div class="ctitle">Holdings</div><div class="row"><div class="rs">Add shares, crypto, funds, property \u2014 anything you hold.</div></div><button class="reqbtn" style="margin-top:10px" onclick="addInv()">'+icon('plus',16)+' Add holding</button></div></div>';
+  var rows=a.map(function(x){var pct=total>0?Math.round(x.v/total*100):0;return '<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="rt">'+esc(x.n)+'</div><div class="rs">'+aud(x.v)+' \u00B7 '+pct+'% of portfolio</div></div><button class="del" onclick="delInv(\''+x.id+'\')">'+icon('x',14)+'</button></div><div class="bar" style="margin-top:10px"><div style="width:'+pct+'%;background:var(--accent)"></div></div><div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="tbtn add" onclick="editInv(\''+x.id+'\','+x.v+')">Update value</button></div></div>';}).join('');
+  return '<div class="stack">'+head+rows+'<button class="reqbtn" onclick="addInv()">'+icon('plus',16)+' Add holding</button></div>';
+}
+function addInv(){openForm('Add holding','Shares, crypto, fund, property\u2026',[{key:'n',label:'Name'},{key:'v',label:'Current value (A$)',numeric:true}],async function(v){if(!v.n){toast('Enter a name');return;}await addInvestmentDB(v.n,parseFloat(v.v)||0);closeOverlay();await refreshScreen();});}
+function editInv(id,cur){openForm('Update value','',[{key:'v',label:'Current value (A$)',numeric:true}],async function(v){await updateInvestmentDB(id,parseFloat(v.v)||0);closeOverlay();await refreshScreen();});}
+async function delInv(id){await deleteInvestmentDB(id);await refreshScreen();}
 
 // ============================================================
 // COUNTDOWN / MEALS / CAR
@@ -1394,6 +1415,10 @@ async function gatherUserContext(){
   lines.push('Name: '+(currentUser?currentUser.name:'the user'));
   lines.push('Today: '+today.toDateString());
   try{var b=await getFinBalance();if(b!=null)lines.push('Logged balance: A$'+Number(b).toLocaleString());}catch(e){}
+  try{var inv=await getInvestments();if(inv&&inv.length){var ivt=inv.reduce(function(s,x){return s+x.v;},0);lines.push('Investments: A$'+ivt.toLocaleString()+' across '+inv.length+' ('+inv.map(function(x){return x.n+' A$'+x.v.toLocaleString();}).join(', ')+')');}}catch(e){}
+  try{var nw=await getNetWorth();var bb=await getFinBalance();var iv2=await getInvestments();var ca=bb!=null?Number(bb):0;var it2=iv2.reduce(function(s,x){return s+x.v;},0);var as=nw.assets.reduce(function(s,x){return s+x.a;},0)+ca+it2;var li=nw.liabilities.reduce(function(s,x){return s+x.a;},0);if(as||li)lines.push('Net worth: A$'+(as-li).toLocaleString()+' (assets A$'+as.toLocaleString()+', owed A$'+li.toLocaleString()+')');}catch(e){}
+  try{var bud=await getBudget();if(bud&&bud.length)lines.push('Budgets: '+bud.map(function(x){return x.n+' A$'+x.spent+'/'+x.limit;}).join('; '));}catch(e){}
+  try{var fg=await getFinGoals();if(fg&&fg.length)lines.push('Savings goals: '+fg.map(function(x){return x.n+' A$'+x.saved+'/'+x.target;}).join('; '));}catch(e){}
   try{var en=enabledTabs();if(en.length)lines.push('Sections they use: '+en.join(', '));}catch(e){}
   var listTabs=[['work','Tasks'],['reminders','Reminders'],['goals','Goals'],['habits','Habits'],['notes','Notes'],['shopping','Shopping list'],['projects','Projects'],['subs','Subscriptions'],['health','Health log'],['workouts','Workouts'],['books','Books'],['movies','Movies'],['wishlist','Wishlist'],['study','Study'],['pets','Pets'],['gifts','Gifts']];
   for(var k=0;k<listTabs.length;k++){try{var it=await loadItems(listTabs[k][0]);if(it&&it.length)lines.push(listTabs[k][1]+' ('+it.length+'): '+it.slice(0,8).map(function(x){return x.t;}).join('; '));}catch(e){}}
@@ -1417,9 +1442,10 @@ async function aiAnswerLocal(q){
   if(/help|what can|who are/.test(q))return 'I\'m Forge AI. I answer from your own data — try "what\'s my balance", "how many tasks", "days until my trip", "what\'s for dinner", or "when\'s my rego due".';
   return 'I can\'t answer that yet — but ask me about your tasks, reminders, finances, habits, countdown, meals or car.';
 }
+function aiFmt(t){return esc(t).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/^[\*\-]\s+/gm,'\u2022 ').replace(/\n/g,'<br>');}
 function aiThreadHTML(){
   if(!aiMsgs.length&&!aiTyping)return '<div class="ai-empty">'+icon('spark',30,1.8)+'<div class="rt" style="margin-top:10px">Ask Forge AI anything</div><div class="rs" style="margin-top:4px">It knows your world — and can plan, add and organise for you.</div><div class="ai-chips">'+['Plan my dinners for this week','What should I focus on today?','Add milk, eggs & bread to my shopping','How are my finances looking?'].map(function(s){return '<button class="ai-chip" onclick="aiQuick(this)">'+esc(s)+'</button>';}).join('')+'</div></div>';
-  var html=aiMsgs.map(function(m){return '<div class="ai-msg '+m.r+'">'+esc(m.t).replace(/\n/g,'<br>')+'</div>';}).join('');
+  var html=aiMsgs.map(function(m){var body=m.r==='ai'?aiFmt(m.t):esc(m.t).replace(/\n/g,'<br>');return '<div class="ai-msg '+m.r+'">'+body+'</div>';}).join('');
   if(aiTyping)html+='<div class="ai-msg ai typing"><span></span><span></span><span></span></div>';
   return html;
 }
