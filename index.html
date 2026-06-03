@@ -138,7 +138,7 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 .fab:hover{transform:translateY(-2px) rotate(90deg);}
 .fab:active{transform:scale(.9);}
 /* ============ OVERLAY / SHEET ============ */
-.overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center;z-index:50;animation:fade .25s ease;}
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(7px) saturate(1.1);-webkit-backdrop-filter:blur(7px) saturate(1.1);display:flex;align-items:flex-end;justify-content:center;z-index:50;animation:fade .25s ease;}
 .sheet{width:100%;background:var(--surface);border:1px solid var(--line);border-bottom:none;border-radius:26px 26px 0 0;padding:24px 22px calc(30px + env(safe-area-inset-bottom,0px));animation:up .34s cubic-bezier(.2,.85,.25,1);max-height:90%;overflow-y:auto;box-shadow:0 -20px 60px -20px rgba(0,0,0,.6);}
 .sheet h3{font-family:'Bricolage Grotesque',sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.02em;}
 .sheet p{font-size:13.5px;color:var(--sub);margin-top:4px;margin-bottom:14px;}
@@ -318,6 +318,23 @@ svg{display:block;}
 .cat-add:hover{background:color-mix(in srgb,var(--accent) 5%,var(--surface));border-color:var(--accent);}
 .cat-add:active{transform:scale(.99);}
 .cat-empty{text-align:center;color:var(--sub);font-size:14px;margin:20px 0 4px;}
+/* ============ PREMIUM MOTION ============ */
+.tile.hero{position:relative;}
+.tile.hero::before{content:'';position:absolute;top:0;left:-60%;width:48%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.16),transparent);transform:skewX(-18deg);pointer-events:none;animation:sheen 7.5s ease-in-out 1.6s infinite;}
+@keyframes sheen{0%{left:-60%;}26%,100%{left:135%;}}
+.skel-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow);}
+.skel{position:relative;overflow:hidden;background:var(--surface-2);border-radius:7px;}
+.skel::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--ink) 7%,transparent),transparent);animation:shimmer 1.3s infinite;}
+@keyframes shimmer{to{transform:translateX(100%);}}
+.skel-row{display:flex;align-items:center;gap:13px;padding:9px 0;}
+.skel-dot{width:40px;height:40px;border-radius:12px;flex:none;}
+.skel-line{height:12px;margin:8px 0;}
+.skel-line.lg{height:15px;width:52%;margin-bottom:10px;}
+.skel-line.sm{width:74%;}
+.content-in>*{animation:fadeUp .42s cubic-bezier(.2,.8,.2,1) both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+.row:active,.acct-item:active,.ai-chip:active,.tbtn:active,.seg-btn:active,.cat-add:active{transform:scale(.985);}
+.tile.hero:active{transform:scale(.99);}
 /* ============ DESKTOP ============ */
 @media(min-width:900px){
   body{align-items:stretch;}
@@ -895,14 +912,18 @@ function homeHTML(){
   return '<div class="home-grid" id="homeGrid">'+hero+cats+aiTile+ownerTile+customise+req+'</div>';
 }
 
+function skeletonHTML(){
+  function card(rows){var r='';for(var i=0;i<rows;i++)r+='<div class="skel-row"><div class="skel skel-dot"></div><div style="flex:1"><div class="skel skel-line lg"></div><div class="skel skel-line sm"></div></div></div>';return '<div class="skel-card">'+r+'</div>';}
+  return '<div class="stack">'+card(3)+card(2)+'</div>';
+}
 function buildScreen(tab){
   var el=document.createElement('div');
   el.className='screen'+(tab===null?' is-home':'');
   if(tab===null){el.innerHTML=homeHTML();}
-  else{el.innerHTML='<div class="stack"><div class="card"><div class="rs" style="text-align:center;padding:24px">Loading…</div></div></div>';loadAndRender(tab,el);}
+  else{el.innerHTML=skeletonHTML();loadAndRender(tab,el);}
   return el;
 }
-async function loadAndRender(tab,el){var html=await renderTab(tab);if(el&&el.parentNode)el.innerHTML=html;}
+async function loadAndRender(tab,el){var html=await renderTab(tab);if(el&&el.parentNode){el.innerHTML=html;el.classList.add('content-in');setTimeout(function(){el.classList.remove('content-in');},480);}}
 
 function go(tab,instant,parent){
   if(tab===activeTab&&current&&!instant)return;
