@@ -493,6 +493,9 @@ async function ownerResetPin(id,hash){var r=await sb.rpc('forge_owner_set_pin',{
 async function getTrackerLogs(kind,limit){if(!currentUser)return[];try{var r=await sb.from('trackers').select('*').eq('user_id',currentUser.id).eq('kind',kind).order('day',{ascending:false}).limit(limit||30);return (r.data||[]).map(function(x){return{id:x.id,day:x.day,value:Number(x.value),note:x.note||''};});}catch(e){return[];}}
 async function setTrackerLog(kind,day,value,note){if(!currentUser)return;try{await sb.from('trackers').upsert({user_id:currentUser.id,kind:kind,day:day,value:value,note:note||null},{onConflict:'user_id,kind,day'});}catch(e){console.error(e);}}
 async function deleteTrackerLog(id){try{await sb.from('trackers').delete().eq('id',id);}catch(e){}}
+async function getProposals(status){if(!currentUser)return[];try{var q=sb.from('proposals').select('*').eq('user_id',currentUser.id);if(status)q=q.eq('status',status);var r=await q.order('created_at',{ascending:false});return (r.data||[]).map(function(x){var pl={};try{pl=JSON.parse(x.payload);}catch(e){}return{id:x.id,type:x.type,payload:pl,summary:x.summary,why:x.why,status:x.status};});}catch(e){return[];}}
+async function addProposal(type,payload,summary,why){try{await sb.from('proposals').insert({user_id:currentUser.id,type:type,payload:JSON.stringify(payload),summary:summary,why:why||null,status:'pending'});}catch(e){console.error(e);}}
+async function setProposalStatus(id,status){try{await sb.from('proposals').update({status:status}).eq('id',id);}catch(e){}}
 async function getCountdowns(){if(!currentUser)return[];try{var r=await sb.from('countdowns').select('*').eq('user_id',currentUser.id).order('target_date');return (r.data||[]).map(function(x){return{id:x.id,n:x.name,d:x.target_date};});}catch(e){return[];}}
 async function addCountdownDB(n,d){await sb.from('countdowns').insert({user_id:currentUser.id,name:n,target_date:d});}
 async function deleteCountdownDB(id){await sb.from('countdowns').delete().eq('id',id);}
@@ -639,7 +642,7 @@ function subscribeTabs(){
 function addTab(id){var a=enabledTabs();if(a.indexOf(id)<0){a.push(id);setEnabledTabs(a);}refreshScreen();toast('Added ✓');}
 function removeTab(id){setEnabledTabs(enabledTabs().filter(function(x){return x!==id;}));refreshScreen();toast('Removed');}
 const ADDABLE={work:'task',reminders:'reminder',goals:'habit',notes:'note',documents:'document',shopping:'item',subs:'subscription',workouts:'workout',recipes:'recipe',mood:'note',sleep:'entry',water:'log',meds:'medication',projects:'project',journal:'entry',books:'book',movies:'title',study:'topic',wishlist:'wish',gifts:'gift',pets:'pet',home2:'job',habits:'habit',fitness:'workout',health:'entry'};
-function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'},futureme:{label:'Future Me',sub:'Who you\'re becoming'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
+function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'},futureme:{label:'Future Me',sub:'Who you\'re becoming'},understudy:{label:'Understudy',sub:'Proposes, you approve'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
 
 // ============================================================
 // AUTH SCREENS (PIN + signup) — rendered into #stage-overlay layers
@@ -968,11 +971,12 @@ function homeHTML(){
     return '<div class="tile" onclick="go(\'cat_'+c.id+'\')"><div class="chip">'+icon(c.icon,21,2.2)+'</div><div><div class="t">'+esc(c.label)+'</div><div class="s">'+esc(sub)+'</div></div></div>';
   }).join('');
   var futureTile='<div class="tile" onclick="go(\'futureme\')"><div class="chip">'+icon('star',21,2.2)+'</div><div><div class="t">Future Me</div><div class="s">Who you\'re becoming</div></div></div>';
+  var understudyTile='<div class="tile" onclick="go(\'understudy\')"><div class="chip">'+icon('check',21,2.2)+'</div><div><div class="t">Understudy</div><div class="s">Plans, you approve</div></div></div>';
   var aiTile='<div class="tile" onclick="go(\'ai\')"><div class="chip">'+icon('spark',21,2.2)+'</div><div><div class="t">Forge AI</div><div class="s">Ask about your world</div></div></div>';
   var ownerTile=isOwner()?'<div class="tile" onclick="go(\'owner\')"><div class="chip">'+icon('grid',21,2.2)+'</div><div><div class="t">Dashboard</div><div class="s">Owner only</div></div></div>':'';
   var customise='<div class="tile ghost" onclick="go(\'tabs\')"><div class="chip ghostchip">'+icon('grid',20,2.2)+'</div><div><div class="t">Customise</div><div class="s">Add or remove tabs</div></div></div>';
   var req='<div class="tile ghost" onclick="openRequest()"><div class="chip ghostchip">'+icon('plus',20,2.4)+'</div><div><div class="t">Request a feature</div><div class="s">Tell me what to build</div></div></div>';
-  return '<div class="home-grid" id="homeGrid">'+hero+cats+futureTile+aiTile+ownerTile+customise+req+'</div>';
+  return '<div class="home-grid" id="homeGrid">'+hero+cats+futureTile+understudyTile+aiTile+ownerTile+customise+req+'</div>';
 }
 
 function skeletonHTML(){
@@ -1168,6 +1172,7 @@ async function renderTab(tab){
   if(tab==='car')return renderCar();
   if(tab==='ai')return renderAI();
   if(tab==='futureme')return renderFutureMe();
+  if(tab==='understudy')return renderUnderstudy();
   if(TRACKERS[tab])return renderTracker(tab);
   if(tab==='calendar')return renderCalendar();
   if(tab==='contacts')return renderContacts();
@@ -1249,6 +1254,67 @@ async function trackerInsight(kind){
     if(host)host.innerHTML='<div><div class="rt" style="margin-bottom:6px">Forge AI on your '+esc(cfg.label.toLowerCase())+'</div><div class="rs" style="line-height:1.5">'+aiFmt(ans)+'</div></div>';
   }catch(e){if(host)host.innerHTML='<div class="rs">Couldn\u2019t reach Forge AI right now \u2014 try again in a moment.</div>';}
 }
+// ============================================================
+// UNDERSTUDY — proposes actions toward Future Me; you approve in a batch.
+// ============================================================
+async function renderUnderstudy(){
+  var pending=await getProposals('pending');
+  var done=await getProposals('approved');
+  var head='<div class="card dark"><div class="small">Understudy</div><div style="font-size:14px;line-height:1.5;margin-top:6px">It proposes, you approve. Nothing happens without your nod \u2014 every action is reversible from its own tab.</div></div>';
+  var gen='<div class="card" id="udGen" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:var(--accent)">'+icon('spark',16,2.2)+'</div><div style="flex:1"><div class="rt">Plan toward Future Me</div><div class="rs">Let Understudy draft your next few days</div></div><button class="tbtn add" onclick="generateProposals()">Plan</button></div>';
+  var queue;
+  if(pending.length){
+    var rows=pending.map(function(p){return '<div class="card"><div class="rt">'+esc(p.summary)+'</div>'+(p.why?'<div class="rs" style="margin-top:3px;line-height:1.45">'+esc(p.why)+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:11px"><button class="tbtn add" onclick="approveProposal(\''+p.id+'\')">Approve</button><button class="tbtn rm" onclick="dismissProposal(\''+p.id+'\')">Dismiss</button></div></div>';}).join('');
+    queue='<div class="ctitle" style="padding:2px 4px">For your approval ('+pending.length+')</div>'+(pending.length>1?'<button class="reqbtn" onclick="approveAllProposals()">'+icon('check',16)+' Approve all '+pending.length+'</button>':'')+rows;
+  }else{
+    queue='<div class="card"><div class="rs" style="text-align:center;padding:14px 0">Nothing waiting. Tap \u201CPlan\u201D and Understudy will draft actions that move you toward your goals.</div></div>';
+  }
+  var log=done.length?'<div class="card"><div class="ctitle">Recently done</div>'+done.slice(0,8).map(function(p){return '<div class="row"><div class="chip sm" style="--tc:#1F9D6B">'+icon('check',14,2.4)+'</div><div style="flex:1"><div class="rt" style="font-size:14px">'+esc(p.summary)+'</div></div></div>';}).join('')+'</div>':'';
+  return '<div class="stack">'+head+gen+queue+log+'</div>';
+}
+function proposalSummary(a){
+  var t=String(a.type||'').toLowerCase();
+  if(t==='add_task')return 'Add task: '+a.title;
+  if(t==='add_reminder')return 'Reminder: '+a.title;
+  if(t==='add_goal')return 'New goal: '+a.title;
+  if(t==='add_note')return 'Note: '+a.title;
+  if(t==='add_shopping')return 'Shopping: '+((a.items||[a.title]).filter(Boolean).join(', '));
+  if(t==='add_to_list')return 'Add to '+a.tab+': '+a.title;
+  if(t==='set_dinner')return (a.day||'')+' dinner: '+a.meal;
+  if(t==='plan_week_dinners')return 'Plan '+Object.keys(a.meals||{}).length+' dinners';
+  if(t==='add_countdown')return 'Countdown: '+a.name+' ('+a.date+')';
+  return a.title||a.name||'';
+}
+async function generateProposals(){
+  var host=document.getElementById('udGen');if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Understudy is planning your next few days\u2026</div>';
+  try{
+    var ctx=await gatherUserContext();
+    var first=currentUser?currentUser.name.split(' ')[0]:'the user';
+    var sys='You are Understudy, '+first+'\u2019s proactive assistant inside their life-app Forge. Using their data and FUTURE ME north star below, propose 3-6 concrete, high-value actions for the next few days that move them toward who they want to become AND clear low-value load. Be specific and personal (block deep-work time, schedule a run/gym, draft an outreach, plan dinners from what they like, add a useful reminder). Respond with ONLY a fenced json array, no prose before or after: ```json\\n[{"type":"add_task","title":"...","note":"...","why":"one short line on how this serves their Future Me"}]\\n``` Allowed types ONLY: add_task{title,note?}, add_reminder{title,note?}, add_goal{title}, add_note{title}, add_shopping{items:[..]}, add_to_list{tab,title}, set_dinner{day,meal}, plan_week_dinners{meals:{Mon:".."}}, add_countdown{name,date:"YYYY-MM-DD"}. Use real values drawn from their data. CONTEXT:\\n'+ctx;
+    var ans=await askAI([{role:'user',content:'Plan my next few days toward my goals.'}],sys,900);
+    var arr=[];var jm=ans.match(/```(?:json|forge)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;
+    try{arr=JSON.parse(raw.trim());}catch(e){try{arr=JSON.parse((raw.match(/\[[\s\S]*\]/)||[''])[0]);}catch(e2){arr=[];}}
+    if(!Array.isArray(arr)||!arr.length){if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Couldn\u2019t draft a plan just now \u2014 tap Plan to try again.</div>';return;}
+    var made=0;
+    for(var i=0;i<arr.length&&i<8;i++){var a=arr[i];if(!a||!a.type)continue;var summ=proposalSummary(a);if(!summ)continue;await addProposal(a.type,a,summ,a.why||'');made++;}
+    await refreshScreen();
+    toast(made+' proposal'+(made!==1?'s':'')+' ready');
+  }catch(e){if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Understudy couldn\u2019t reach Forge AI right now \u2014 try again in a moment.</div>';}
+}
+async function approveProposal(id){
+  var p=(await getProposals('pending')).filter(function(x){return x.id===id;})[0];
+  if(!p)return;
+  await runAIActions([p.payload]);
+  await setProposalStatus(id,'approved');
+  await refreshScreen();toast('Done \u2713');
+}
+async function approveAllProposals(){
+  var ps=await getProposals('pending');if(!ps.length)return;
+  await runAIActions(ps.map(function(p){return p.payload;}));
+  for(var i=0;i<ps.length;i++)await setProposalStatus(ps[i].id,'approved');
+  await refreshScreen();toast(ps.length+' action'+(ps.length!==1?'s':'')+' done \u2713');
+}
+async function dismissProposal(id){await setProposalStatus(id,'rejected');await refreshScreen();}
 async function renderGenericList(tab){
   var items=await loadItems(tab);var t=catalogById(tab);var accent=(t&&t.chip)||'#94A3B8';
   var rows=items.map(function(it){return '<div class="row"><span class="dot" style="background:'+accent+'"></span><div style="flex:1"><div class="rt">'+esc(it.t)+'</div>'+(it.s?'<div class="rs">'+esc(it.s)+'</div>':'')+'</div><button class="del" onclick="delItem(\''+it.id+'\',\''+tab+'\')">'+icon('x',15)+'</button></div>';}).join('');
@@ -1453,7 +1519,6 @@ var FUTURE_DIMS=[
 ];
 var futureQuiz=false;
 async function renderFutureMe(){
-  if(futureQuiz)return futureQuizHTML(await getFutureMe());
   var fm=await getFutureMe();
   if(!fm||!fm.profile){
     return '<div class="stack"><div class="card" style="text-align:center;padding:28px 22px"><div class="chip" style="margin:0 auto 14px;width:54px;height:54px;border-radius:16px">'+icon('star',26,2)+'</div><div class="serif" style="font-size:21px;font-weight:700">Meet your Future Me</div><div class="rs" style="margin-top:8px;line-height:1.55">A few honest questions about who you\'re becoming \u2014 across health, relationships, career, money, skills, experiences and character. Forge AI turns it into your living north star, and weighs every suggestion against it.</div><button onclick="startFutureQuiz()" style="margin-top:18px;padding:13px 24px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Start the quiz</button></div></div>';
@@ -1470,38 +1535,161 @@ async function renderFutureMe(){
   if(fm.lastCheckin){var days=Math.floor((Date.now()-new Date(fm.lastCheckin).getTime())/86400000);var due=days>=90;ci='<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div class="rt">Quarterly check-in</div><div class="rs">'+(due?'It\'s been '+days+' days \u2014 is this still who you want to be?':'Last reviewed '+days+' day'+(days===1?'':'s')+' ago')+'</div></div><button onclick="startFutureQuiz()" style="padding:9px 15px;background:'+(due?'var(--accent)':'var(--surface-3)')+';color:'+(due?'#fff':'var(--ink)')+';border:none;border-radius:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Review</button></div>';}
   return '<div class="stack">'+prof+sections+ci+'</div>';
 }
-function futureQuizHTML(fm){
-  var ans=(fm&&fm.answers)||{};
-  var fields=FUTURE_DIMS.map(function(d){return '<div class="card"><div class="ctitle">'+d.label+'</div><div class="rs" style="margin-bottom:8px">'+d.q+'</div><textarea id="fq_'+d.k+'" rows="2" placeholder="Be honest \u2014 a sentence or two" style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:14px;background:var(--surface-2);color:var(--ink);resize:vertical">'+esc(ans[d.k]||'')+'</textarea></div>';}).join('');
-  return '<div class="stack"><div class="card dark"><div class="serif" style="font-size:19px;font-weight:700">Future Me</div><div style="font-size:13px;opacity:.85;margin-top:4px">Answer what resonates \u2014 skip what doesn\'t. Forge AI builds the rest.</div></div>'+fields+'<button onclick="buildFutureMe()" style="padding:14px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Build my Future Me</button><button onclick="cancelFutureQuiz()" class="reqbtn">Cancel</button></div>';
+/* ===== FUTURE ME — interactive "Wrapped"-style quiz ===== */
+var FQ_STEPS=[
+  {type:'intro'},
+  {type:'multi',key:'priorities',q:'What matters most to you right now?',sub:'Pick up to three',max:3,options:['Health & energy','Money & freedom','Relationships','Career & craft','Adventure','Family','Learning','Peace of mind']},
+  {type:'slider',key:'drive',q:'Right now, how driven are you feeling?',lo:'Cruising',hi:'Unstoppable'},
+  {type:'choice',key:'orientation',q:'Five years from now, you\u2019d rather have\u2026',options:['More freedom','More mastery','More connection']},
+  {type:'choice',key:'money',q:'Money, to you, is mostly for\u2026',options:['Security','Experiences','Building something']},
+  {type:'text',key:'health',q:'In 5 years, your body & energy feel like\u2026',ph:'Strong, light, clear-headed\u2026'},
+  {type:'text',key:'career',q:'The work you\u2019d be proud to be doing:',ph:'Be honest \u2014 even if it scares you'},
+  {type:'choice',key:'relationships',q:'The people around you are\u2026',options:['A tight few','A wide circle','Family first']},
+  {type:'text',key:'experiences',q:'One thing you must do before you\u2019re old:',ph:'A place, a feat, a moment\u2026'},
+  {type:'text',key:'skills',q:'A skill you want to genuinely own:',ph:'Something you\u2019d love to be great at'},
+  {type:'choice',key:'character',q:'You want to be known as someone who\u2019s\u2026',options:['Kind','Disciplined','Bold','Wise','Generous']},
+  {type:'text',key:'extra',q:'Anything else Future You wants you to know?',ph:'Optional \u2014 a line to your future self',optional:true}
+];
+var FQ_LABELS={priorities:'Priorities',drive:'Drive (0-100)',orientation:'5-year leaning',money:'Money is for',health:'Health & body',career:'Career',relationships:'Relationships',experiences:'Must-do experience',skills:'Skill to own',character:'Character',extra:'Note to self'};
+var fqStep=0,fqAns={},fqLayer=null,fqResult={profile:'',goals:[]};
+
+function startFutureQuiz(){openFutureQuiz();}
+function fqStyleInject(){
+  if(document.getElementById('fqStyle'))return;
+  var st=document.createElement('style');st.id='fqStyle';
+  st.textContent='#fmQuiz{position:fixed;inset:0;z-index:400;background:linear-gradient(160deg,#3D5AFF,#5E78FF 55%,#2C44D6);color:#fff;display:flex;flex-direction:column;overflow:hidden}'+
+  '#fmQuiz .fq-top{display:flex;align-items:center;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 16px) 22px 8px}'+
+  '#fmQuiz .fq-x{background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}'+
+  '#fmQuiz .fq-prog{flex:1;height:4px;background:rgba(255,255,255,.22);border-radius:3px;overflow:hidden}'+
+  '#fmQuiz .fq-prog>div{height:100%;background:#fff;border-radius:3px;transition:width .35s cubic-bezier(.2,.8,.2,1)}'+
+  '#fmQuiz .fq-body{flex:1;display:flex;flex-direction:column;justify-content:center;padding:22px 26px;overflow-y:auto}'+
+  '#fmQuiz .fq-card{opacity:0;transform:translateY(14px);transition:opacity .32s ease,transform .32s cubic-bezier(.2,.8,.2,1)}'+
+  '#fmQuiz .fq-card.in{opacity:1;transform:none}'+
+  '#fmQuiz .fq-kick{font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;opacity:.7;margin-bottom:14px}'+
+  '#fmQuiz .fq-q{font-family:"Bricolage Grotesque","Hanken Grotesk",sans-serif;font-size:30px;line-height:1.16;font-weight:700;letter-spacing:-.01em}'+
+  '#fmQuiz .fq-sub{opacity:.82;margin-top:11px;font-size:15px;line-height:1.45}'+
+  '#fmQuiz .fq-opts{margin-top:24px;display:flex;flex-direction:column;gap:11px}'+
+  '#fmQuiz .fq-opt{background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.18);color:#fff;border-radius:16px;padding:16px 18px;font-size:16px;font-weight:600;text-align:left;cursor:pointer;font-family:inherit;transition:transform .12s,background .15s,border-color .15s}'+
+  '#fmQuiz .fq-opt:active{transform:scale(.98)}'+
+  '#fmQuiz .fq-opt.sel{background:#fff;color:#2C44D6;border-color:#fff}'+
+  '#fmQuiz textarea.fq-text{margin-top:22px;width:100%;box-sizing:border-box;min-height:118px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);border-radius:16px;color:#fff;font-size:17px;line-height:1.45;padding:16px 18px;font-family:inherit;resize:none;outline:none}'+
+  '#fmQuiz textarea.fq-text::placeholder{color:rgba(255,255,255,.55)}'+
+  '#fmQuiz .fq-slider-wrap{margin-top:36px}'+
+  '#fmQuiz .fq-val{font-family:"Bricolage Grotesque",sans-serif;font-size:56px;font-weight:700;text-align:center;line-height:1}'+
+  '#fmQuiz input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:4px;background:rgba(255,255,255,.28);margin-top:20px;outline:none}'+
+  '#fmQuiz input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:#fff;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.22)}'+
+  '#fmQuiz .fq-ends{display:flex;justify-content:space-between;font-size:13px;opacity:.7;margin-top:12px}'+
+  '#fmQuiz .fq-foot{padding:14px 26px calc(env(safe-area-inset-bottom,0px) + 22px)}'+
+  '#fmQuiz .fq-next{width:100%;background:#fff;color:#2C44D6;border:none;border-radius:16px;padding:16px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;transition:transform .12s,opacity .2s}'+
+  '#fmQuiz .fq-next:active{transform:scale(.98)}'+
+  '#fmQuiz .fq-next.dim{opacity:.4;pointer-events:none}'+
+  '#fmQuiz .fq-build{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px}'+
+  '#fmQuiz .fq-spin{width:46px;height:46px;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:fqspin 1s linear infinite;margin-bottom:24px}'+
+  '@keyframes fqspin{to{transform:rotate(360deg)}}'+
+  '#fmQuiz .fq-reveal-q{font-family:"Bricolage Grotesque","Hanken Grotesk",sans-serif;font-size:25px;line-height:1.35;font-weight:700}';
+  document.head.appendChild(st);
 }
-function startFutureQuiz(){futureQuiz=true;refreshScreen();}
-function cancelFutureQuiz(){futureQuiz=false;refreshScreen();}
-async function buildFutureMe(){
-  var answers={},any=false;
-  FUTURE_DIMS.forEach(function(d){var el=document.getElementById('fq_'+d.k);var val=el?el.value.trim():'';answers[d.k]=val;if(val)any=true;});
-  if(!any){toast('Fill in at least one area');return;}
-  toast('Building your Future Me\u2026');
-  var first=currentUser?currentUser.name.split(' ')[0]:'the user';
+function openFutureQuiz(){
+  fqStyleInject();
+  fqStep=0;fqAns={};
+  if(fqLayer&&fqLayer.parentNode)fqLayer.parentNode.removeChild(fqLayer);
+  fqLayer=document.createElement('div');fqLayer.id='fmQuiz';
+  fqLayer.innerHTML='<div class="fq-top"><button class="fq-x" onclick="closeFutureQuiz()">\u2715</button><div class="fq-prog"><div id="fqBar" style="width:0%"></div></div></div><div class="fq-body" id="fqBody"></div><div class="fq-foot" id="fqFoot"></div>';
+  document.body.appendChild(fqLayer);
+  renderFQ();
+}
+function closeFutureQuiz(){if(fqLayer&&fqLayer.parentNode)fqLayer.parentNode.removeChild(fqLayer);fqLayer=null;}
+function fqProg(){var bar=document.getElementById('fqBar');if(bar)bar.style.width=Math.round((fqStep/FQ_STEPS.length)*100)+'%';}
+function fqCount(){return (fqStep)+' / '+(FQ_STEPS.length-1);}
+function renderFQ(){
+  var s=FQ_STEPS[fqStep];var body=document.getElementById('fqBody'),foot=document.getElementById('fqFoot');
+  if(!s||!body)return;
+  fqProg();
+  var html='',footHtml='';
+  if(s.type==='intro'){
+    html='<div class="fq-card"><div class="fq-kick">Future Me</div><div class="fq-q">Let\u2019s meet the person you\u2019re becoming.</div><div class="fq-sub">A quick, honest few minutes. Forge AI turns your answers into a living portrait of Future You \u2014 and quietly steers everything toward it.</div></div>';
+    footHtml='<button class="fq-next" onclick="fqNext()">Begin \u2192</button>';
+  }else if(s.type==='choice'){
+    var opts=s.options.map(function(o){var sel=fqAns[s.key]===o?' sel':'';return '<button class="fq-opt'+sel+'" onclick="fqChoice(\''+s.key+'\',this)">'+o+'</button>';}).join('');
+    html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><div class="fq-opts">'+opts+'</div></div>';
+    footHtml='<button class="fq-next'+(fqAns[s.key]?'':' dim')+'" id="fqNextBtn" onclick="fqNext()">Continue</button>';
+  }else if(s.type==='multi'){
+    var sel=fqAns[s.key]||[];
+    var opts2=s.options.map(function(o){var on=sel.indexOf(o)>=0?' sel':'';return '<button class="fq-opt'+on+'" onclick="fqToggle(\''+s.key+'\',\''+o.replace(/&/g,'&amp;')+'\','+(s.max||3)+')">'+o+'</button>';}).join('');
+    html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><div class="fq-sub">'+(s.sub||'')+'</div><div class="fq-opts">'+opts2+'</div></div>';
+    footHtml='<button class="fq-next'+(sel.length?'':' dim')+'" id="fqNextBtn" onclick="fqNext()">Continue</button>';
+  }else if(s.type==='slider'){
+    if(fqAns[s.key]==null)fqAns[s.key]=50;var v=fqAns[s.key];
+    html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><div class="fq-slider-wrap"><div class="fq-val" id="fqVal">'+v+'</div><input type="range" min="0" max="100" value="'+v+'" oninput="fqAns[\''+s.key+'\']=+this.value;var e=document.getElementById(\'fqVal\');if(e)e.textContent=this.value"><div class="fq-ends"><span>'+s.lo+'</span><span>'+s.hi+'</span></div></div></div>';
+    footHtml='<button class="fq-next" onclick="fqNext()">Continue</button>';
+  }else if(s.type==='text'){
+    html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><textarea class="fq-text" id="fqText" placeholder="'+(s.ph||'')+'">'+esc(fqAns[s.key]||'')+'</textarea></div>';
+    footHtml='<button class="fq-next" onclick="fqSaveTextNext(\''+s.key+'\','+(s.optional?'true':'false')+')">Continue</button>';
+  }
+  body.innerHTML=html;foot.innerHTML=footHtml;
+  requestAnimationFrame(function(){var c=body.querySelector('.fq-card');if(c)c.classList.add('in');});
+}
+function fqChoice(key,el){
+  fqAns[key]=el.textContent;
+  var sibs=el.parentNode.querySelectorAll('.fq-opt');for(var i=0;i<sibs.length;i++)sibs[i].classList.remove('sel');
+  el.classList.add('sel');
+  var nb=document.getElementById('fqNextBtn');if(nb)nb.classList.remove('dim');
+  setTimeout(fqNext,200);
+}
+function fqToggle(key,val,max){
+  var arr=fqAns[key]||[];var i=arr.indexOf(val);
+  if(i>=0)arr.splice(i,1);else{if(arr.length>=max)return;arr.push(val);}
+  fqAns[key]=arr;renderFQ();
+}
+function fqSaveTextNext(key,optional){
+  var t=document.getElementById('fqText');fqAns[key]=t?t.value.trim():'';fqNext();
+}
+function fqNext(){
+  if(fqStep<FQ_STEPS.length-1){fqStep++;renderFQ();}else{fqBuild();}
+}
+async function fqBuild(){
+  var bar=document.getElementById('fqBar');if(bar)bar.style.width='100%';
+  var body=document.getElementById('fqBody'),foot=document.getElementById('fqFoot');
+  if(foot)foot.innerHTML='';
+  if(body)body.innerHTML='<div class="fq-build"><div class="fq-spin"></div><div class="fq-q" style="font-size:24px">Building your Future Me\u2026</div><div class="fq-sub">Reading between the lines.</div></div>';
+  var first=currentUser?currentUser.name.split(' ')[0]:'you';
+  var content=Object.keys(fqAns).map(function(k){var v=fqAns[k];if(Array.isArray(v))v=v.join(', ');return (FQ_LABELS[k]||k)+': '+v;}).join('\n');
   var profile='',goals=[];
   try{
-    var sys='You help '+first+' define who they want to become. Below are their reflections across life dimensions. First write a warm, vivid, second-person "Future You" profile of 4-6 sentences capturing who they are becoming (start with "You are becoming"). Then append ONE fenced json block of 6 concrete long-term goals drawn from their words: ```json\\n[{"horizon":"1y","dimension":"health","title":"..."}]\\n``` \u2014 horizon must be one of 1y, 5y, 10y, life. Be specific and real, never generic.';
-    var content=FUTURE_DIMS.map(function(d){return d.label+': '+(answers[d.k]||'(skipped)');}).join('\\n');
+    var sys='You help '+first+' define who they want to become. Below are their quiz answers. First write a warm, vivid, second-person "Future You" portrait of 4-6 sentences (start with "You are becoming"), capturing the specific person emerging from their answers \u2014 reference concrete things they said. Then append ONE fenced json block of 6 long-term goals drawn from their answers: ```json\n[{"horizon":"1y","dimension":"health","title":"..."}]\n``` horizon must be 1y, 5y, 10y or life. Specific and real, never generic.';
     var resp=await askAI([{role:'user',content:content}],sys,900);
-    var jm=resp.match(/```json([\\s\\S]*?)```/i);
-    if(jm){try{goals=JSON.parse(jm[1].trim());}catch(e){}}
-    profile=resp.replace(/```[\\s\\S]*?```/g,'').trim();
+    var jm=resp.match(/```json([\s\S]*?)```/i);if(jm){try{goals=JSON.parse(jm[1].trim());}catch(e){}}
+    profile=resp.replace(/```[\s\S]*?```/g,'').trim();
   }catch(e){
-    var got=FUTURE_DIMS.filter(function(d){return answers[d.k];}).map(function(d){return d.label.toLowerCase();});
-    profile='You are becoming someone intentional about '+got.join(', ')+'. You know what matters to you \u2014 now it\'s about showing up for it, one week at a time.';
+    profile='You are becoming someone intentional about what matters \u2014 '+((fqAns.priorities||[]).join(', ').toLowerCase()||'your growth')+'. You know the direction; now it\u2019s about showing up for it, week after week.';
   }
-  await setFutureMe(answers,profile);
+  fqResult={profile:profile,goals:goals};
+  fqReveal(0);
+}
+function fqReveal(i){
+  var body=document.getElementById('fqBody'),foot=document.getElementById('fqFoot');
+  if(!body)return;
+  if(i===0){
+    body.innerHTML='<div class="fq-card"><div class="fq-kick">Future You</div><div class="fq-reveal-q">'+aiFmt(fqResult.profile)+'</div></div>';
+    foot.innerHTML='<button class="fq-next" onclick="fqReveal(1)">Show my goals \u2192</button>';
+  }else{
+    var hl={'1y':'1yr','5y':'5yr','10y':'10yr','life':'life'};
+    var gh=(fqResult.goals&&fqResult.goals.length)?fqResult.goals.slice(0,6).map(function(g){return '<div class="fq-opt" style="cursor:default">'+esc(String(g.title||''))+'  <span style="opacity:.6;font-weight:600">\u00B7 '+(hl[g.horizon]||g.horizon||'')+'</span></div>';}).join(''):'<div class="fq-sub">We\u2019ll shape your goals together in the app.</div>';
+    body.innerHTML='<div class="fq-card"><div class="fq-kick">Your north star</div><div class="fq-q" style="font-size:24px">The goals pulling you forward</div><div class="fq-opts">'+gh+'</div></div>';
+    foot.innerHTML='<button class="fq-next" onclick="fqFinish()">Enter Forge \u2192</button>';
+  }
+  requestAnimationFrame(function(){var c=body.querySelector('.fq-card');if(c)c.classList.add('in');});
+}
+async function fqFinish(){
+  var foot=document.getElementById('fqFoot');if(foot)foot.innerHTML='<button class="fq-next dim">Saving\u2026</button>';
+  await setFutureMe(fqAns,fqResult.profile);
   var existing=await getFutureGoals();
-  if((!existing||!existing.length)&&goals&&goals.length){for(var i=0;i<goals.length&&i<8;i++){var g=goals[i];if(g&&g.title)await addFutureGoalDB(String(g.horizon||'1y'),String(g.dimension||''),String(g.title));}}
-  futureQuiz=false;
-  await refreshScreen();
+  if((!existing||!existing.length)&&fqResult.goals&&fqResult.goals.length){for(var i=0;i<fqResult.goals.length&&i<8;i++){var g=fqResult.goals[i];if(g&&g.title)await addFutureGoalDB(String(g.horizon||'1y'),String(g.dimension||''),String(g.title));}}
+  closeFutureQuiz();
+  if(current&&current.tab==='futureme')await refreshScreen();else go('futureme');
   toast('Future Me ready \u2713');
 }
+
 function addFutureG(h){openForm('Add goal','',[{key:'t',label:'Goal'}],async function(v){if(!v.t){toast('Enter a goal');return;}await addFutureGoalDB(h,'',v.t);closeOverlay();await refreshScreen();});}
 function progFutureG(id,cur){openForm('Update progress','0\u2013100%',[{key:'p',label:'Progress %',numeric:true}],async function(v){await updateFutureGoalDB(id,Math.max(0,Math.min(100,parseFloat(v.p)||0)));closeOverlay();await refreshScreen();});}
 async function delFutureG(id){await deleteFutureGoalDB(id);await refreshScreen();}
