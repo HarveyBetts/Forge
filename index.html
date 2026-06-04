@@ -484,12 +484,15 @@ async function addInvestmentDB(n,v){await sb.from('investments').insert({user_id
 async function updateInvestmentDB(id,v){await sb.from('investments').update({value:v}).eq('id',id);}
 async function deleteInvestmentDB(id){await sb.from('investments').delete().eq('id',id);}
 async function getFutureMe(){if(!currentUser)return null;try{var r=await sb.from('future_me').select('*').eq('user_id',currentUser.id).maybeSingle();if(!r.data)return null;return{answers:r.data.answers?JSON.parse(r.data.answers):{},profile:r.data.profile||'',lastCheckin:r.data.last_checkin};}catch(e){return null;}}
-async function setFutureMe(answers,profile){if(!currentUser)return;try{await sb.from('future_me').upsert({user_id:currentUser.id,answers:JSON.stringify(answers||{}),profile:profile||'',last_checkin:new Date().toISOString(),updated_at:new Date().toISOString()},{onConflict:'user_id'});}catch(e){console.error(e);}}
+async function setFutureMe(answers,profile){if(!currentUser)return false;try{var r=await sb.from('future_me').upsert({user_id:currentUser.id,answers:JSON.stringify(answers||{}),profile:profile||'',last_checkin:new Date().toISOString(),updated_at:new Date().toISOString()},{onConflict:'user_id'});if(r&&r.error){toast('Couldn\u2019t save: '+r.error.message);return false;}return true;}catch(e){toast('Couldn\u2019t save Future Me');return false;}}
 async function getFutureGoals(){if(!currentUser)return[];try{var r=await sb.from('future_goals').select('*').eq('user_id',currentUser.id).order('created_at');return (r.data||[]).map(function(x){return{id:x.id,horizon:x.horizon,dim:x.dimension,t:x.title,progress:Number(x.progress)};});}catch(e){return[];}}
 async function addFutureGoalDB(h,dim,title){await sb.from('future_goals').insert({user_id:currentUser.id,horizon:h,dimension:dim,title:title});}
 async function updateFutureGoalDB(id,p){await sb.from('future_goals').update({progress:p}).eq('id',id);}
 async function deleteFutureGoalDB(id){await sb.from('future_goals').delete().eq('id',id);}
 async function ownerResetPin(id,hash){var r=await sb.rpc('forge_owner_set_pin',{p_id:id,p_hash:hash});if(r&&r.error)throw r.error;}
+async function markPinReset(id){try{await sb.from('pin_resets').upsert({user_id:id,pending:true},{onConflict:'user_id'});}catch(e){}}
+async function checkPinReset(id){try{var r=await sb.from('pin_resets').select('pending').eq('user_id',id).maybeSingle();return !!(r.data&&r.data.pending);}catch(e){return false;}}
+async function clearPinReset(id){try{await sb.from('pin_resets').delete().eq('user_id',id);}catch(e){}}
 async function getTrackerLogs(kind,limit){if(!currentUser)return[];try{var r=await sb.from('trackers').select('*').eq('user_id',currentUser.id).eq('kind',kind).order('day',{ascending:false}).limit(limit||30);return (r.data||[]).map(function(x){return{id:x.id,day:x.day,value:Number(x.value),note:x.note||''};});}catch(e){return[];}}
 async function setTrackerLog(kind,day,value,note){if(!currentUser)return;try{await sb.from('trackers').upsert({user_id:currentUser.id,kind:kind,day:day,value:value,note:note||null},{onConflict:'user_id,kind,day'});}catch(e){console.error(e);}}
 async function deleteTrackerLog(id){try{await sb.from('trackers').delete().eq('id',id);}catch(e){}}
@@ -710,9 +713,10 @@ async function pinSubmit(){
     var u=r.data&&r.data[0];
     if(u){
       currentUser={id:u.id,name:u.name,role:u.role,avatar_url:u.avatar_url};
-      lsSet('forge.session',JSON.stringify(currentUser));
       setSyncState('');
       recordLogin();
+      if(await checkPinReset(u.id)){showForcePinScreen();return;}   // forced to set own PIN
+      lsSet('forge.session',JSON.stringify(currentUser));
       await loadTabs();
       enterApp();
     } else {setSyncState('');pinError();}
@@ -720,6 +724,36 @@ async function pinSubmit(){
 }
 
 // ---- Signup (task #19) ----
+function showForcePinScreen(){
+  mountAuth(
+    '<div class="pin-wrap">'+
+      '<div class="pin-logo"><img src="'+ICON_SRC+'" alt="Forge"/></div>'+
+      '<div class="pin-title">Set your new PIN</div>'+
+      '<div class="pin-sub">Your PIN was reset. Choose a new private 4-digit PIN \u2014 only you will know it.</div>'+
+      '<input class="signup-field" id="fpPin" placeholder="New 4-digit PIN" inputmode="numeric" maxlength="4" autocomplete="off"/>'+
+      '<input class="signup-field" id="fpPin2" placeholder="Confirm PIN" inputmode="numeric" maxlength="4" autocomplete="off"/>'+
+      '<button class="signup-btn" id="fpGo">Set PIN</button>'+
+    '</div>');
+  var p1=document.getElementById('fpPin'),p2=document.getElementById('fpPin2');
+  p1.oninput=p2.oninput=function(){this.value=this.value.replace(/[^0-9]/g,'');};
+  p1.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();p2.focus();}};
+  p2.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();doForcePin();}};
+  document.getElementById('fpGo').onclick=doForcePin;
+  setTimeout(function(){if(p1)p1.focus();},120);
+}
+async function doForcePin(){
+  var p1=document.getElementById('fpPin').value,p2=document.getElementById('fpPin2').value;
+  if(!/^[0-9]{4}$/.test(p1)){toast('PIN must be 4 digits');return;}
+  if(p1!==p2){toast('PINs don\u2019t match');return;}
+  try{
+    var hash=await sha256hex(p1);
+    await ownerResetPin(currentUser.id,hash);
+    await clearPinReset(currentUser.id);
+    lsSet('forge.session',JSON.stringify(currentUser));
+    await loadTabs();
+    enterApp();
+  }catch(e){toast('Couldn\u2019t set PIN \u2014 try again');}
+}
 function showSignupScreen(){
   mountAuth(
     '<button class="pin-back" id="suBack">'+icon('back',20)+'</button>'+
@@ -1418,7 +1452,19 @@ function openAddUser(){
   });
 }
 async function removeUser(id){if(!confirm('Remove this user and all their data?'))return;await deleteProfile(id);refreshScreen();toast('Removed');}
-function resetUserPin(id){openForm('Reset PIN','Set a new 4-digit PIN for this person. You never see their old one.',[{key:'pin',label:'New 4-digit PIN'}],async function(v){if(!/^[0-9]{4}$/.test(v.pin)){toast('PIN must be 4 digits');return;}try{var hash=await sha256hex(v.pin);await ownerResetPin(id,hash);closeOverlay();toast('PIN reset ✓');}catch(e){toast('Couldn\'t reset — '+((e&&e.message)||'try again'));}});}
+function resetUserPin(id){
+  if(!confirm('Reset this person\u2019s PIN?\n\nThey\u2019ll get a one-time temporary code, then set their own private PIN on next login \u2014 which you won\u2019t see.'))return;
+  (async function(){
+    var temp=String(Math.floor(1000+Math.random()*9000));
+    try{
+      var hash=await sha256hex(temp);
+      await ownerResetPin(id,hash);
+      await markPinReset(id);
+      alert('Temporary PIN: '+temp+'\n\nGive this to them. On their next login they\u2019ll be asked to set their own private PIN \u2014 you won\u2019t be able to see it, and this code stops working once they do.');
+      toast('PIN reset \u2713');
+    }catch(e){toast('Couldn\u2019t reset \u2014 '+((e&&e.message)||'check the forge_owner_set_pin function exists'));}
+  })();
+}
 
 // ============================================================
 // FINANCES (task #7 — sub-tabs)
@@ -1873,7 +1919,7 @@ async function renderOwner(){
   logins.forEach(function(l){var ts=new Date(l.created_at).getTime();if(new Date(l.created_at).toDateString()===today)activeToday[l.user_id]={name:l.user_name,t:ts};if(ts>=weekAgo){weekCount++;perUser[l.user_name]=(perUser[l.user_name]||0)+1;}});
   var activeHtml=Object.keys(activeToday).length?Object.keys(activeToday).map(function(id){var a=activeToday[id];return '<div class="row">'+avatarHTML(a.name,34,null)+'<div style="flex:1"><div class="rt">'+esc(a.name)+'</div><div class="rs">last in '+timeAgo(a.t)+'</div></div><span class="dot" style="background:#4D6BFF"></span></div>';}).join(''):'<div class="row"><div class="rs">No logins today yet.</div></div>';
   var weekHtml=Object.keys(perUser).length?Object.keys(perUser).sort(function(a,b){return perUser[b]-perUser[a];}).map(function(nm){return '<div class="row"><div style="flex:1"><div class="rt">'+esc(nm)+'</div></div><div class="badge">'+perUser[nm]+' login'+(perUser[nm]!==1?'s':'')+'</div></div>';}).join(''):'<div class="row"><div class="rs">No logins this week.</div></div>';
-  var pHtml=profiles.map(function(u){return '<div class="row">'+avatarHTML(u.name,34,u.avatar_url)+'<div style="flex:1"><div class="rt">'+esc(u.name)+(u.role==='master'?' <span class="badge">You</span>':'')+'</div><div class="rs">'+(u.role==='master'?'Owner':'Member')+'</div></div>'+(u.role!=='master'?'<button class="tbtn rm" onclick="removeUser(\''+u.id+'\')">Remove</button>':'')+'</div>';}).join('');
+  var pHtml=profiles.map(function(u){return '<div class="row">'+avatarHTML(u.name,34,u.avatar_url)+'<div style="flex:1"><div class="rt">'+esc(u.name)+(u.role==='master'?' <span class="badge">You</span>':'')+'</div><div class="rs">'+(u.role==='master'?'Owner':'Member')+'</div></div>'+(u.role!=='master'?'<button class="tbtn add" style="margin-right:6px" onclick="resetUserPin(\''+u.id+'\')">Reset PIN</button><button class="tbtn rm" onclick="removeUser(\''+u.id+'\')">Remove</button>':'')+'</div>';}).join('');
   var rHtml=reqs.length?reqs.map(function(r){return '<div class="row"><span class="dot" style="background:var(--accent)"></span><div style="flex:1"><div class="rt">'+esc(r.body)+'</div><div class="rs">'+esc(r.user_name||'Someone')+' · '+timeAgo(new Date(r.created_at).getTime())+'</div></div></div>';}).join(''):'<div class="row"><div class="rs">No requests yet.</div></div>';
   return '<div class="stack">'+
     '<div class="card dark"><div class="small">Owner Dashboard</div><div class="serif" style="font-size:24px;font-weight:600;margin-top:2px">'+Object.keys(activeToday).length+' active today</div><div style="font-size:14px;opacity:.82;margin-top:6px">'+profiles.length+' member'+(profiles.length!==1?'s':'')+' · '+weekCount+' login'+(weekCount!==1?'s':'')+' this week</div></div>'+
