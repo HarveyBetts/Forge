@@ -483,6 +483,16 @@ async function getInvestments(){if(!currentUser)return[];try{var r=await sb.from
 async function addInvestmentDB(n,v){await sb.from('investments').insert({user_id:currentUser.id,name:n,value:v});}
 async function updateInvestmentDB(id,v){await sb.from('investments').update({value:v}).eq('id',id);}
 async function deleteInvestmentDB(id){await sb.from('investments').delete().eq('id',id);}
+async function getFutureMe(){if(!currentUser)return null;try{var r=await sb.from('future_me').select('*').eq('user_id',currentUser.id).maybeSingle();if(!r.data)return null;return{answers:r.data.answers?JSON.parse(r.data.answers):{},profile:r.data.profile||'',lastCheckin:r.data.last_checkin};}catch(e){return null;}}
+async function setFutureMe(answers,profile){if(!currentUser)return;try{await sb.from('future_me').upsert({user_id:currentUser.id,answers:JSON.stringify(answers||{}),profile:profile||'',last_checkin:new Date().toISOString(),updated_at:new Date().toISOString()},{onConflict:'user_id'});}catch(e){console.error(e);}}
+async function getFutureGoals(){if(!currentUser)return[];try{var r=await sb.from('future_goals').select('*').eq('user_id',currentUser.id).order('created_at');return (r.data||[]).map(function(x){return{id:x.id,horizon:x.horizon,dim:x.dimension,t:x.title,progress:Number(x.progress)};});}catch(e){return[];}}
+async function addFutureGoalDB(h,dim,title){await sb.from('future_goals').insert({user_id:currentUser.id,horizon:h,dimension:dim,title:title});}
+async function updateFutureGoalDB(id,p){await sb.from('future_goals').update({progress:p}).eq('id',id);}
+async function deleteFutureGoalDB(id){await sb.from('future_goals').delete().eq('id',id);}
+async function ownerResetPin(id,hash){var r=await sb.rpc('forge_owner_set_pin',{p_id:id,p_hash:hash});if(r&&r.error)throw r.error;}
+async function getTrackerLogs(kind,limit){if(!currentUser)return[];try{var r=await sb.from('trackers').select('*').eq('user_id',currentUser.id).eq('kind',kind).order('day',{ascending:false}).limit(limit||30);return (r.data||[]).map(function(x){return{id:x.id,day:x.day,value:Number(x.value),note:x.note||''};});}catch(e){return[];}}
+async function setTrackerLog(kind,day,value,note){if(!currentUser)return;try{await sb.from('trackers').upsert({user_id:currentUser.id,kind:kind,day:day,value:value,note:note||null},{onConflict:'user_id,kind,day'});}catch(e){console.error(e);}}
+async function deleteTrackerLog(id){try{await sb.from('trackers').delete().eq('id',id);}catch(e){}}
 async function getCountdowns(){if(!currentUser)return[];try{var r=await sb.from('countdowns').select('*').eq('user_id',currentUser.id).order('target_date');return (r.data||[]).map(function(x){return{id:x.id,n:x.name,d:x.target_date};});}catch(e){return[];}}
 async function addCountdownDB(n,d){await sb.from('countdowns').insert({user_id:currentUser.id,name:n,target_date:d});}
 async function deleteCountdownDB(id){await sb.from('countdowns').delete().eq('id',id);}
@@ -629,7 +639,7 @@ function subscribeTabs(){
 function addTab(id){var a=enabledTabs();if(a.indexOf(id)<0){a.push(id);setEnabledTabs(a);}refreshScreen();toast('Added ✓');}
 function removeTab(id){setEnabledTabs(enabledTabs().filter(function(x){return x!==id;}));refreshScreen();toast('Removed');}
 const ADDABLE={work:'task',reminders:'reminder',goals:'habit',notes:'note',documents:'document',shopping:'item',subs:'subscription',workouts:'workout',recipes:'recipe',mood:'note',sleep:'entry',water:'log',meds:'medication',projects:'project',journal:'entry',books:'book',movies:'title',study:'topic',wishlist:'wish',gifts:'gift',pets:'pet',home2:'job',habits:'habit',fitness:'workout',health:'entry'};
-function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
+function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'},futureme:{label:'Future Me',sub:'Who you\'re becoming'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
 
 // ============================================================
 // AUTH SCREENS (PIN + signup) — rendered into #stage-overlay layers
@@ -714,6 +724,7 @@ function showSignupScreen(){
       '<div class="pin-logo"><img src="'+ICON_SRC+'" alt="Forge"/></div>'+
       '<div class="pin-title">Create your account</div>'+
       '<div class="pin-sub">Pick a name and a 4-digit PIN.<br>This is how you\'ll log in.</div>'+
+      '<div style="font-size:11.5px;color:var(--sub);line-height:1.55;margin:-12px 0 20px;max-width:300px;text-align:center;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:11px 14px">🔒 Forge can\'t see your PIN, read your bank or accounts, or log in anywhere as you. Everything you add stays private to you.</div>'+
       '<input class="signup-field" id="suName" placeholder="Your name" autocomplete="off" maxlength="24"/>'+
       '<input class="signup-field" id="suPin" placeholder="4-digit PIN" inputmode="numeric" maxlength="4" autocomplete="off"/>'+
       '<input class="signup-field" id="suPin2" placeholder="Confirm PIN" inputmode="numeric" maxlength="4" autocomplete="off"/>'+
@@ -956,11 +967,12 @@ function homeHTML(){
     var sub=on.slice(0,3).map(function(t){var ct=catalogById(t);return ct?ct.label:t;}).join(' · ');
     return '<div class="tile" onclick="go(\'cat_'+c.id+'\')"><div class="chip">'+icon(c.icon,21,2.2)+'</div><div><div class="t">'+esc(c.label)+'</div><div class="s">'+esc(sub)+'</div></div></div>';
   }).join('');
+  var futureTile='<div class="tile" onclick="go(\'futureme\')"><div class="chip">'+icon('star',21,2.2)+'</div><div><div class="t">Future Me</div><div class="s">Who you\'re becoming</div></div></div>';
   var aiTile='<div class="tile" onclick="go(\'ai\')"><div class="chip">'+icon('spark',21,2.2)+'</div><div><div class="t">Forge AI</div><div class="s">Ask about your world</div></div></div>';
   var ownerTile=isOwner()?'<div class="tile" onclick="go(\'owner\')"><div class="chip">'+icon('grid',21,2.2)+'</div><div><div class="t">Dashboard</div><div class="s">Owner only</div></div></div>':'';
   var customise='<div class="tile ghost" onclick="go(\'tabs\')"><div class="chip ghostchip">'+icon('grid',20,2.2)+'</div><div><div class="t">Customise</div><div class="s">Add or remove tabs</div></div></div>';
   var req='<div class="tile ghost" onclick="openRequest()"><div class="chip ghostchip">'+icon('plus',20,2.4)+'</div><div><div class="t">Request a feature</div><div class="s">Tell me what to build</div></div></div>';
-  return '<div class="home-grid" id="homeGrid">'+hero+cats+aiTile+ownerTile+customise+req+'</div>';
+  return '<div class="home-grid" id="homeGrid">'+hero+cats+futureTile+aiTile+ownerTile+customise+req+'</div>';
 }
 
 function skeletonHTML(){
@@ -1155,6 +1167,8 @@ async function renderTab(tab){
   if(tab==='mealplanner')return renderMealPlanner();
   if(tab==='car')return renderCar();
   if(tab==='ai')return renderAI();
+  if(tab==='futureme')return renderFutureMe();
+  if(TRACKERS[tab])return renderTracker(tab);
   if(tab==='calendar')return renderCalendar();
   if(tab==='contacts')return renderContacts();
   if(tab==='travel')return renderTravel();
@@ -1177,6 +1191,64 @@ async function renderToday(){
     '</div></div>';
 }
 
+// ============================================================
+// TRACKER ENGINE — log a daily number + note → chart, trend, AI insight.
+// Reused by Mood, Sleep (and any future daily metric).
+// ============================================================
+var TRACKERS={
+  mood:{label:'Mood',max:10,suffix:' /10',q:'How was today, out of 10?',noteLabel:'What shaped it?',color:'#FB923C'},
+  sleep:{label:'Sleep score',max:100,suffix:'',q:'Last night\u2019s sleep score (0\u2013100)',noteLabel:'Notes (bedtime, wake-ups\u2026)',color:'#818CF8'}
+};
+function localDay(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function trackerChart(points,max,color){
+  if(!points.length)return '<div class="rs" style="padding:18px 0;text-align:center">Log a few days to see your trend.</div>';
+  var W=300,H=92,pad=8,n=points.length,step=n>1?(W-2*pad)/(n-1):0;
+  var pts=points.map(function(p,i){var x=pad+(n>1?i*step:(W/2-pad));var y=H-pad-((Math.max(0,Math.min(max,p.value))/max)*(H-2*pad));return{x:x,y:y};});
+  var line=pts.map(function(p,i){return (i?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1);}).join(' ');
+  var dots=pts.map(function(p){return '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="2.6" fill="'+color+'"/>';}).join('');
+  var lastX=pts[pts.length-1].x;
+  var area=(n>1?('M'+pts[0].x.toFixed(1)+' '+(H-pad)+' '+pts.map(function(p){return 'L'+p.x.toFixed(1)+' '+p.y.toFixed(1);}).join(' ')+' L'+lastX.toFixed(1)+' '+(H-pad)+' Z'):'');
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="none" style="display:block;overflow:visible">'+(area?'<path d="'+area+'" fill="'+color+'" opacity="0.10"/>':'')+'<path d="'+line+'" fill="none" stroke="'+color+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'+dots+'</svg>';
+}
+async function renderTracker(kind){
+  var cfg=TRACKERS[kind];
+  var logs=await getTrackerLogs(kind,30);
+  var asc=logs.slice().reverse();
+  var today=localDay();
+  var todayLog=logs.filter(function(l){return l.day===today;})[0];
+  var vals=logs.map(function(l){return l.value;});
+  var avg=vals.length?vals.reduce(function(a,b){return a+b;},0)/vals.length:0;
+  function mean(a){return a.length?a.reduce(function(s,x){return s+x.value;},0)/a.length:0;}
+  var last7=logs.slice(0,7),prev7=logs.slice(7,14),tr=mean(last7)-mean(prev7);
+  var trTxt=prev7.length?(tr>0.3?'\u25B2 trending up':tr<-0.3?'\u25BC trending down':'\u2192 steady'):'';
+  var head='<div class="card dark"><div class="small">'+esc(cfg.label)+(todayLog?' \u00B7 today':'')+'</div><div class="serif" style="font-size:40px;font-weight:600;margin-top:2px">'+(todayLog?todayLog.value+cfg.suffix:'\u2014')+'</div><div style="font-size:13px;opacity:.85;margin-top:4px">'+(vals.length?'avg '+avg.toFixed(1)+cfg.suffix+(trTxt?' \u00B7 '+trTxt:''):'No entries yet')+'</div></div>';
+  var logBtn='<button class="reqbtn" onclick="logTracker(\''+kind+'\')">'+icon('plus',16)+' '+(todayLog?'Update today':'Log today')+'</button>';
+  var chart='<div class="card"><div class="ctitle">Trend</div>'+trackerChart(asc.map(function(l){return{day:l.day,value:l.value};}),cfg.max,cfg.color)+'</div>';
+  var insight=logs.length?'<div class="card" id="trkInsight" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:'+cfg.color+'">'+icon('spark',16,2.2)+'</div><div style="flex:1"><div class="rt">Forge AI insight</div><div class="rs">What\u2019s driving your '+esc(cfg.label.toLowerCase())+'?</div></div><button class="tbtn add" onclick="trackerInsight(\''+kind+'\')">Ask</button></div>':'';
+  var recent=logs.slice(0,12).map(function(l){var d=new Date(l.day+'T00:00:00');var ds=d.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});return '<div class="row"><div style="flex:1"><div class="rt">'+l.value+cfg.suffix+'  <span class="rs" style="font-weight:400">'+ds+'</span></div>'+(l.note?'<div class="rs">'+esc(l.note)+'</div>':'')+'</div><button class="del" onclick="delTracker(\''+l.id+'\')">'+icon('x',13)+'</button></div>';}).join('');
+  var list=logs.length?'<div class="card"><div class="ctitle">History</div>'+recent+'</div>':'';
+  return '<div class="stack">'+head+logBtn+chart+insight+list+'</div>';
+}
+function logTracker(kind){
+  var cfg=TRACKERS[kind];
+  openForm(cfg.q,'',[{key:'v',label:'Number (0\u2013'+cfg.max+')',numeric:true},{key:'note',label:cfg.noteLabel}],async function(v){
+    var val=parseFloat(v.v);if(isNaN(val)){toast('Enter a number');return;}
+    val=Math.max(0,Math.min(cfg.max,val));
+    await setTrackerLog(kind,localDay(),val,v.note||'');closeOverlay();await refreshScreen();toast('Logged \u2713');
+  });
+}
+async function delTracker(id){await deleteTrackerLog(id);await refreshScreen();}
+async function trackerInsight(kind){
+  var cfg=TRACKERS[kind];var host=document.getElementById('trkInsight');
+  if(host)host.innerHTML='<div class="rs">Thinking\u2026</div>';
+  try{
+    var logs=await getTrackerLogs(kind,21);
+    var data=logs.slice().reverse().map(function(l){return l.day+': '+l.value+(l.note?' ('+l.note+')':'');}).join('\n');
+    var sys='You are Forge AI. The user tracks their '+cfg.label+' daily. Give 2-3 short, warm, specific observations \u2014 the trend, what seems to help or hurt (reference their notes), and one gentle suggestion. Under 80 words.';
+    var ans=await askAI([{role:'user',content:data}],sys,300);
+    if(host)host.innerHTML='<div><div class="rt" style="margin-bottom:6px">Forge AI on your '+esc(cfg.label.toLowerCase())+'</div><div class="rs" style="line-height:1.5">'+aiFmt(ans)+'</div></div>';
+  }catch(e){if(host)host.innerHTML='<div class="rs">Couldn\u2019t reach Forge AI right now \u2014 try again in a moment.</div>';}
+}
 async function renderGenericList(tab){
   var items=await loadItems(tab);var t=catalogById(tab);var accent=(t&&t.chip)||'#94A3B8';
   var rows=items.map(function(it){return '<div class="row"><span class="dot" style="background:'+accent+'"></span><div style="flex:1"><div class="rt">'+esc(it.t)+'</div>'+(it.s?'<div class="rs">'+esc(it.s)+'</div>':'')+'</div><button class="del" onclick="delItem(\''+it.id+'\',\''+tab+'\')">'+icon('x',15)+'</button></div>';}).join('');
@@ -1267,7 +1339,7 @@ async function renderTabManager(){
 async function renderUsers(){
   var profiles=await loadAllProfiles();
   return '<div class="stack"><div class="card"><div class="ctitle">Who can use Forge</div>'+
-    profiles.map(function(u){return '<div class="row">'+avatarHTML(u.name,34,u.avatar_url)+'<div style="flex:1"><div class="rt">'+esc(u.name)+'</div><div class="rs">'+(u.role==='master'?'Owner':'Member')+'</div></div>'+(u.role==='master'?'<span class="badge">Owner</span>':'<button class="tbtn rm" onclick="removeUser(\''+u.id+'\')">Remove</button>')+'</div>';}).join('')+'</div>'+
+    profiles.map(function(u){return '<div class="row">'+avatarHTML(u.name,34,u.avatar_url)+'<div style="flex:1"><div class="rt">'+esc(u.name)+'</div><div class="rs">'+(u.role==='master'?'Owner':'Member')+'</div></div><button class="tbtn add" style="margin-right:6px" onclick="resetUserPin(\''+u.id+'\')">Reset PIN</button>'+(u.role==='master'?'<span class="badge">Owner</span>':'<button class="tbtn rm" onclick="removeUser(\''+u.id+'\')">Remove</button>')+'</div>';}).join('')+'</div>'+
     '<button class="reqbtn" onclick="openAddUser()">'+icon('plus',16)+' Add a user</button></div>';
 }
 function openAddUser(){
@@ -1280,6 +1352,7 @@ function openAddUser(){
   });
 }
 async function removeUser(id){if(!confirm('Remove this user and all their data?'))return;await deleteProfile(id);refreshScreen();toast('Removed');}
+function resetUserPin(id){openForm('Reset PIN','Set a new 4-digit PIN for this person. You never see their old one.',[{key:'pin',label:'New 4-digit PIN'}],async function(v){if(!/^[0-9]{4}$/.test(v.pin)){toast('PIN must be 4 digits');return;}try{var hash=await sha256hex(v.pin);await ownerResetPin(id,hash);closeOverlay();toast('PIN reset ✓');}catch(e){toast('Couldn\'t reset — '+((e&&e.message)||'try again'));}});}
 
 // ============================================================
 // FINANCES (task #7 — sub-tabs)
@@ -1367,6 +1440,73 @@ function editInv(id,cur){openForm('Update value','',[{key:'v',label:'Current val
 async function delInv(id){await deleteInvestmentDB(id);await refreshScreen();}
 
 // ============================================================
+// FUTURE ME — the north star Understudy (and the AI) steer toward
+// ============================================================
+var FUTURE_DIMS=[
+ {k:'health',label:'Health & body',q:'In 5 years, how do you want your body and energy to feel?'},
+ {k:'relationships',label:'Relationships',q:'Who do you want close to you, and how do you show up for them?'},
+ {k:'career',label:'Career & work',q:'What work makes you proud? Where are you headed?'},
+ {k:'finances',label:'Finances',q:'What does financial freedom look like for you?'},
+ {k:'skills',label:'Skills & growth',q:'What do you want to become genuinely good at?'},
+ {k:'experiences',label:'Experiences',q:'What do you want to have done, seen, or lived?'},
+ {k:'character',label:'Character',q:'Who do you want to be as a person?'}
+];
+var futureQuiz=false;
+async function renderFutureMe(){
+  if(futureQuiz)return futureQuizHTML(await getFutureMe());
+  var fm=await getFutureMe();
+  if(!fm||!fm.profile){
+    return '<div class="stack"><div class="card" style="text-align:center;padding:28px 22px"><div class="chip" style="margin:0 auto 14px;width:54px;height:54px;border-radius:16px">'+icon('star',26,2)+'</div><div class="serif" style="font-size:21px;font-weight:700">Meet your Future Me</div><div class="rs" style="margin-top:8px;line-height:1.55">A few honest questions about who you\'re becoming \u2014 across health, relationships, career, money, skills, experiences and character. Forge AI turns it into your living north star, and weighs every suggestion against it.</div><button onclick="startFutureQuiz()" style="margin-top:18px;padding:13px 24px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Start the quiz</button></div></div>';
+  }
+  var goals=await getFutureGoals();
+  var prof='<div class="card dark"><div class="small">Who you\'re becoming</div><div style="font-size:15px;line-height:1.55;margin-top:8px">'+aiFmt(fm.profile)+'</div></div>';
+  var hz=[['1y','1 year'],['5y','5 years'],['10y','10 years'],['life','Lifetime']];
+  var sections=hz.map(function(h){
+    var gs=goals.filter(function(g){return g.horizon===h[0];});
+    var rows=gs.length?gs.map(function(g){var p=Math.max(0,Math.min(100,g.progress));return '<div style="padding:9px 0;border-top:1px solid var(--line-2)"><div style="display:flex;justify-content:space-between;align-items:center"><div class="rt" style="font-size:14px">'+esc(g.t)+'</div><button class="del" onclick="delFutureG(\''+g.id+'\')">'+icon('x',13)+'</button></div><div class="bar" style="margin-top:7px"><div style="width:'+p+'%;background:var(--accent)"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span class="rs">'+Math.round(p)+'%</span><button class="tbtn add" onclick="progFutureG(\''+g.id+'\','+g.progress+')">Update</button></div></div>';}).join(''):'<div class="rs" style="padding:6px 0">No goals here yet.</div>';
+    return '<div class="card"><div class="ctitle">'+h[1]+'</div>'+rows+'<button class="reqbtn" style="margin-top:8px" onclick="addFutureG(\''+h[0]+'\')">'+icon('plus',15)+' Add goal</button></div>';
+  }).join('');
+  var ci='';
+  if(fm.lastCheckin){var days=Math.floor((Date.now()-new Date(fm.lastCheckin).getTime())/86400000);var due=days>=90;ci='<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div class="rt">Quarterly check-in</div><div class="rs">'+(due?'It\'s been '+days+' days \u2014 is this still who you want to be?':'Last reviewed '+days+' day'+(days===1?'':'s')+' ago')+'</div></div><button onclick="startFutureQuiz()" style="padding:9px 15px;background:'+(due?'var(--accent)':'var(--surface-3)')+';color:'+(due?'#fff':'var(--ink)')+';border:none;border-radius:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Review</button></div>';}
+  return '<div class="stack">'+prof+sections+ci+'</div>';
+}
+function futureQuizHTML(fm){
+  var ans=(fm&&fm.answers)||{};
+  var fields=FUTURE_DIMS.map(function(d){return '<div class="card"><div class="ctitle">'+d.label+'</div><div class="rs" style="margin-bottom:8px">'+d.q+'</div><textarea id="fq_'+d.k+'" rows="2" placeholder="Be honest \u2014 a sentence or two" style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:14px;background:var(--surface-2);color:var(--ink);resize:vertical">'+esc(ans[d.k]||'')+'</textarea></div>';}).join('');
+  return '<div class="stack"><div class="card dark"><div class="serif" style="font-size:19px;font-weight:700">Future Me</div><div style="font-size:13px;opacity:.85;margin-top:4px">Answer what resonates \u2014 skip what doesn\'t. Forge AI builds the rest.</div></div>'+fields+'<button onclick="buildFutureMe()" style="padding:14px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Build my Future Me</button><button onclick="cancelFutureQuiz()" class="reqbtn">Cancel</button></div>';
+}
+function startFutureQuiz(){futureQuiz=true;refreshScreen();}
+function cancelFutureQuiz(){futureQuiz=false;refreshScreen();}
+async function buildFutureMe(){
+  var answers={},any=false;
+  FUTURE_DIMS.forEach(function(d){var el=document.getElementById('fq_'+d.k);var val=el?el.value.trim():'';answers[d.k]=val;if(val)any=true;});
+  if(!any){toast('Fill in at least one area');return;}
+  toast('Building your Future Me\u2026');
+  var first=currentUser?currentUser.name.split(' ')[0]:'the user';
+  var profile='',goals=[];
+  try{
+    var sys='You help '+first+' define who they want to become. Below are their reflections across life dimensions. First write a warm, vivid, second-person "Future You" profile of 4-6 sentences capturing who they are becoming (start with "You are becoming"). Then append ONE fenced json block of 6 concrete long-term goals drawn from their words: ```json\\n[{"horizon":"1y","dimension":"health","title":"..."}]\\n``` \u2014 horizon must be one of 1y, 5y, 10y, life. Be specific and real, never generic.';
+    var content=FUTURE_DIMS.map(function(d){return d.label+': '+(answers[d.k]||'(skipped)');}).join('\\n');
+    var resp=await askAI([{role:'user',content:content}],sys,900);
+    var jm=resp.match(/```json([\\s\\S]*?)```/i);
+    if(jm){try{goals=JSON.parse(jm[1].trim());}catch(e){}}
+    profile=resp.replace(/```[\\s\\S]*?```/g,'').trim();
+  }catch(e){
+    var got=FUTURE_DIMS.filter(function(d){return answers[d.k];}).map(function(d){return d.label.toLowerCase();});
+    profile='You are becoming someone intentional about '+got.join(', ')+'. You know what matters to you \u2014 now it\'s about showing up for it, one week at a time.';
+  }
+  await setFutureMe(answers,profile);
+  var existing=await getFutureGoals();
+  if((!existing||!existing.length)&&goals&&goals.length){for(var i=0;i<goals.length&&i<8;i++){var g=goals[i];if(g&&g.title)await addFutureGoalDB(String(g.horizon||'1y'),String(g.dimension||''),String(g.title));}}
+  futureQuiz=false;
+  await refreshScreen();
+  toast('Future Me ready \u2713');
+}
+function addFutureG(h){openForm('Add goal','',[{key:'t',label:'Goal'}],async function(v){if(!v.t){toast('Enter a goal');return;}await addFutureGoalDB(h,'',v.t);closeOverlay();await refreshScreen();});}
+function progFutureG(id,cur){openForm('Update progress','0\u2013100%',[{key:'p',label:'Progress %',numeric:true}],async function(v){await updateFutureGoalDB(id,Math.max(0,Math.min(100,parseFloat(v.p)||0)));closeOverlay();await refreshScreen();});}
+async function delFutureG(id){await deleteFutureGoalDB(id);await refreshScreen();}
+
+// ============================================================
 // COUNTDOWN / MEALS / CAR
 // ============================================================
 async function renderCountdown(){
@@ -1414,11 +1554,14 @@ async function gatherUserContext(){
   var lines=[],today=new Date();
   lines.push('Name: '+(currentUser?currentUser.name:'the user'));
   lines.push('Today: '+today.toDateString());
+  try{var fm=await getFutureMe();if(fm&&fm.profile)lines.push('FUTURE ME (their north star \u2014 weigh every suggestion against this; favour what moves them toward it): '+fm.profile);var fgs=await getFutureGoals();if(fgs&&fgs.length)lines.push('Long-term goals: '+fgs.map(function(g){return '['+g.horizon+'] '+g.t+' ('+Math.round(g.progress)+'%)';}).join('; '));}catch(e){}
   try{var b=await getFinBalance();if(b!=null)lines.push('Logged balance: A$'+Number(b).toLocaleString());}catch(e){}
   try{var inv=await getInvestments();if(inv&&inv.length){var ivt=inv.reduce(function(s,x){return s+x.v;},0);lines.push('Investments: A$'+ivt.toLocaleString()+' across '+inv.length+' ('+inv.map(function(x){return x.n+' A$'+x.v.toLocaleString();}).join(', ')+')');}}catch(e){}
   try{var nw=await getNetWorth();var bb=await getFinBalance();var iv2=await getInvestments();var ca=bb!=null?Number(bb):0;var it2=iv2.reduce(function(s,x){return s+x.v;},0);var as=nw.assets.reduce(function(s,x){return s+x.a;},0)+ca+it2;var li=nw.liabilities.reduce(function(s,x){return s+x.a;},0);if(as||li)lines.push('Net worth: A$'+(as-li).toLocaleString()+' (assets A$'+as.toLocaleString()+', owed A$'+li.toLocaleString()+')');}catch(e){}
   try{var bud=await getBudget();if(bud&&bud.length)lines.push('Budgets: '+bud.map(function(x){return x.n+' A$'+x.spent+'/'+x.limit;}).join('; '));}catch(e){}
   try{var fg=await getFinGoals();if(fg&&fg.length)lines.push('Savings goals: '+fg.map(function(x){return x.n+' A$'+x.saved+'/'+x.target;}).join('; '));}catch(e){}
+  try{var ml=await getTrackerLogs('mood',7);if(ml.length){var ma=(ml.reduce(function(s,x){return s+x.value;},0)/ml.length).toFixed(1);lines.push('Mood (last '+ml.length+' days /10): avg '+ma+', latest '+ml[0].value+(ml[0].note?' ('+ml[0].note+')':''));}}catch(e){}
+  try{var sl=await getTrackerLogs('sleep',7);if(sl.length){var sa=Math.round(sl.reduce(function(s,x){return s+x.value;},0)/sl.length);lines.push('Sleep (last '+sl.length+' days): avg '+sa+', latest '+sl[0].value);}}catch(e){}
   try{var en=enabledTabs();if(en.length)lines.push('Sections they use: '+en.join(', '));}catch(e){}
   var listTabs=[['work','Tasks'],['reminders','Reminders'],['goals','Goals'],['habits','Habits'],['notes','Notes'],['shopping','Shopping list'],['projects','Projects'],['subs','Subscriptions'],['health','Health log'],['workouts','Workouts'],['books','Books'],['movies','Movies'],['wishlist','Wishlist'],['study','Study'],['pets','Pets'],['gifts','Gifts']];
   for(var k=0;k<listTabs.length;k++){try{var it=await loadItems(listTabs[k][0]);if(it&&it.length)lines.push(listTabs[k][1]+' ('+it.length+'): '+it.slice(0,8).map(function(x){return x.t;}).join('; '));}catch(e){}}
@@ -1504,6 +1647,7 @@ async function aiSend(){
       'Forge organises their life into Time, Money, Food, Fitness, Home and Personal. '+
       'Be concise, warm and practical \u2014 a few short sentences unless they ask for more. '+
       'Use the data snapshot below to answer specifically about THEM, and proactively spot useful connections (an upcoming countdown, an overdue car date, a meal plan that needs a shopping list). '+
+      'If a FUTURE ME profile is present, treat it as their north star: gently favour suggestions and actions that compound toward it, and flag when something pulls away from it. '+
       'Never invent data you weren\u2019t given.'+
       '\n\nACTIONS \u2014 you can DO things, not just answer. If the user asks you to add, create, plan or save something, perform it by appending ONE fenced block at the very END of your reply:\n```forge\n[ {"type":"add_task","title":"Call dentist"} ]\n```\n'+
       'Allowed types ONLY: add_task{title,note?}, add_reminder{title,note?}, add_goal{title}, add_note{title}, add_shopping{items:[..]}, set_dinner{day,meal}, plan_week_dinners{meals:{Mon:"..",Tue:".."}}, add_countdown{name,date:"YYYY-MM-DD"}, add_to_list{tab,title,note?}. '+
