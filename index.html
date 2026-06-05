@@ -684,7 +684,7 @@ function showAuthLogin(){
     '<input class="signup-field" id="alEmail" type="email" placeholder="Email" autocomplete="username" autocapitalize="off"/>'+
     '<input class="signup-field" id="alPass" type="password" placeholder="Password" autocomplete="current-password"/>',
     'Log in','alGo')
-    +'<button id="alForgot" style="background:none;border:none;color:var(--accent);font-weight:600;font-size:13px;margin-top:-2px;cursor:pointer;font-family:inherit">Forgot password?</button>'
+    +'<button id="alForgot" style="background:none;border:none;color:var(--accent);font-weight:600;font-size:13px;margin-top:18px;display:block;cursor:pointer;font-family:inherit">Forgot password?</button>'
     +'<button class="pin-alt" id="alSignup">Create a new account</button>');
   document.getElementById('alGo').onclick=doLogin;
   document.getElementById('alSignup').onclick=showAuthSignup;
@@ -1304,19 +1304,23 @@ async function trackerInsight(kind){
   }catch(e){if(host)host.innerHTML='<div class="rs">Couldn\u2019t reach Forge AI right now \u2014 try again in a moment.</div>';}
 }
 // ============================================================
-// RUN COACH — goal in → AI training schedule (what/when/how fast)
+// RUN COACH — goal in → AI training schedule, aware of lifting,
+// work/busy days, and the rest of your Forge data.
 // ============================================================
 var runSetup=false;
 var RUN_DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var RC_WEEK=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+var rcLift=[],rcBusy=[];
 function runToday(){return RUN_DAYS[new Date().getDay()];}
 function startRunSetup(){runSetup=true;refreshScreen();}
 function cancelRunSetup(){runSetup=false;refreshScreen();}
+function toggleRunDay(kind,day,el){var arr=kind==='lift'?rcLift:rcBusy;var i=arr.indexOf(day);if(i>=0){arr.splice(i,1);el.classList.remove('on');}else{arr.push(day);el.classList.add('on');}}
 
 async function renderRunCoach(){
-  if(runSetup)return runCoachSetupHTML(await getRunPlan());
+  if(runSetup){var pp=await getRunPlan();rcLift=(pp&&pp.plan&&pp.plan._lift)||[];rcBusy=(pp&&pp.plan&&pp.plan._busy)||[];return runCoachSetupHTML(pp);}
   var p=await getRunPlan();
   if(!p||!p.plan){
-    return '<div class="stack"><div class="card" style="text-align:center;padding:28px 22px"><div class="chip" style="margin:0 auto 14px;width:54px;height:54px;border-radius:16px;--tc:var(--accent)">'+icon('trend',26,2)+'</div><div class="serif" style="font-size:21px;font-weight:700">Your running coach</div><div class="rs" style="margin-top:8px;line-height:1.55">Tell me your goal and how you run today, and I\u2019ll build a week-by-week schedule \u2014 what to run each day, how far, and how hard.</div><button onclick="startRunSetup()" style="margin-top:18px;padding:13px 24px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Set up my plan</button></div></div>';
+    return '<div class="stack"><div class="card" style="text-align:center;padding:28px 22px"><div class="chip" style="margin:0 auto 14px;width:54px;height:54px;border-radius:16px;--tc:var(--accent)">'+icon('trend',26,2)+'</div><div class="serif" style="font-size:21px;font-weight:700">Your fitness coach</div><div class="rs" style="margin-top:8px;line-height:1.55">Tell me your goal \u2014 a race, a bodyweight target, getting fitter \u2014 and how your week looks, and I\u2019ll build a schedule that works around your lifting and your shifts. It learns from the rest of your Forge data too.</div><button onclick="startRunSetup()" style="margin-top:18px;padding:13px 24px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Set up my plan</button></div></div>';
   }
   return runPlanView(p, await getRunLogs(8));
 }
@@ -1324,16 +1328,22 @@ function runSelect(id,label,opts,val){
   var o=opts.map(function(x){return '<option value="'+esc(x)+'"'+(x===val?' selected':'')+'>'+esc(x)+'</option>';}).join('');
   return '<div class="card"><div class="ctitle">'+label+'</div><select id="'+id+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px">'+o+'</select></div>';
 }
+function runDayPicker(kind,label,sub,selected){
+  var chips=RC_WEEK.map(function(d){var on=selected.indexOf(d)>=0?' on':'';return '<button type="button" class="rcday'+on+'" onclick="toggleRunDay(\''+kind+'\',\''+d+'\',this)">'+d+'</button>';}).join('');
+  return '<div class="card"><div class="ctitle">'+label+'</div><div class="rs" style="margin:-2px 0 8px">'+sub+'</div><div style="display:flex;gap:6px">'+chips+'</div></div>';
+}
 function runCoachSetupHTML(p){
   p=p||{};
-  var goalV=p.goal||'';
-  var dateV=p.target_date||'';
   return '<div class="stack">'+
-    '<div class="card dark"><div class="serif" style="font-size:19px;font-weight:700">Build my running plan</div><div style="font-size:13px;opacity:.85;margin-top:4px">A few quick questions \u2014 your coach does the rest.</div></div>'+
-    '<div class="card"><div class="ctitle">Your goal</div><input id="rcGoal" placeholder="e.g. Run a sub-25 5k, or my first 10k" value="'+esc(goalV)+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px"/></div>'+
-    '<div class="card"><div class="ctitle">Target date (optional)</div><input id="rcDate" type="date" value="'+esc(dateV)+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px"/></div>'+
-    runSelect('rcDays','Days per week you can run',['3','4','5','6'],String(p.days_per_week||'4'))+
-    runSelect('rcLevel','Where you\u2019re at',['New to running','Getting back into it','Regular runner','Experienced'],p.level||'Getting back into it')+
+    '<style>.rcday{flex:1;padding:9px 0;border:1px solid var(--line);background:var(--surface-2);color:var(--sub);border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}.rcday.on{background:var(--accent);color:#fff;border-color:var(--accent)}</style>'+
+    '<div class="card dark"><div class="serif" style="font-size:19px;font-weight:700">Build my plan</div><div style="font-size:13px;opacity:.85;margin-top:4px">A few quick questions \u2014 your coach handles the rest, and adapts as things change.</div></div>'+
+    runSelect('rcType','What kind of goal?',['Train for a race','Lose weight','Build muscle / gain weight','Get fitter (general)'],p.goal_type||'Get fitter (general)')+
+    '<div class="card"><div class="ctitle">Your goal, in your words</div><input id="rcGoal" placeholder="e.g. Run a marathon, or put on 5 kg" value="'+esc(p.goal||'')+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px"/></div>'+
+    '<div class="card"><div class="ctitle">Target date (optional)</div><input id="rcDate" type="date" value="'+esc(p.target_date||'')+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px"/></div>'+
+    runSelect('rcDays','Days a week you can train',['2','3','4','5','6'],String(p.days_per_week||'4'))+
+    runDayPicker('lift','Lifting / gym days','Tap the days you lift \u2014 I\u2019ll plan runs around them.',rcLift)+
+    runDayPicker('busy','Work shifts / busy days this week','Tap days you\u2019re stretched \u2014 I\u2019ll keep those easy or rest.',rcBusy)+
+    runSelect('rcLevel','Where you\u2019re at with running',['New to running','Getting back into it','Regular runner','Experienced'],p.level||'Getting back into it')+
     runSelect('rcBase','Longest you can comfortably run now',['Under 2 km','2\u20135 km','5\u201310 km','10 km+'],p.baseline||'2\u20135 km')+
     '<button onclick="buildRunPlan()" style="padding:14px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Build my plan</button>'+
     '<button onclick="cancelRunSetup()" class="reqbtn">Cancel</button>'+
@@ -1341,46 +1351,56 @@ function runCoachSetupHTML(p){
 }
 async function buildRunPlan(){
   var goal=(document.getElementById('rcGoal').value||'').trim();
-  if(!goal){toast('What\u2019s your running goal?');return;}
+  if(!goal){toast('What\u2019s your goal?');return;}
+  var type=document.getElementById('rcType').value;
   var date=document.getElementById('rcDate').value||'';
   var days=document.getElementById('rcDays').value;
   var level=document.getElementById('rcLevel').value;
   var base=document.getElementById('rcBase').value;
+  var lift=rcLift.slice(),busy=rcBusy.slice();
   toast('Building your plan\u2026');
-  var first=currentUser?currentUser.name.split(' ')[0]:'the runner';
+  var first=currentUser?currentUser.name.split(' ')[0]:'the athlete';
+  var ctx='';try{ctx=await gatherUserContext();}catch(e){}
+  var logs=await getRunLogs(6);
+  var recent=logs.length?logs.map(function(l){return l.day+': '+l.km+'km'+(l.min?'/'+l.min+'min':'');}).join('; '):'none logged yet';
   var plan=null;
   try{
-    var sys='You are an expert running coach building a plan for '+first+'. Goal: '+goal+'. Target date: '+(date||'none set')+'. Can train '+days+' days/week. Level: '+level+'. Longest comfortable run now: '+base+'. '+
-    'Design THIS WEEK\u2019s schedule plus how it progresses. Respond with ONLY a fenced json object: ```json\n{"summary":"1-2 sentence approach","week":[{"day":"Mon","type":"easy|tempo|intervals|long|rest|cross","km":5,"pace":"conversational ~6:30/km","note":"short cue"}, ... all 7 days Mon-Sun],"progression":"1-2 lines on how distance/intensity ramps over the coming weeks toward the goal"}``` '+
-    'Respect their training days (rest on the others), keep it safe for their level, include one long run and easy days, give realistic km and pace/effort. Days must be Mon,Tue,Wed,Thu,Fri,Sat,Sun.';
-    var ans=await askAI([{role:'user',content:'Build my running plan.'}],sys,1100);
+    var sys='You are '+first+'\u2019s personal fitness coach. Build THIS WEEK\u2019s training schedule.\n'+
+    'GOAL TYPE: '+type+'\nGOAL: '+goal+'\nTARGET DATE: '+(date||'none')+'\nCan train '+days+' days/week. Running level: '+level+'. Longest comfortable run now: '+base+'.\n'+
+    'LIFTING/GYM DAYS: '+(lift.length?lift.join(', '):'none given')+' \u2014 schedule easy runs or rest around these; never put a hard run on a heavy leg day.\n'+
+    'BUSY / WORK-SHIFT DAYS: '+(busy.length?busy.join(', '):'none given')+' \u2014 keep these easy or rest.\n'+
+    'RECENT RUNS: '+recent+'\n'+
+    'If the goal is weight gain/loss, the plan is still a weekly training schedule, but add a short, sensible, non-prescriptive nutrition cue in the progression note (e.g. slight surplus + protein for muscle) \u2014 no strict calorie numbers.\n'+
+    'Use the wider context about their life below to be realistic. Respond with ONLY a fenced json object: ```json\n{"summary":"1-2 sentence approach","week":[{"day":"Mon","type":"easy|tempo|intervals|long|rest|cross|lift","km":5,"pace":"conversational ~6:30/km","note":"short cue"}, ... all 7 days Mon-Sun],"progression":"how it ramps over coming weeks toward the goal, plus any nutrition cue"}```\n'+
+    'Mark their lifting days with type "lift" (km 0). Days must be Mon,Tue,Wed,Thu,Fri,Sat,Sun.\n\nLIFE CONTEXT:\n'+ctx;
+    var ans=await askAI([{role:'user',content:'Build my plan.'}],sys,1200);
     var jm=ans.match(/```(?:json)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;
     try{plan=JSON.parse(raw.trim());}catch(e){try{plan=JSON.parse((raw.match(/\{[\s\S]*\}/)||[''])[0]);}catch(e2){plan=null;}}
   }catch(e){plan=null;}
   if(!plan||!plan.week){toast('Coach couldn\u2019t draft it \u2014 try again');return;}
-  await setRunPlan({goal:goal,target_date:date||null,days_per_week:parseInt(days,10),level:level,baseline:base,plan:plan});
+  plan._lift=lift;plan._busy=busy;
+  await setRunPlan({goal:goal,goal_type:type,target_date:date||null,days_per_week:parseInt(days,10),level:level,baseline:base,plan:plan});
   runSetup=false;await refreshScreen();toast('Plan ready \u2713');
 }
-function runTypeColor(t){t=(t||'').toLowerCase();return t==='long'?'#7C5CFF':t==='tempo'?'#DB4A3D':t==='intervals'?'#C68A2E':t==='rest'?'#A2A6AE':t==='cross'?'#1F9D6B':'#3D5AFF';}
+function runTypeColor(t){t=(t||'').toLowerCase();return t==='long'?'#7C5CFF':t==='tempo'?'#DB4A3D':t==='intervals'?'#C68A2E':t==='rest'?'#A2A6AE':t==='lift'?'#2C44D6':t==='cross'?'#1F9D6B':'#3D5AFF';}
 function runPlanView(p,logs){
   var plan=p.plan||{};var week=plan.week||[];
   var td=runToday();
   var todayS=null;for(var i=0;i<week.length;i++){if((week[i].day||'')===td){todayS=week[i];break;}}
-  // countdown
   var cd='';
   if(p.target_date){var diff=Math.ceil((new Date(p.target_date+'T00:00:00')-new Date())/86400000);if(diff>=0){var wks=Math.floor(diff/7);cd=wks>0?(wks+' week'+(wks>1?'s':'')+' to go'):(diff+' day'+(diff!==1?'s':'')+' to go');}}
   var head='<div class="card dark"><div class="small">Goal</div><div class="serif" style="font-size:22px;font-weight:700;margin-top:2px;line-height:1.2">'+esc(p.goal)+'</div>'+(cd?'<div style="font-size:13px;opacity:.85;margin-top:6px">'+cd+'</div>':'')+(plan.summary?'<div style="font-size:13.5px;opacity:.9;margin-top:8px;line-height:1.45">'+esc(plan.summary)+'</div>':'')+'</div>';
   var today;
   if(todayS){
-    var rest=(todayS.type||'').toLowerCase()==='rest';
+    var t=(todayS.type||'').toLowerCase();var rest=t==='rest';var lift=t==='lift';
     today='<div class="card" style="border:1.5px solid var(--accent)"><div class="small" style="color:var(--accent)">TODAY \u00B7 '+td+'</div>'+
       (rest?'<div class="serif" style="font-size:24px;font-weight:700;margin-top:4px">Rest day</div><div class="rs" style="margin-top:4px">Recover \u2014 light stretch or a walk if you like.</div>':
+       lift?'<div class="serif" style="font-size:24px;font-weight:700;margin-top:4px">Gym / lifting day</div>'+(todayS.note?'<div class="rs" style="margin-top:4px">'+esc(todayS.note)+'</div>':'<div class="rs" style="margin-top:4px">Your strength session \u2014 keep running easy or off today.</div>'):
       '<div class="serif" style="font-size:24px;font-weight:700;margin-top:4px;text-transform:capitalize">'+esc(todayS.type||'Run')+(todayS.km?' \u00B7 '+todayS.km+' km':'')+'</div>'+(todayS.pace?'<div class="rt" style="margin-top:6px">Pace/effort: <span style="font-weight:600">'+esc(todayS.pace)+'</span></div>':'')+(todayS.note?'<div class="rs" style="margin-top:4px;line-height:1.45">'+esc(todayS.note)+'</div>':''))+
-      '<button class="reqbtn" style="margin-top:12px" onclick="logRun()">'+icon('plus',16)+' Log a run</button></div>';
+      (lift||rest?'':'<button class="reqbtn" style="margin-top:12px" onclick="logRun()">'+icon('plus',16)+' Log a run</button>')+'</div>';
   } else { today='<button class="reqbtn" onclick="logRun()">'+icon('plus',16)+' Log a run</button>'; }
-  var order=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  var rows=order.map(function(d){var s=null;for(var i=0;i<week.length;i++){if((week[i].day||'')===d){s=week[i];break;}}if(!s)s={day:d,type:'rest'};var rest=(s.type||'').toLowerCase()==='rest';var on=d===td;return '<div class="row"'+(on?' style="background:var(--surface-2);border-radius:12px"':'')+'><div style="width:38px;font-weight:700;font-size:13px;color:'+(on?'var(--accent)':'var(--sub)')+'">'+d+'</div><span class="dot" style="background:'+runTypeColor(s.type)+';margin-right:4px"></span><div style="flex:1"><div class="rt" style="font-size:14px;text-transform:capitalize">'+esc(s.type||'rest')+(s.km&&!rest?' \u00B7 '+s.km+' km':'')+'</div>'+(s.pace&&!rest?'<div class="rs">'+esc(s.pace)+'</div>':'')+'</div></div>';}).join('');
-  var weekCard='<div class="card"><div class="ctitle">This week</div>'+rows+(plan.progression?'<div class="rs" style="margin-top:10px;line-height:1.45;border-top:1px solid var(--line);padding-top:10px">'+esc(plan.progression)+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:12px"><button class="tbtn add" onclick="refreshRunWeek()">Refresh week</button><button class="tbtn" onclick="startRunSetup()" style="background:var(--surface-3);color:var(--ink)">Edit goal</button></div></div>';
+  var rows=RC_WEEK.map(function(d){var s=null;for(var i=0;i<week.length;i++){if((week[i].day||'')===d){s=week[i];break;}}if(!s)s={day:d,type:'rest'};var t=(s.type||'').toLowerCase();var none=t==='rest'||t==='lift';var on=d===td;return '<div class="row"'+(on?' style="background:var(--surface-2);border-radius:12px"':'')+'><div style="width:38px;font-weight:700;font-size:13px;color:'+(on?'var(--accent)':'var(--sub)')+'">'+d+'</div><span class="dot" style="background:'+runTypeColor(s.type)+';margin-right:4px"></span><div style="flex:1"><div class="rt" style="font-size:14px;text-transform:capitalize">'+esc(s.type||'rest')+(s.km&&!none?' \u00B7 '+s.km+' km':'')+'</div>'+(s.pace&&!none?'<div class="rs">'+esc(s.pace)+'</div>':'')+'</div></div>';}).join('');
+  var weekCard='<div class="card"><div class="ctitle">This week</div>'+rows+(plan.progression?'<div class="rs" style="margin-top:10px;line-height:1.45;border-top:1px solid var(--line);padding-top:10px">'+esc(plan.progression)+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:12px"><button class="tbtn add" onclick="refreshRunWeek()">Refresh week</button><button class="tbtn" onclick="startRunSetup()" style="background:var(--surface-3);color:var(--ink)">Edit plan</button></div></div>';
   var logCard='';
   if(logs&&logs.length){
     logCard='<div class="card"><div class="ctitle">Recent runs</div>'+logs.map(function(l){var ds=new Date(l.day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});var pace=(l.km&&l.min)?(' \u00B7 '+(l.min/l.km).toFixed(1)+' min/km'):'';return '<div class="row"><div style="flex:1"><div class="rt" style="font-size:14px">'+(l.km||0)+' km'+(l.min?' in '+l.min+' min':'')+pace+'</div><div class="rs">'+ds+(l.effort?' \u00B7 '+esc(l.effort):'')+(l.notes?' \u00B7 '+esc(l.notes):'')+'</div></div><button class="del" onclick="delRunLog(\''+l.id+'\')">'+icon('x',13)+'</button></div>';}).join('')+'</div>';
@@ -1398,15 +1418,16 @@ async function delRunLog(id){await deleteRunLogDB(id);await refreshScreen();}
 async function refreshRunWeek(){
   var p=await getRunPlan();if(!p){startRunSetup();return;}
   toast('Refreshing your week\u2026');
-  var first=currentUser?currentUser.name.split(' ')[0]:'the runner';
+  var first=currentUser?currentUser.name.split(' ')[0]:'the athlete';
   var logs=await getRunLogs(7);
   var recent=logs.map(function(l){return l.day+': '+l.km+'km'+(l.min?'/'+l.min+'min':'')+(l.effort?' ('+l.effort+')':'');}).join('; ')||'no runs logged yet';
+  var lift=(p.plan&&p.plan._lift)||[],busy=(p.plan&&p.plan._busy)||[];
   try{
-    var sys='You are '+first+'\u2019s running coach. Their goal: '+p.goal+'. Level: '+p.level+'. Days/week: '+p.days_per_week+'. Recent runs: '+recent+'. Based on how they\u2019ve been going, give the NEXT week\u2019s schedule. Respond ONLY with the same fenced json object format: ```json\n{"summary":"...","week":[{"day":"Mon","type":"...","km":5,"pace":"...","note":"..."}],"progression":"..."}```';
-    var ans=await askAI([{role:'user',content:'Plan my next week.'}],sys,1100);
+    var sys='You are '+first+'\u2019s fitness coach. Goal: '+p.goal+' ('+(p.goal_type||'')+'). Level: '+p.level+'. Days/week: '+p.days_per_week+'. Lifting days: '+(lift.join(', ')||'none')+'. Busy/work days: '+(busy.join(', ')||'none')+'. Recent runs: '+recent+'. Based on how they\u2019ve been going, give NEXT week\u2019s schedule \u2014 progress them sensibly, keep runs easy around lifting and busy days. Respond ONLY with the same fenced json: ```json\n{"summary":"...","week":[{"day":"Mon","type":"...","km":5,"pace":"...","note":"..."}],"progression":"..."}```';
+    var ans=await askAI([{role:'user',content:'Plan my next week.'}],sys,1200);
     var jm=ans.match(/```(?:json)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;var plan=null;
     try{plan=JSON.parse(raw.trim());}catch(e){try{plan=JSON.parse((raw.match(/\{[\s\S]*\}/)||[''])[0]);}catch(e2){}}
-    if(plan&&plan.week){p.plan=plan;await setRunPlan(p);await refreshScreen();toast('Week updated \u2713');}
+    if(plan&&plan.week){plan._lift=lift;plan._busy=busy;p.plan=plan;await setRunPlan(p);await refreshScreen();toast('Week updated \u2713');}
     else toast('Couldn\u2019t refresh \u2014 try again');
   }catch(e){toast('Couldn\u2019t reach your coach right now');}
 }
