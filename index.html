@@ -1467,22 +1467,103 @@ function rcStyles(){return '<style>'+
   '@keyframes rcfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.rc-anim{animation:rcfade .26s ease}'+
   '</style>';}
 
-var RC_RACES=[
-  {n:'Sydney Marathon',c:'Sydney, Australia',d:'2026-08-30',dist:'Marathon',f:'\uD83C\uDDE6\uD83C\uDDFA',m:1},
-  {n:'Berlin Marathon',c:'Berlin, Germany',d:'2026-09-27',dist:'Marathon',f:'\uD83C\uDDE9\uD83C\uDDEA',m:1},
-  {n:'Chicago Marathon',c:'Chicago, USA',d:'2026-10-11',dist:'Marathon',f:'\uD83C\uDDFA\uD83C\uDDF8',m:1},
-  {n:'New York City Marathon',c:'New York, USA',d:'2026-11-01',dist:'Marathon',f:'\uD83C\uDDFA\uD83C\uDDF8',m:1},
-  {n:'Tokyo Marathon',c:'Tokyo, Japan',d:'2026-03-01',dist:'Marathon',f:'\uD83C\uDDEF\uD83C\uDDF5',m:1},
-  {n:'Boston Marathon',c:'Boston, USA',d:'2026-04-20',dist:'Marathon',f:'\uD83C\uDDFA\uD83C\uDDF8',m:1},
-  {n:'London Marathon',c:'London, UK',d:'2026-04-26',dist:'Marathon',f:'\uD83C\uDDEC\uD83C\uDDE7',m:1},
-  {n:'Gold Coast Marathon',c:'Gold Coast, Australia',d:'2026-07-05',dist:'Marathon',f:'\uD83C\uDDE6\uD83C\uDDFA'},
-  {n:'Melbourne Marathon',c:'Melbourne, Australia',d:'2026-10-11',dist:'Marathon',f:'\uD83C\uDDE6\uD83C\uDDFA'},
-  {n:'City2Surf',c:'Sydney, Australia',d:'2026-08-09',dist:'10K',f:'\uD83C\uDDE6\uD83C\uDDFA'},
-  {n:'Great North Run',c:'Newcastle, UK',d:'2026-09-13',dist:'Half',f:'\uD83C\uDDEC\uD83C\uDDE7'},
-  {n:'Paris Marathon',c:'Paris, France',d:'2026-04-12',dist:'Marathon',f:'\uD83C\uDDEB\uD83C\uDDF7'},
-  {n:'Amsterdam Marathon',c:'Amsterdam, Netherlands',d:'2026-10-18',dist:'Marathon',f:'\uD83C\uDDF3\uD83C\uDDF1'},
-  {n:'Valencia Marathon',c:'Valencia, Spain',d:'2026-12-06',dist:'Marathon',f:'\uD83C\uDDEA\uD83C\uDDF8'}
-];
+var RC_RACES=[{n:'Tokyo Marathon',c:'Tokyo, Japan',d:'2026-03-01',dist:'Marathon',cc:'JP',m:1},
+{n:'Boston Marathon',c:'Boston, USA',d:'2026-04-20',dist:'Marathon',cc:'US',m:1},
+{n:'London Marathon',c:'London, UK',d:'2026-04-26',dist:'Marathon',cc:'GB',m:1},
+{n:'Sydney Marathon',c:'Sydney, Australia',d:'2026-08-30',dist:'Marathon',cc:'AU',m:1},
+{n:'Berlin Marathon',c:'Berlin, Germany',d:'2026-09-27',dist:'Marathon',cc:'DE',m:1},
+{n:'Chicago Marathon',c:'Chicago, USA',d:'2026-10-11',dist:'Marathon',cc:'US',m:1},
+{n:'New York City Marathon',c:'New York, USA',d:'2026-11-01',dist:'Marathon',cc:'US',m:1},
+{n:'Valencia Marathon',c:'Valencia, Spain',d:'2026-12-06',dist:'Marathon',cc:'ES'},
+{n:'Paris Marathon',c:'Paris, France',d:'2026-04-12',dist:'Marathon',cc:'FR'},
+{n:'Amsterdam Marathon',c:'Amsterdam, Netherlands',d:'2026-10-18',dist:'Marathon',cc:'NL'},
+{n:'Frankfurt Marathon',c:'Frankfurt, Germany',d:'2026-10-25',dist:'Marathon',cc:'DE'},
+{n:'Rotterdam Marathon',c:'Rotterdam, Netherlands',d:'2026-04-05',dist:'Marathon',cc:'NL'},
+{n:'Hamburg Marathon',c:'Hamburg, Germany',d:'2026-04-26',dist:'Marathon',cc:'DE'},
+{n:'Vienna City Marathon',c:'Vienna, Austria',d:'2026-04-19',dist:'Marathon',cc:'AT'},
+{n:'Barcelona Marathon',c:'Barcelona, Spain',d:'2026-03-15',dist:'Marathon',cc:'ES'},
+{n:'Seville Marathon',c:'Seville, Spain',d:'2026-02-22',dist:'Marathon',cc:'ES'},
+{n:'Rome Marathon',c:'Rome, Italy',d:'2026-03-22',dist:'Marathon',cc:'IT'},
+{n:'Florence Marathon',c:'Florence, Italy',d:'2026-11-29',dist:'Marathon',cc:'IT'},
+{n:'Venice Marathon',c:'Venice, Italy',d:'2026-10-25',dist:'Marathon',cc:'IT'},
+{n:'Milan Marathon',c:'Milan, Italy',d:'2026-04-06',dist:'Marathon',cc:'IT'},
+{n:'Athens Authentic Marathon',c:'Athens, Greece',d:'2026-11-08',dist:'Marathon',cc:'GR'},
+{n:'Dublin Marathon',c:'Dublin, Ireland',d:'2026-10-25',dist:'Marathon',cc:'IE'},
+{n:'Edinburgh Marathon',c:'Edinburgh, UK',d:'2026-05-24',dist:'Marathon',cc:'GB'},
+{n:'Manchester Marathon',c:'Manchester, UK',d:'2026-04-19',dist:'Marathon',cc:'GB'},
+{n:'Brighton Marathon',c:'Brighton, UK',d:'2026-04-12',dist:'Marathon',cc:'GB'},
+{n:'Liverpool Marathon',c:'Liverpool, UK',d:'2026-05-24',dist:'Marathon',cc:'GB'},
+{n:'Stockholm Marathon',c:'Stockholm, Sweden',d:'2026-05-30',dist:'Marathon',cc:'SE'},
+{n:'Copenhagen Marathon',c:'Copenhagen, Denmark',d:'2026-05-10',dist:'Marathon',cc:'DK'},
+{n:'Oslo Marathon',c:'Oslo, Norway',d:'2026-09-19',dist:'Marathon',cc:'NO'},
+{n:'Helsinki Marathon',c:'Helsinki, Finland',d:'2026-08-15',dist:'Marathon',cc:'FI'},
+{n:'Prague Marathon',c:'Prague, Czechia',d:'2026-05-03',dist:'Marathon',cc:'CZ'},
+{n:'Munich Marathon',c:'Munich, Germany',d:'2026-10-11',dist:'Marathon',cc:'DE'},
+{n:'Cologne Marathon',c:'Cologne, Germany',d:'2026-10-04',dist:'Marathon',cc:'DE'},
+{n:'Lisbon Marathon',c:'Lisbon, Portugal',d:'2026-10-11',dist:'Marathon',cc:'PT'},
+{n:'Madrid Marathon',c:'Madrid, Spain',d:'2026-04-26',dist:'Marathon',cc:'ES'},
+{n:'Zurich Marathon',c:'Zurich, Switzerland',d:'2026-04-12',dist:'Marathon',cc:'CH'},
+{n:'Geneva Marathon',c:'Geneva, Switzerland',d:'2026-05-10',dist:'Marathon',cc:'CH'},
+{n:'Toronto Waterfront Marathon',c:'Toronto, Canada',d:'2026-10-18',dist:'Marathon',cc:'CA'},
+{n:'Ottawa Marathon',c:'Ottawa, Canada',d:'2026-05-24',dist:'Marathon',cc:'CA'},
+{n:'Vancouver Marathon',c:'Vancouver, Canada',d:'2026-05-03',dist:'Marathon',cc:'CA'},
+{n:'Montreal Marathon',c:'Montreal, Canada',d:'2026-09-20',dist:'Marathon',cc:'CA'},
+{n:'Honolulu Marathon',c:'Honolulu, USA',d:'2026-12-13',dist:'Marathon',cc:'US'},
+{n:'Los Angeles Marathon',c:'Los Angeles, USA',d:'2026-03-15',dist:'Marathon',cc:'US'},
+{n:'Marine Corps Marathon',c:'Washington DC, USA',d:'2026-10-25',dist:'Marathon',cc:'US'},
+{n:'Philadelphia Marathon',c:'Philadelphia, USA',d:'2026-11-22',dist:'Marathon',cc:'US'},
+{n:'Twin Cities Marathon',c:'Minneapolis, USA',d:'2026-10-04',dist:'Marathon',cc:'US'},
+{n:'California Intl Marathon',c:'Sacramento, USA',d:'2026-12-06',dist:'Marathon',cc:'US'},
+{n:'Big Sur Marathon',c:'Big Sur, USA',d:'2026-04-26',dist:'Marathon',cc:'US'},
+{n:'Grandma\'s Marathon',c:'Duluth, USA',d:'2026-06-20',dist:'Marathon',cc:'US'},
+{n:'Houston Marathon',c:'Houston, USA',d:'2026-01-18',dist:'Marathon',cc:'US'},
+{n:'Cape Town Marathon',c:'Cape Town, South Africa',d:'2026-05-24',dist:'Marathon',cc:'ZA'},
+{n:'Two Oceans Ultra',c:'Cape Town, South Africa',d:'2026-04-04',dist:'Ultra',cc:'ZA'},
+{n:'Comrades Marathon',c:'Durban, South Africa',d:'2026-06-14',dist:'Ultra',cc:'ZA'},
+{n:'Lagos City Marathon',c:'Lagos, Nigeria',d:'2026-02-07',dist:'Marathon',cc:'NG'},
+{n:'Nairobi Marathon',c:'Nairobi, Kenya',d:'2026-10-25',dist:'Marathon',cc:'KE'},
+{n:'Tata Mumbai Marathon',c:'Mumbai, India',d:'2026-01-18',dist:'Marathon',cc:'IN'},
+{n:'Delhi Half Marathon',c:'Delhi, India',d:'2026-10-18',dist:'Half',cc:'IN'},
+{n:'Standard Chartered Singapore',c:'Singapore',d:'2026-12-06',dist:'Marathon',cc:'SG'},
+{n:'Kuala Lumpur Marathon',c:'Kuala Lumpur, Malaysia',d:'2026-09-27',dist:'Marathon',cc:'MY'},
+{n:'Bangkok Marathon',c:'Bangkok, Thailand',d:'2026-11-15',dist:'Marathon',cc:'TH'},
+{n:'Osaka Marathon',c:'Osaka, Japan',d:'2026-02-22',dist:'Marathon',cc:'JP'},
+{n:'Nagoya Women\'s Marathon',c:'Nagoya, Japan',d:'2026-03-08',dist:'Marathon',cc:'JP'},
+{n:'Hong Kong Marathon',c:'Hong Kong',d:'2026-02-08',dist:'Marathon',cc:'HK'},
+{n:'Taipei Marathon',c:'Taipei, Taiwan',d:'2026-03-15',dist:'Marathon',cc:'TW'},
+{n:'Seoul Marathon',c:'Seoul, South Korea',d:'2026-03-15',dist:'Marathon',cc:'KR'},
+{n:'Beijing Marathon',c:'Beijing, China',d:'2026-11-01',dist:'Marathon',cc:'CN'},
+{n:'Shanghai Marathon',c:'Shanghai, China',d:'2026-12-06',dist:'Marathon',cc:'CN'},
+{n:'Guangzhou Marathon',c:'Guangzhou, China',d:'2026-12-13',dist:'Marathon',cc:'CN'},
+{n:'Auckland Marathon',c:'Auckland, New Zealand',d:'2026-11-01',dist:'Marathon',cc:'NZ'},
+{n:'Queenstown Marathon',c:'Queenstown, New Zealand',d:'2026-11-21',dist:'Marathon',cc:'NZ'},
+{n:'Christchurch Marathon',c:'Christchurch, New Zealand',d:'2026-04-12',dist:'Marathon',cc:'NZ'},
+{n:'Gold Coast Marathon',c:'Gold Coast, Australia',d:'2026-07-05',dist:'Marathon',cc:'AU'},
+{n:'Melbourne Marathon',c:'Melbourne, Australia',d:'2026-10-11',dist:'Marathon',cc:'AU'},
+{n:'Perth Marathon',c:'Perth, Australia',d:'2026-11-01',dist:'Marathon',cc:'AU'},
+{n:'Adelaide Marathon',c:'Adelaide, Australia',d:'2026-08-16',dist:'Marathon',cc:'AU'},
+{n:'Brisbane Marathon',c:'Brisbane, Australia',d:'2026-06-07',dist:'Marathon',cc:'AU'},
+{n:'Canberra Marathon',c:'Canberra, Australia',d:'2026-04-12',dist:'Marathon',cc:'AU'},
+{n:'Sunshine Coast Marathon',c:'Sunshine Coast, Australia',d:'2026-08-30',dist:'Marathon',cc:'AU'},
+{n:'Great North Run',c:'Newcastle, UK',d:'2026-09-13',dist:'Half',cc:'GB'},
+{n:'The Big Half',c:'London, UK',d:'2026-09-06',dist:'Half',cc:'GB'},
+{n:'Berlin Half Marathon',c:'Berlin, Germany',d:'2026-04-05',dist:'Half',cc:'DE'},
+{n:'Lisbon Half Marathon',c:'Lisbon, Portugal',d:'2026-03-08',dist:'Half',cc:'PT'},
+{n:'Copenhagen Half Marathon',c:'Copenhagen, Denmark',d:'2026-09-20',dist:'Half',cc:'DK'},
+{n:'Valencia Half Marathon',c:'Valencia, Spain',d:'2026-10-25',dist:'Half',cc:'ES'},
+{n:'Prague Half Marathon',c:'Prague, Czechia',d:'2026-04-04',dist:'Half',cc:'CZ'},
+{n:'Bath Half Marathon',c:'Bath, UK',d:'2026-03-15',dist:'Half',cc:'GB'},
+{n:'Reading Half Marathon',c:'Reading, UK',d:'2026-04-05',dist:'Half',cc:'GB'},
+{n:'Gold Coast Half Marathon',c:'Gold Coast, Australia',d:'2026-07-05',dist:'Half',cc:'AU'},
+{n:'Sydney Half Marathon',c:'Sydney, Australia',d:'2026-05-17',dist:'Half',cc:'AU'},
+{n:'City2Surf',c:'Sydney, Australia',d:'2026-08-09',dist:'14K',cc:'AU'},
+{n:'Vitality London 10,000',c:'London, UK',d:'2026-05-25',dist:'10K',cc:'GB'},
+{n:'Great Manchester Run',c:'Manchester, UK',d:'2026-05-17',dist:'10K',cc:'GB'},
+{n:'Bolder Boulder 10K',c:'Boulder, USA',d:'2026-05-25',dist:'10K',cc:'US'},
+{n:'Cooper River Bridge Run',c:'Charleston, USA',d:'2026-04-04',dist:'10K',cc:'US'},
+{n:'Peachtree Road Race',c:'Atlanta, USA',d:'2026-07-04',dist:'10K',cc:'US'},
+{n:'Parkrun (weekly 5K)',c:'Worldwide',d:'2026-06-06',dist:'5K',cc:'AU'}];
+function rcFlag(cc){if(!cc)return '\uD83C\uDFC1';return cc.toUpperCase().replace(/[A-Z]/g,function(ch){return String.fromCodePoint(127397+ch.charCodeAt(0));});}
 function rcDistM(d){return ({'5K':5000,'10K':10000,'Half':21097,'Half Marathon':21097,'Marathon':42195,'Ultra':50000})[d]||null;}
 function rcNextDate(iso){var d=new Date(iso+'T00:00:00');var t=new Date();t.setHours(0,0,0,0);while(d<t){d.setFullYear(d.getFullYear()+1);}return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());}
 function rcFmtDate(iso){return new Date(iso+'T00:00:00').toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});}
@@ -1535,8 +1616,15 @@ function rcScrRace(){
   return rcQCard('Training for a specific race?','I\u2019ll count down and peak you for the day.','<div style="margin-top:8px">'+grid+'</div>');
 }
 function rcScrRacePick(){
-  var rows=RC_RACES.map(function(r,i){return '<button class="rc-race" data-s="'+esc((r.n+' '+r.c).toLowerCase())+'" onclick="rcPickRace('+i+')"><span class="rc-flag">'+r.f+'</span><span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:14.5px;color:var(--ink)">'+esc(r.n)+(r.m?' <span class="rc-distchip" style="color:#C68A2E;background:color-mix(in srgb,#C68A2E 12%,transparent)">MAJOR</span>':'')+'</span><span style="display:block;font-size:12px;color:var(--sub)">'+esc(r.c)+' \u00B7 '+rcFmtDate(r._d)+'</span></span><span class="rc-distchip">'+esc(r.dist==='Half'?'HALF':r.dist.toUpperCase())+'</span></button>';}).join('');
-  return rcQCard('Pick your race','A feed of major & popular events \u2014 confirm the date next.','<input class="rc-field" placeholder="Search races or cities\u2026" onkeyup="rcFilterRaces(this.value)" style="margin:12px 0 14px"/><div id="rcRaceList">'+rows+'</div><button class="reqbtn" style="margin-top:6px" onclick="rcGo(\'race_custom\')">Can\u2019t find it? Add your own</button>');
+  rcDistFilter='all';
+  var rows=RC_RACES.map(function(r,i){return '<button class="rc-race" data-s="'+esc((r.n+' '+r.c).toLowerCase())+'" data-dist="'+esc(r.dist)+'" onclick="rcPickRace('+i+')"><span class="rc-flag">'+rcFlag(r.cc)+'</span><span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.n)+(r.m?' <span class="rc-distchip" style="color:#C68A2E;background:color-mix(in srgb,#C68A2E 12%,transparent)">MAJOR</span>':'')+'</span><span style="display:block;font-size:12px;color:var(--sub)">'+esc(r.c)+' \u00B7 '+rcFmtDate(r._d)+'</span></span><span class="rc-distchip" style="flex:none">'+esc(r.dist==='Half'?'HALF':r.dist.toUpperCase())+'</span></button>';}).join('');
+  var pills=['all','5K','10K','Half','Marathon','Ultra'].map(function(d){return '<button class="rc-pill'+(d==='all'?' on':'')+'" data-df="'+d+'" onclick="rcSetDistFilter(\''+d+'\')" style="padding:8px 13px;font-size:13px">'+(d==='all'?'All':d)+'</button>';}).join('');
+  var body='<input id="rcRaceSearch" class="rc-field" placeholder="Search '+RC_RACES.length+' races by name or city\u2026" oninput="rcApplyRaceFilter()" autocomplete="off" style="margin:12px 0 10px"/>'+
+    '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">'+pills+'</div>'+
+    '<div id="rcRaceCount" class="rs" style="margin:0 2px 8px">Showing '+RC_RACES.length+' of '+RC_RACES.length+'</div>'+
+    '<div id="rcRaceList" style="max-height:46vh;overflow-y:auto;border:1px solid var(--line);border-radius:14px;padding:8px;background:var(--bg-2)">'+rows+'</div>'+
+    '<button class="reqbtn" style="margin-top:10px" onclick="rcGo(\'race_custom\')">Can\u2019t find it? Add your own</button>';
+  return rcQCard('Find your race','Search our global race list, filter by distance, or add your own.',body);
 }
 function rcScrRaceConfirm(){
   var r=rcSetup.race||{};
@@ -1597,11 +1685,13 @@ function rcScrPreview(){
   return '<div class="rc-anim">'+hero+stats+weekCard+btns+'</div>';
 }
 
-function rcFilterRaces(q){q=(q||'').toLowerCase().trim();var rows=document.querySelectorAll('#rcRaceList .rc-race');for(var i=0;i<rows.length;i++){var s=rows[i].getAttribute('data-s')||'';rows[i].style.display=(s.indexOf(q)>=0)?'':'none';}}
+var rcDistFilter='all';
+function rcApplyRaceFilter(){var inp=document.getElementById('rcRaceSearch');var q=(inp&&inp.value||'').toLowerCase().trim();var rows=document.querySelectorAll('#rcRaceList .rc-race');var shown=0;for(var i=0;i<rows.length;i++){var s=rows[i].getAttribute('data-s')||'';var dd=rows[i].getAttribute('data-dist')||'';var ok=(s.indexOf(q)>=0)&&(rcDistFilter==='all'||dd===rcDistFilter);rows[i].style.display=ok?'':'none';if(ok)shown++;}var c=document.getElementById('rcRaceCount');if(c)c.textContent='Showing '+shown+' of '+rows.length;}
+function rcSetDistFilter(d){rcDistFilter=d;var pills=document.querySelectorAll('[data-df]');for(var i=0;i<pills.length;i++){pills[i].classList.toggle('on',pills[i].getAttribute('data-df')===d);}rcApplyRaceFilter();}
 function rcPickGoal(label,type){rcSetup.goal={label:label,val:type,dist_m:rcDistM(label)};if(type==='race'){rcGo('race');}else if(type==='start'){rcSetup.race=null;rcSetup.ability={label:'Beginner',val:'beginner'};rcSetup.fitnessNew=true;rcGo('days');}else{rcSetup.race=null;rcGo('ability');}}
 function rcSaveCustomDist(){var v=parseFloat((document.getElementById('rcCustKm')||{}).value);if(!v||v<=0){toast('Enter a distance in km');return;}rcSetup.goal={label:v+' km',val:'race',dist_m:Math.round(v*1000)};rcGo('race');}
 function rcNoRace(){rcSetup.race=null;rcGo('ability');}
-function rcPickRace(i){var r=RC_RACES[i];if(!r)return;rcSetup.race={name:r.n,city:r.c,distance:r.dist,date:r._d,flag:r.f};rcSetup.goal={label:r.dist,val:'race',dist_m:rcDistM(r.dist)};rcGo('race_confirm');}
+function rcPickRace(i){var r=RC_RACES[i];if(!r)return;rcSetup.race={name:r.n,city:r.c,distance:r.dist,date:r._d,flag:rcFlag(r.cc)};rcSetup.goal={label:r.dist,val:'race',dist_m:rcDistM(r.dist)};rcGo('race_confirm');}
 function rcSaveRaceDate(){var v=(document.getElementById('rcRaceDate')||{}).value;if(v)rcSetup.race.date=v;rcGo('ability');}
 function rcSaveCustomRace(){var n=((document.getElementById('rcRaceName')||{}).value||'').trim();var v=(document.getElementById('rcRaceDate2')||{}).value;if(!v){toast('Pick a race date');return;}rcSetup.race={name:n||'My race',date:v,distance:(rcSetup.goal&&rcSetup.goal.label)||'Race',flag:'\uD83C\uDFC1'};rcGo('ability');}
 function rcPickAbility(label,v){rcSetup.ability={label:label,val:v};rcGo('fitness');}
