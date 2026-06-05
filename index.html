@@ -1226,9 +1226,6 @@ async function renderTab(tab){
   if(tab==='runcoach')return renderRunCoach();
   if(tab==='calendar')return renderCalendar();
   if(TRACKERS[tab])return renderTracker(tab);
-  if(tab==='calendar')return renderCalendar();
-  if(tab==='contacts')return renderContacts();
-  if(tab==='travel')return renderTravel();
   if(tab==='fitness')return renderFitness();
   if(tab==='health')return renderHealth();
   return renderGenericList(tab);
@@ -1358,13 +1355,22 @@ async function addShiftsNL(){
 }
 async function openDay(iso){
   var shifts=await getShifts(iso,iso);
-  var rp=await getRunPlan();var se=rp&&rp.plan?rcSessionMap(rp.plan)[iso]:null;
+  var rp=await getRunPlan();var plan=rp&&rp.plan;
+  var se=plan?rcSessionMap(plan)[iso]:null;
+  var richDay=null;if(plan&&plan.detail&&plan.detail.days){plan.detail.days.forEach(function(x){if(x.date===iso)richDay=x;});}
   var d=new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
-  var sessHtml=se?'<div style="background:var(--surface-2);border:1px solid var(--line);border-left:3px solid '+sessTypeColor(se.type)+';border-radius:11px;padding:11px 13px;margin-bottom:8px"><div class="rs" style="font-size:11px;color:'+sessTypeColor(se.type)+';font-weight:700;text-transform:uppercase">Training \u00B7 '+esc(se.type||'')+'</div><div class="rt" style="margin-top:2px">'+esc(se.title||se.type)+(se.km?' \u00B7 '+se.km+' km':'')+'</div></div>':'';
-  var rows=shifts.length?shifts.map(function(s){return '<div class="trow"><div style="flex:1"><div class="rt">'+esc(s.label)+'</div><div class="rs">'+esc((s.start||'')+(s.end?' \u2013 '+s.end:'')||'all day')+'</div></div><button class="tbtn rm" onclick="rmShiftDay(\''+s.id+'\',\''+iso+'\')">Remove</button></div>';}).join(''):(se?'':'<p style="color:var(--sub);font-size:14px;margin:8px 2px">Nothing yet.</p>');
-  var coachBtn=se?'<button class="btn btn-primary" onclick="closeOverlay();go(\'runcoach\')">Open Run Coach</button>':'';
+  var sessHtml='';var isSession=false;
+  if(richDay&&(richDay.type||'').toLowerCase()!=='rest'){isSession=true;var col=sessTypeColor(richDay.type);
+    sessHtml='<div style="background:var(--surface-2);border:1px solid var(--line);border-left:3px solid '+col+';border-radius:12px;padding:13px 14px;margin-bottom:10px"><div class="rs" style="font-size:11px;color:'+col+';font-weight:700;text-transform:uppercase">Training \u00B7 '+esc(richDay.type||'')+'</div><div class="serif" style="font-size:18px;font-weight:700;margin-top:3px">'+esc(richDay.title||richDay.type)+(richDay.km?' \u00B7 '+richDay.km+' km':'')+'</div>'+sessionDetailHTML(plan,richDay)+(richDay.note?'<div class="rs" style="margin-top:8px;line-height:1.45">'+esc(richDay.note)+'</div>':'')+'</div>';
+  }else if(se){isSession=true;var col2=sessTypeColor(se.type);
+    sessHtml='<div style="background:var(--surface-2);border:1px solid var(--line);border-left:3px solid '+col2+';border-radius:12px;padding:13px 14px;margin-bottom:10px"><div class="rs" style="font-size:11px;color:'+col2+';font-weight:700;text-transform:uppercase">Training \u00B7 '+esc(se.type||'')+'</div><div class="serif" style="font-size:18px;font-weight:700;margin-top:3px">'+esc(se.title||se.type)+(se.km?' \u00B7 '+se.km+' km':'')+'</div><div class="rs" style="margin-top:6px">The full breakdown unlocks the week this session comes up.</div></div>';
+  }
+  var rows=shifts.length?shifts.map(function(s){return '<div class="trow"><div style="flex:1"><div class="rt">'+esc(s.label)+'</div><div class="rs">'+esc((s.start||'')+(s.end?' \u2013 '+s.end:'')||'all day')+'</div></div><button class="tbtn rm" onclick="rmShiftDay(\''+s.id+'\',\''+iso+'\')">Remove</button></div>';}).join(''):(isSession?'':'<p style="color:var(--sub);font-size:14px;margin:6px 2px">Nothing scheduled.</p>');
+  var shiftLbl=shifts.length?'<div class="ctitle" style="margin-top:4px">Shifts</div>':'';
+  var logBtn=isSession?'<button class="btn btn-primary" onclick="closeOverlay();logRun()">Log this run</button>':'';
+  var coachLink=isSession?'<button class="reqbtn" style="margin-top:8px" onclick="closeOverlay();go(\'runcoach\')">Open in Run Coach</button>':'';
   var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
-  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()"><h3>'+d+'</h3>'+sessHtml+rows+'<input id="dayNL" placeholder="Add a shift, e.g. work 9-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addDayShift(\''+iso+'\');}" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:10px"/><div class="btnrow">'+coachBtn+'<button class="btn btn-primary" onclick="addDayShift(\''+iso+'\')">Add shift</button><button class="btn" onclick="closeOverlay()">Done</button></div></div>';
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()" style="max-height:86vh;overflow-y:auto"><h3>'+d+'</h3>'+sessHtml+shiftLbl+rows+'<input id="dayNL" placeholder="Add a shift, e.g. work 9-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addDayShift(\''+iso+'\');}" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:10px"/><div class="btnrow">'+logBtn+'<button class="btn" onclick="addDayShift(\''+iso+'\')">Add shift</button><button class="btn" onclick="closeOverlay()">Done</button></div>'+coachLink+'</div>';
   document.getElementById('app').appendChild(o);
 }
 async function rmShiftDay(id,iso){await deleteShiftDB(id);closeOverlay();await refreshScreen();openDay(iso);}
@@ -1571,6 +1577,8 @@ RC_RACES.forEach(function(r){r._d=rcNextDate(r.d);});
 RC_RACES.sort(function(a,b){return a._d<b._d?-1:(a._d>b._d?1:0);});
 
 var rcScreen='goal',rcBack=[],rcPreview=null;
+var rcWeekdays=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function rcToggleDay(d){rcSetup.daysSel=rcSetup.daysSel||[];var i=rcSetup.daysSel.indexOf(d);if(i>=0)rcSetup.daysSel.splice(i,1);else rcSetup.daysSel.push(d);refreshScreen();}
 var RC_FLOW=['goal','race','ability','fitness','days','longrun','volume','difficulty','strength'];
 function rcGo(s){rcBack.push(rcScreen);rcScreen=s;refreshScreen();}
 function rcGoBack(){if(rcBack.length)rcScreen=rcBack.pop();else rcScreen='goal';refreshScreen();}
@@ -2071,17 +2079,6 @@ async function renderHealth(){
   var items=await loadItems('health');
   var rows=items.length?items.map(function(it){return '<div class="row"><span class="dot" style="background:#FB7185"></span><div style="flex:1"><div class="rt">'+esc(it.t)+'</div>'+(it.s?'<div class="rs">'+esc(it.s)+'</div>':'')+'</div><button class="del" onclick="delItem(\''+it.id+'\',\'health\')">'+icon('x',15)+'</button></div>';}).join(''):'<div class="row"><div class="rs">Tap + to add an entry.</div></div>';
   return '<div class="stack"><div class="two"><div class="card stat"><div class="k">'+icon('drop',14)+' Water</div><div class="v">1.6 L</div><div class="d">of 2.5 L</div></div><div class="card stat"><div class="k">'+icon('moon',14)+' Sleep</div><div class="v">7h 12m</div><div class="d">last night</div></div></div><div class="card"><div class="ctitle">Health log</div>'+rows+'</div></div>';
-}
-function renderCalendar(){
-  var cells='';for(var i=0;i<35;i++){var n=i-3;var on=n===29;var ev=[12,18,29].indexOf(n)>=0;cells+='<div class="cell'+(on?' today':'')+'" style="color:'+(on?'#fff':(n>0&&n<=31?'var(--ink)':'transparent'))+'">'+(n>0&&n<=31?n:'')+(ev&&!on?'<span class="evdot"></span>':'')+'</div>';}
-  return Promise.resolve('<div class="stack"><div class="card"><div class="serif" style="font-size:18px;font-weight:600;margin-bottom:14px">May 2026</div><div class="cal">'+['M','T','W','T','F','S','S'].map(function(d){return '<div class="h">'+d+'</div>';}).join('')+cells+'</div></div></div>');
-}
-function renderContacts(){
-  var b=[['Mum','2 Jun','in 4 days'],['Jordan','11 Jun','in 13 days'],['Aunty Lou','24 Jun','in 26 days']];
-  return Promise.resolve('<div class="stack"><div class="card"><div class="ctitle">Upcoming birthdays</div>'+b.map(function(x){return '<div class="row"><div style="width:38px;height:38px;border-radius:50%;background:#EDE3F0;color:#A78BFA;display:flex;align-items:center;justify-content:center">'+icon('cake',17)+'</div><div style="flex:1"><div class="rt">'+x[0]+'</div><div class="rs">'+x[1]+'</div></div><div style="font-size:12px;color:var(--sub)">'+x[2]+'</div></div>';}).join('')+'</div></div>');
-}
-function renderTravel(){
-  return Promise.resolve('<div class="stack"><div class="card" style="background:linear-gradient(135deg,#4D6BFF,#6E86FF);color:#FFFFFF;padding:22px"><div style="font-size:13px;opacity:.85;display:flex;align-items:center;gap:6px">'+icon('pin',14)+' Next trip</div><div class="serif" style="font-size:24px;font-weight:600;margin-top:4px">Byron Bay</div><div style="font-size:13px;opacity:.85;margin-top:4px">14 – 18 Jul · in 46 days</div></div></div>');
 }
 function catScreenHTML(cid){
   var c=catById(cid);
