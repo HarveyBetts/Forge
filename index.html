@@ -1386,7 +1386,7 @@ var rcChat=[],rcBusy=false,rcEditing=false,rcStep=0,rcSetup={},rcChatStart=false
 var PACE_KEYS=[['recovery','Recovery','#A2A6AE'],['easy','Easy','#3D5AFF'],['long','Long','#7C5CFF'],['marathon','Marathon','#5E78FF'],['threshold','Threshold','#DB4A3D'],['tenK','10K','#C68A2E'],['fiveK','5K / Interval','#E0623A'],['rep','Rep / Strides','#B23A86']];
 function runToday(){return RUN_DAYS[new Date().getDay()];}
 function startRunSetup(){rcEditPlan();}
-function cancelRunSetup(){rcEditing=false;rcChatStart=false;rcChat=[];rcStep=0;rcSetup={};refreshScreen();}
+function cancelRunSetup(){rcEditing=false;rcChatStart=false;rcChat=[];rcStep=0;rcSetup={};rcScreen='goal';rcBack=[];refreshScreen();}
 function rcEditPlan(){rcEditing=true;rcChat=[{role:'assistant',content:'What\u2019s changed? New goal, a fresh race result, an injury, a busy patch \u2014 tell me and I\u2019ll rebuild your plan from your latest data.'}];refreshScreen();}
 function pad2(n){n=Math.round(n);return (n<10?'0':'')+n;}
 function paceStr(sec){if(!sec||sec<0)return '';return Math.floor(sec/60)+':'+pad2(sec%60);}
@@ -1449,43 +1449,150 @@ async function rcParseGarmin(text){
 }
 
 // ---- Conversational setup ----
+// ===== RUN COACH onboarding — Runna-style guided, interactive setup =====
 function rcStyles(){return '<style>'+
   '.rc-ai{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:16px 16px 16px 5px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:90%}.rc-me{align-self:flex-end;background:var(--accent);color:#fff;border-radius:16px 16px 5px 16px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:85%}.rc-in{flex:1;box-sizing:border-box;padding:13px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;outline:none}'+
-  '.rc-opt{appearance:none;text-align:left;cursor:pointer;font-family:inherit;background:linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--line);border-radius:16px;padding:16px 16px;display:flex;flex-direction:column;gap:3px;transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .18s,box-shadow .18s;box-shadow:var(--shadow)}'+
-  '.rc-opt:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 14px 30px -16px color-mix(in srgb,var(--accent) 60%,transparent)}'+
-  '.rc-opt:active{transform:translateY(0) scale(.99)}'+
-  '.rc-opt-l{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:16px;letter-spacing:-.02em;color:var(--ink)}'+
-  '.rc-opt-s{font-size:12px;color:var(--sub);font-weight:500}'+
-  '.rc-cap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:4px 2px}.rc-cap span{font-size:11px;color:var(--sub);line-height:1.25;font-weight:600}'+
+  '.rc-opt{appearance:none;text-align:left;cursor:pointer;font-family:inherit;background:linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:3px;transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .18s,box-shadow .18s;box-shadow:var(--shadow)}'+
+  '.rc-opt.wide{flex-direction:row;align-items:center;justify-content:space-between}'+
+  '.rc-opt:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 14px 30px -16px color-mix(in srgb,var(--accent) 60%,transparent)}.rc-opt:active{transform:translateY(0) scale(.99)}'+
+  '.rc-opt-l{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:16px;letter-spacing:-.02em;color:var(--ink)}.rc-opt-s{font-size:12px;color:var(--sub);font-weight:500}'+
+  '.rc-cap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:4px 2px}.rc-cap span{font-size:11px;line-height:1.25;font-weight:600}'+
   '.rc-dot{width:7px;height:7px;border-radius:50%;background:var(--surface-3);transition:.2s}.rc-dot.on{background:var(--accent);width:20px;border-radius:4px}'+
+  '.rc-race{appearance:none;display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer;transition:.15s;width:100%;text-align:left;font-family:inherit;margin-bottom:8px}.rc-race:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 10px 24px -16px color-mix(in srgb,var(--accent) 60%,transparent)}'+
+  '.rc-flag{font-size:24px;flex:none;line-height:1}.rc-distchip{font-size:10.5px;font-weight:800;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:3px 8px;border-radius:8px;letter-spacing:.02em}'+
+  '.rc-field{width:100%;box-sizing:border-box;padding:14px 15px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:16px;outline:none;transition:.15s}.rc-field:focus{border-color:var(--accent)}'+
+  '.rc-pill{appearance:none;font-family:inherit;font-weight:700;font-size:14px;padding:11px 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;transition:.15s}.rc-pill.on{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 8px 20px -10px color-mix(in srgb,var(--accent) 70%,transparent)}'+
   '@keyframes rcpulse{0%,100%{opacity:.4;transform:scale(.9)}50%{opacity:1;transform:scale(1.05)}}.rc-pulse{animation:rcpulse 1.3s ease-in-out infinite}'+
+  '@keyframes rcfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.rc-anim{animation:rcfade .26s ease}'+
   '</style>';}
-function rcSetupSteps(){return [
-  {key:'goal',q:'What are you training for?',sub:'Pick a goal \u2014 I\u2019ll shape everything around it.',opts:[{l:'5K',s:'Race or PB',v:'race'},{l:'10K',s:'Race or PB',v:'race'},{l:'Half Marathon',s:'21.1 km',v:'race'},{l:'Marathon',s:'42.2 km',v:'race'},{l:'Get fitter',s:'Build a base',v:'general'},{l:'Lose weight',s:'Run to lean up',v:'weight'}]},
-  {key:'when',q:'By when?',sub:'This sets how hard we ramp.',opts:[{l:'In 6 weeks',v:'6'},{l:'In 8 weeks',v:'8'},{l:'In 12 weeks',v:'12'},{l:'In 16 weeks',v:'16'},{l:'No deadline',s:'Ongoing',v:'ongoing'}]},
-  {key:'days',q:'How many days a week can you train?',sub:'Be honest \u2014 I\u2019ll fit it to your shifts.',opts:[{l:'3 days',v:'3'},{l:'4 days',v:'4'},{l:'5 days',v:'5'},{l:'6 days',v:'6'}]},
-  {key:'lift',q:'Do you lift as well?',sub:'I\u2019ll weave strength around your runs.',opts:[{l:'Yes, I lift',s:'Runs + strength',v:'lift'},{l:'Just running',s:'Runs only',v:'run'}]}
-];}
+
+var RC_RACES=[
+  {n:'Sydney Marathon',c:'Sydney, Australia',d:'2026-08-30',dist:'Marathon',f:'\uD83C\uDDE6\uD83C\uDDFA',m:1},
+  {n:'Berlin Marathon',c:'Berlin, Germany',d:'2026-09-27',dist:'Marathon',f:'\uD83C\uDDE9\uD83C\uDDEA',m:1},
+  {n:'Chicago Marathon',c:'Chicago, USA',d:'2026-10-11',dist:'Marathon',f:'\uD83C\uDDFA\uD83C\uDDF8',m:1},
+  {n:'New York City Marathon',c:'New York, USA',d:'2026-11-01',dist:'Marathon',f:'\uD83C\uDDFA\uD83C\uDDF8',m:1},
+  {n:'Tokyo Marathon',c:'Tokyo, Japan',d:'2026-03-01',dist:'Marathon',f:'\uD83C\uDDEF\uD83C\uDDF5',m:1},
+  {n:'Boston Marathon',c:'Boston, USA',d:'2026-04-20',dist:'Marathon',f:'\uD83C\uDDFA\uD83C\uDDF8',m:1},
+  {n:'London Marathon',c:'London, UK',d:'2026-04-26',dist:'Marathon',f:'\uD83C\uDDEC\uD83C\uDDE7',m:1},
+  {n:'Gold Coast Marathon',c:'Gold Coast, Australia',d:'2026-07-05',dist:'Marathon',f:'\uD83C\uDDE6\uD83C\uDDFA'},
+  {n:'Melbourne Marathon',c:'Melbourne, Australia',d:'2026-10-11',dist:'Marathon',f:'\uD83C\uDDE6\uD83C\uDDFA'},
+  {n:'City2Surf',c:'Sydney, Australia',d:'2026-08-09',dist:'10K',f:'\uD83C\uDDE6\uD83C\uDDFA'},
+  {n:'Great North Run',c:'Newcastle, UK',d:'2026-09-13',dist:'Half',f:'\uD83C\uDDEC\uD83C\uDDE7'},
+  {n:'Paris Marathon',c:'Paris, France',d:'2026-04-12',dist:'Marathon',f:'\uD83C\uDDEB\uD83C\uDDF7'},
+  {n:'Amsterdam Marathon',c:'Amsterdam, Netherlands',d:'2026-10-18',dist:'Marathon',f:'\uD83C\uDDF3\uD83C\uDDF1'},
+  {n:'Valencia Marathon',c:'Valencia, Spain',d:'2026-12-06',dist:'Marathon',f:'\uD83C\uDDEA\uD83C\uDDF8'}
+];
+function rcDistM(d){return ({'5K':5000,'10K':10000,'Half':21097,'Half Marathon':21097,'Marathon':42195,'Ultra':50000})[d]||null;}
+function rcNextDate(iso){var d=new Date(iso+'T00:00:00');var t=new Date();t.setHours(0,0,0,0);while(d<t){d.setFullYear(d.getFullYear()+1);}return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());}
+function rcFmtDate(iso){return new Date(iso+'T00:00:00').toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});}
+RC_RACES.forEach(function(r){r._d=rcNextDate(r.d);});
+RC_RACES.sort(function(a,b){return a._d<b._d?-1:(a._d>b._d?1:0);});
+
+var rcScreen='goal',rcBack=[];
+function rcGo(s){rcBack.push(rcScreen);rcScreen=s;refreshScreen();}
+function rcGoBack(){if(rcBack.length)rcScreen=rcBack.pop();else rcScreen='goal';refreshScreen();}
+
 function runCoachChatHTML(){
   if(rcBuilding)return rcBuildingHTML();
   if(rcEditing||rcChatStart)return rcChatHTML();
+  if(!rcScreen)rcScreen='goal';
   return rcSetupHTML();
 }
-function rcSetupHTML(){
-  var steps=rcSetupSteps();var i=Math.min(rcStep,steps.length-1);var step=steps[i];
+function rcStepIdx(s){return {goal:0,goal_custom:0,race:1,race_pick:1,race_confirm:1,race_custom:1,fitness:2,days:3,effort:4,lift:5}[s]||0;}
+function rcShellHead(idx){
   var first=currentUser?currentUser.name.split(' ')[0]:'';
-  var head=(i===0)
-    ? '<div class="card" style="background:var(--grad);color:#fff;border:none;box-shadow:0 18px 44px -22px color-mix(in srgb,var(--accent) 80%,transparent)"><div style="font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.85;font-weight:700">Run Coach</div><div class="serif" style="font-size:25px;font-weight:700;line-height:1.08;letter-spacing:-.03em;margin-top:7px">Let\u2019s build your training'+(first?', '+esc(first):'')+'.</div><div style="font-size:13.5px;opacity:.9;margin-top:7px;line-height:1.45">I plan it around your whole life \u2014 your shifts, your sleep, your real runs \u2014 and adapt as things change.</div><div style="display:flex;gap:6px;margin-top:16px;border-top:1px solid rgba(255,255,255,.18);padding-top:14px"><div class="rc-cap" style="color:#fff"><span style="opacity:.95">'+icon('calendar',18,2)+'</span><span style="color:rgba(255,255,255,.9)">Around your shifts</span></div><div class="rc-cap"><span style="opacity:.95">'+icon('health',18,2)+'</span><span style="color:rgba(255,255,255,.9)">Adapts to sleep</span></div><div class="rc-cap"><span style="opacity:.95">'+icon('trend',18,2)+'</span><span style="color:rgba(255,255,255,.9)">Paces from real runs</span></div></div></div>'
-    : '<div style="display:flex;align-items:center;gap:12px;padding:2px"><button onclick="rcSetupBack()" style="width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center">'+icon('back',18,2.2)+'</button><div class="rs" style="font-weight:600">'+esc(rcSetup.goal?rcSetup.goal.label:'')+(rcSetup.when?' \u00B7 '+esc(rcSetup.when.label):'')+'</div></div>';
-  var grid='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">'+step.opts.map(function(o){return '<button class="rc-opt" onclick="rcPick(\''+step.key+'\',\''+esc(o.l)+'\',\''+o.v+'\')"><span class="rc-opt-l">'+esc(o.l)+'</span>'+(o.s?'<span class="rc-opt-s">'+esc(o.s)+'</span>':'')+'</button>';}).join('')+'</div>';
-  var qcard='<div class="card"><div class="serif" style="font-size:20px;font-weight:700;letter-spacing:-.02em">'+esc(step.q)+'</div>'+(step.sub?'<div class="rs" style="margin-top:4px">'+esc(step.sub)+'</div>':'')+grid+'</div>';
-  var dots='<div style="display:flex;gap:6px;justify-content:center;align-items:center;margin-top:2px">'+steps.map(function(s,k){return '<span class="rc-dot'+(k<=i?' on':'')+'"></span>';}).join('')+'</div>';
-  var alt='<div style="display:flex;justify-content:center;margin-top:2px"><button onclick="rcTypeInstead()" style="background:none;border:none;color:var(--sub);font-size:13px;font-family:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Prefer to just talk? Tell me in your own words</button></div>';
-  var imp=(i===0)?garminCard():'';
-  return '<div class="stack">'+rcStyles()+head+qcard+dots+(i===0?imp:'')+alt+'</div>';
+  if(rcScreen==='goal'){
+    return '<div class="card" style="background:var(--grad);color:#fff;border:none;box-shadow:0 18px 44px -22px color-mix(in srgb,var(--accent) 80%,transparent)"><div style="font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.85;font-weight:700">Run Coach</div><div class="serif" style="font-size:25px;font-weight:700;line-height:1.08;letter-spacing:-.03em;margin-top:7px">Let\u2019s build your training'+(first?', '+esc(first):'')+'.</div><div style="font-size:13.5px;opacity:.9;margin-top:7px;line-height:1.45">A plan built around your whole life \u2014 your shifts, your sleep, your real runs \u2014 that adapts as things change.</div><div style="display:flex;gap:6px;margin-top:16px;border-top:1px solid rgba(255,255,255,.18);padding-top:14px"><div class="rc-cap"><span style="opacity:.95;color:#fff">'+icon('calendar',18,2)+'</span><span style="color:rgba(255,255,255,.9)">Around your shifts</span></div><div class="rc-cap"><span style="opacity:.95;color:#fff">'+icon('health',18,2)+'</span><span style="color:rgba(255,255,255,.9)">Adapts to sleep</span></div><div class="rc-cap"><span style="opacity:.95;color:#fff">'+icon('trend',18,2)+'</span><span style="color:rgba(255,255,255,.9)">Paces from real runs</span></div></div></div>';
+  }
+  var crumbs=[];if(rcSetup.goal)crumbs.push(rcSetup.goal.label);if(rcSetup.race&&rcSetup.race.name)crumbs.push(rcSetup.race.name);
+  return '<div style="display:flex;align-items:center;gap:12px;padding:2px"><button onclick="rcGoBack()" style="width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center">'+icon('back',18,2.2)+'</button><div class="rs" style="font-weight:600">'+(esc(crumbs.join(' \u00B7 '))||'Setup')+'</div></div>';
 }
+function rcDots(idx){var n=6;var o='';for(var k=0;k<n;k++)o+='<span class="rc-dot'+(k<=idx?' on':'')+'"></span>';return '<div style="display:flex;gap:6px;justify-content:center;align-items:center;margin-top:2px">'+o+'</div>';}
+function rcSetupHTML(){
+  var idx=rcStepIdx(rcScreen);
+  var map={goal:rcScrGoal,goal_custom:rcScrGoalCustom,race:rcScrRace,race_pick:rcScrRacePick,race_confirm:rcScrRaceConfirm,race_custom:rcScrRaceCustom,fitness:rcScrFitness,days:rcScrDays,effort:rcScrEffort,lift:rcScrLift};
+  var inner='<div class="rc-anim">'+((map[rcScreen]||rcScrGoal)())+'</div>';
+  var alt='<div style="display:flex;justify-content:center;margin-top:2px"><button onclick="rcTypeInstead()" style="background:none;border:none;color:var(--sub);font-size:13px;font-family:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Prefer to just talk? Tell me in your own words</button></div>';
+  return '<div class="stack">'+rcStyles()+rcShellHead(idx)+inner+rcDots(idx)+alt+'</div>';
+}
+function rcQCard(q,sub,body){return '<div class="card"><div class="serif" style="font-size:20px;font-weight:700;letter-spacing:-.02em">'+esc(q)+'</div>'+(sub?'<div class="rs" style="margin-top:4px">'+esc(sub)+'</div>':'')+body+'</div>';}
+
+function rcScrGoal(){
+  var goals=[['5K','Race or PB','race'],['10K','Race or PB','race'],['Half Marathon','21.1 km','race'],['Marathon','42.2 km','race'],['Ultra','50 km +','race'],['Get fitter','Build a base','general']];
+  var grid='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">'+goals.map(function(g){return '<button class="rc-opt" onclick="rcPickGoal(\''+esc(g[0])+'\',\''+g[2]+'\')"><span class="rc-opt-l">'+esc(g[0])+'</span><span class="rc-opt-s">'+esc(g[1])+'</span></button>';}).join('')+'</div>'+
+    '<button class="rc-opt wide" style="margin-top:10px" onclick="rcGo(\'goal_custom\')"><span><span class="rc-opt-l">Custom distance</span><span class="rc-opt-s" style="display:block">Set your own target</span></span><span style="color:var(--accent);font-weight:800">+</span></button>';
+  return rcQCard('What are you training for?','Pick a goal \u2014 I\u2019ll shape everything around it.',grid)+garminCard();
+}
+function rcScrGoalCustom(){
+  var body='<div style="margin-top:12px"><input id="rcCustKm" class="rc-field" type="number" inputmode="decimal" placeholder="Distance in km, e.g. 15"/><button class="tbtn add" style="margin-top:12px;width:100%;justify-content:center" onclick="rcSaveCustomDist()">Continue \u2192</button></div>';
+  return rcQCard('Your custom distance','How far is your goal?',body);
+}
+function rcScrRace(){
+  var opts=[['Pick a race','Choose from upcoming events','rcGo(\'race_pick\')'],['I have my own race','Set the name & date','rcGo(\'race_custom\')'],['No race for now','Just train & improve','rcNoRace()']];
+  var grid=opts.map(function(o){return '<button class="rc-opt wide" style="margin-bottom:10px" onclick="'+o[2]+'"><span><span class="rc-opt-l">'+esc(o[0])+'</span><span class="rc-opt-s" style="display:block">'+esc(o[1])+'</span></span><span style="color:var(--sub);font-weight:800">\u203A</span></button>';}).join('');
+  return rcQCard('Training for a specific race?','I\u2019ll count down and peak you for the day.','<div style="margin-top:8px">'+grid+'</div>');
+}
+function rcScrRacePick(){
+  var rows=RC_RACES.map(function(r,i){return '<button class="rc-race" data-s="'+esc((r.n+' '+r.c).toLowerCase())+'" onclick="rcPickRace('+i+')"><span class="rc-flag">'+r.f+'</span><span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:14.5px;color:var(--ink)">'+esc(r.n)+(r.m?' <span class="rc-distchip" style="color:#C68A2E;background:color-mix(in srgb,#C68A2E 12%,transparent)">MAJOR</span>':'')+'</span><span style="display:block;font-size:12px;color:var(--sub)">'+esc(r.c)+' \u00B7 '+rcFmtDate(r._d)+'</span></span><span class="rc-distchip">'+esc(r.dist==='Half'?'HALF':r.dist.toUpperCase())+'</span></button>';}).join('');
+  var body='<input class="rc-field" placeholder="Search races or cities\u2026" onkeyup="rcFilterRaces(this.value)" style="margin:12px 0 14px"/><div id="rcRaceList">'+rows+'</div><button class="reqbtn" style="margin-top:6px" onclick="rcGo(\'race_custom\')">Can\u2019t find it? Add your own</button>';
+  return rcQCard('Pick your race','A curated feed of major & popular events \u2014 you\u2019ll confirm the date next.',body);
+}
+function rcScrRaceConfirm(){
+  var r=rcSetup.race||{};
+  var body='<div style="display:flex;align-items:center;gap:12px;margin:12px 0;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)"><span class="rc-flag">'+(r.flag||'\uD83C\uDFC1')+'</span><div style="flex:1"><div style="font-weight:700">'+esc(r.name||'Race')+'</div><div class="rs">'+esc(r.city||'')+' \u00B7 '+esc(r.distance||'')+'</div></div></div>'+
+    '<div class="rs" style="font-weight:600;margin-bottom:6px">Race date</div><input id="rcRaceDate" class="rc-field" type="date" value="'+esc(r.date||'')+'"/>'+
+    '<button class="tbtn add" style="margin-top:14px;width:100%;justify-content:center" onclick="rcSaveRaceDate()">That\u2019s my race \u2192</button>';
+  return rcQCard('Confirm your race','Dates recur each year \u2014 adjust if needed.',body);
+}
+function rcScrRaceCustom(){
+  var body='<div style="margin-top:12px"><div class="rs" style="font-weight:600;margin-bottom:6px">Race name (optional)</div><input id="rcRaceName" class="rc-field" placeholder="e.g. Sydney Half"/>'+
+    '<div class="rs" style="font-weight:600;margin:14px 0 6px">Race date</div><input id="rcRaceDate2" class="rc-field" type="date"/>'+
+    '<button class="tbtn add" style="margin-top:14px;width:100%;justify-content:center" onclick="rcSaveCustomRace()">Continue \u2192</button></div>';
+  return rcQCard('Your race','When are you toeing the line?',body);
+}
+function rcScrFitness(){
+  var dists=['5K','10K','Half','Marathon'];var fd=rcSetup._fitDist||'5K';
+  var pills='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">'+dists.map(function(d){return '<button class="rc-pill'+(fd===d?' on':'')+'" onclick="rcFitDistPick(\''+d+'\')">'+d+'</button>';}).join('')+'</div>';
+  var input='<div class="rs" style="font-weight:600;margin-bottom:6px">Your recent '+esc(fd)+' time</div><input id="rcFitTime" class="rc-field" placeholder="e.g. 25:30" value="'+esc(rcSetup._fitTime||'')+'" oninput="rcFitTimeIn(this.value)"/>'+
+    '<button class="tbtn add" style="margin-top:14px;width:100%;justify-content:center" onclick="rcFitSave()">Set my paces \u2192</button>'+
+    '<button class="reqbtn" style="margin-top:8px" onclick="rcFitNew()">I\u2019m just starting / not sure</button>';
+  return rcQCard('Where\u2019s your fitness?','A recent time lets me set your exact training paces \u2014 just like a coach would.',pills+input);
+}
+function rcScrDays(){
+  var sel=rcSetup.daysSel||[];
+  var pills='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">'+rcWeekdays.map(function(d){var on=sel.indexOf(d)>=0;return '<button onclick="rcToggleDay(\''+d+'\')" style="flex:1 0 calc(33.33% - 8px);min-width:80px;padding:14px 0;border-radius:13px;border:1px solid '+(on?'var(--accent)':'var(--line)')+';background:'+(on?'var(--grad)':'var(--surface)')+';color:'+(on?'#fff':'var(--ink)')+';font-family:inherit;font-weight:700;font-size:14.5px;cursor:pointer;transition:.15s;box-shadow:'+(on?'0 8px 20px -10px color-mix(in srgb,var(--accent) 70%,transparent)':'var(--shadow)')+'">'+d+'</button>';}).join('')+'</div><button class="tbtn add" style="margin-top:14px;width:100%;justify-content:center" onclick="rcPickDays()">Continue \u2192</button>';
+  return rcQCard('Which days can you run?','Tap all that work \u2014 I\u2019ll place sessions around your shifts.',pills);
+}
+function rcScrEffort(){
+  var opts=[['Comfortable','Gentler, consistent volume','comfortable'],['Balanced','Steady, sustainable progress','balanced'],['Progressive','Higher volume, push harder','progressive']];
+  var grid=opts.map(function(o){return '<button class="rc-opt wide" style="margin-bottom:10px" onclick="rcPickEffort(\''+esc(o[0])+'\',\''+o[2]+'\')"><span><span class="rc-opt-l">'+esc(o[0])+'</span><span class="rc-opt-s" style="display:block">'+esc(o[1])+'</span></span><span style="color:var(--sub);font-weight:800">\u203A</span></button>';}).join('');
+  return rcQCard('How do you want to train?','You can change this anytime.','<div style="margin-top:8px">'+grid+'</div>');
+}
+function rcScrLift(){
+  var opts=[['Yes, I lift','Weave strength around my runs','lift'],['Just running','Runs only for now','run']];
+  var grid=opts.map(function(o){return '<button class="rc-opt wide" style="margin-bottom:10px" onclick="rcPickLift(\''+esc(o[0])+'\',\''+o[2]+'\')"><span><span class="rc-opt-l">'+esc(o[0])+'</span><span class="rc-opt-s" style="display:block">'+esc(o[1])+'</span></span><span style="color:var(--sub);font-weight:800">\u203A</span></button>';}).join('');
+  return rcQCard('Do you lift as well?','I\u2019ll schedule it so you never hit heavy legs before a hard run.','<div style="margin-top:8px">'+grid+'</div>');
+}
+
+function rcFilterRaces(q){q=(q||'').toLowerCase().trim();var rows=document.querySelectorAll('#rcRaceList .rc-race');for(var i=0;i<rows.length;i++){var s=rows[i].getAttribute('data-s')||'';rows[i].style.display=(s.indexOf(q)>=0)?'':'none';}}
+function rcPickGoal(label,type){rcSetup.goal={label:label,val:type,dist_m:rcDistM(label)};if(type==='general'){rcSetup.race=null;rcGo('fitness');}else{rcGo('race');}}
+function rcSaveCustomDist(){var v=parseFloat((document.getElementById('rcCustKm')||{}).value);if(!v||v<=0){toast('Enter a distance in km');return;}rcSetup.goal={label:v+' km',val:'race',dist_m:Math.round(v*1000)};rcGo('race');}
+function rcNoRace(){rcSetup.race=null;rcGo('fitness');}
+function rcPickRace(i){var r=RC_RACES[i];if(!r)return;rcSetup.race={name:r.n,city:r.c,distance:r.dist,date:r._d,flag:r.f};rcSetup.goal={label:r.dist,val:'race',dist_m:rcDistM(r.dist)};rcGo('race_confirm');}
+function rcSaveRaceDate(){var v=(document.getElementById('rcRaceDate')||{}).value;if(v)rcSetup.race.date=v;rcGo('fitness');}
+function rcSaveCustomRace(){var n=((document.getElementById('rcRaceName')||{}).value||'').trim();var v=(document.getElementById('rcRaceDate2')||{}).value;if(!v){toast('Pick a race date');return;}rcSetup.race={name:n||'My race',date:v,distance:(rcSetup.goal&&rcSetup.goal.label)||'Race',flag:'\uD83C\uDFC1'};rcGo('fitness');}
+function rcFitDistPick(d){rcSetup._fitDist=d;refreshScreen();}
+function rcFitTimeIn(v){rcSetup._fitTime=v;}
+function rcFitSave(){var d=rcSetup._fitDist||'5K';var mins=rcParseTimeMin(rcSetup._fitTime||'');if(mins==null){toast('Enter a time like 25:30');return;}rcSetup.benchmark={distance_m:rcDistM(d),time_s:Math.round(mins*60),label:d};rcSetup.fitnessNew=false;rcGo('days');}
+function rcFitNew(){rcSetup.benchmark=null;rcSetup.fitnessNew=true;rcGo('days');}
+function rcPickDays(){var sel=(rcSetup.daysSel||[]).slice();if(sel.length<2){toast('Pick at least 2 days');return;}var ord=rcWeekdays.filter(function(d){return sel.indexOf(d)>=0;});rcSetup.days={label:ord.length+' days',val:ord};rcGo('effort');}
+function rcPickEffort(label,v){rcSetup.effort={label:label,val:v};rcGo('lift');}
+function rcPickLift(label,v){rcSetup.lift={label:label,val:v};rcBuildFromSetup();}
+function rcTypeInstead(){rcChatStart=true;rcChat=[];refreshScreen();}
+function rcBackToOptions(){rcChatStart=false;rcChat=[];rcScreen='goal';rcBack=[];refreshScreen();}
+
 function rcBuildingHTML(){
-  return '<div class="stack">'+rcStyles()+'<div class="card" style="text-align:center;padding:46px 22px"><div class="rc-pulse" style="width:60px;height:60px;border-radius:18px;background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 16px 36px -14px color-mix(in srgb,var(--accent) 75%,transparent)">'+icon('spark',28,2)+'</div><div class="serif" style="font-size:20px;font-weight:700">Building your plan\u2026</div><div class="rs" style="margin-top:6px;line-height:1.5;max-width:300px;margin-inline:auto">Reading your runs, shifts and sleep, then laying out a plan that fits your life and lands on your calendar.</div></div></div>';
+  return '<div class="stack">'+rcStyles()+'<div class="card" style="text-align:center;padding:46px 22px"><div class="rc-pulse" style="width:60px;height:60px;border-radius:18px;background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 16px 36px -14px color-mix(in srgb,var(--accent) 75%,transparent)">'+icon('spark',28,2)+'</div><div class="serif" style="font-size:20px;font-weight:700">Building your plan\u2026</div><div class="rs" style="margin-top:6px;line-height:1.5;max-width:300px;margin-inline:auto">Setting your paces, periodising the block, and laying every session on your calendar around your shifts.</div></div></div>';
 }
 function rcChatHTML(){
   if(!rcChat.length)rcChat=[{role:'assistant',content:'Tell me what you\u2019re training for and roughly by when \u2014 or paste a recent time. I\u2019ll handle the rest and build it around your life.'}];
@@ -1496,30 +1603,24 @@ function rcChatHTML(){
     '<button class="reqbtn" onclick="'+(rcEditing?'cancelRunSetup()':'rcBackToOptions()')+'">'+(rcEditing?'Cancel':'\u2039 Back to quick setup')+'</button>'+
   '</div>';
 }
-function rcSetupBack(){if(rcStep>0)rcStep--;refreshScreen();}
-function rcBackToOptions(){rcChatStart=false;rcChat=[];refreshScreen();}
-function rcTypeInstead(){rcChatStart=true;rcChat=[];refreshScreen();}
-function rcPick(key,label,val){
-  rcSetup[key]={label:label,val:val};
-  var steps=rcSetupSteps();rcStep++;
-  if(rcStep>=steps.length){rcBuildFromSetup();}
-  else{refreshScreen();}
-}
 async function rcBuildFromSetup(){
   rcBuilding=true;await refreshScreen();
   try{
     var s=rcSetup;var goalLabel=(s.goal&&s.goal.label)||'Get fitter';var goalType=(s.goal&&s.goal.val)||'general';
-    var when=(s.when&&s.when.val);var whenTxt=(!when||when==='ongoing')?'no fixed race date \u2014 ongoing improvement':('in about '+when+' weeks');
-    var days=(s.days&&s.days.val)||'4';var lift=(s.lift&&s.lift.val==='lift');
-    var task='Build my full training plan now. Goal: '+goalLabel+' ('+goalType+'). Target: '+whenTxt+'. I can train '+days+' days a week.'+(lift?' I also lift weights \u2014 include strength sessions woven around the runs.':' Running only.')+' Use my recent runs and life context for fitness and volume; compute target_date from the timeframe relative to today; set paces from my data.';
-    var plan=await brainThink(task,{json:true,contract:rcPlanSpec(),maxTokens:3800,persona:'You are '+(currentUser?currentUser.name.split(' ')[0]:'their')+'\u2019s expert running & strength coach. Build a precise, periodised plan from their real data and life. Never generic.'});
+    var race=s.race;var whenTxt=race&&race.date?('racing '+(race.name||'a race')+' on '+race.date):'no fixed race date \u2014 ongoing improvement';
+    var ben=s.benchmark;var benTxt=ben?('My recent time: '+durStr(ben.time_s)+' for '+(ben.label||'')+'. '):(s.fitnessNew?'I\u2019m new to running / unsure of a recent time \u2014 start me conservatively. ':'');
+    var dayArr=(s.days&&s.days.val)||[];var daysTxt=dayArr.length?dayArr.join(', '):'flexible';
+    var effort=(s.effort&&s.effort.val)||'balanced';var lift=(s.lift&&s.lift.val==='lift');
+    var task='Build my full training plan now. Goal: '+goalLabel+' ('+goalType+'). Target: '+whenTxt+'. '+benTxt+'I can ONLY run on these days: '+daysTxt+' ('+dayArr.length+' days/week) \u2014 schedule every session on those days. Training preference: '+effort+' (comfortable=lower volume/intensity, progressive=higher).'+(lift?' I also lift weights \u2014 include strength woven around the runs.':' Running only.')+' Compute target_date'+(race&&race.date?(' = '+race.date):' from the timeframe')+'. Seed paces from my recent time if given, else my logged runs.';
+    var plan=await brainThink(task,{json:true,contract:rcPlanSpec(),maxTokens:3800,persona:'You are '+(currentUser?currentUser.name.split(' ')[0]:'their')+'\u2019s expert running & strength coach. Build a precise, periodised plan from their real data and life using the Runna-style methodology in the contract. Never generic.'});
     if(plan&&plan.detail&&plan.detail.days){
       var engLogs=rcEngineFromLogs(await getRunLogs(60));
-      plan.engine=engLogs||rcEngine(plan.benchmark)||null;
+      plan.engine=engLogs||(ben?rcEngine({distance_m:ben.distance_m,time_s:ben.time_s}):null)||rcEngine(plan.benchmark)||null;
       plan.startDate=localDay();plan.log=plan.log||{};plan.schedule=plan.schedule||[];rcMergeSchedule(plan);
-      var dt=(plan.target_date&&/^\d{4}-\d{2}-\d{2}$/.test(plan.target_date))?plan.target_date:null;
-      await setRunPlan({goal:plan.goal||goalLabel,goal_type:plan.goal_type||goalType,target_date:dt,days_per_week:plan.days_per_week||parseInt(days,10),level:'',baseline:'',plan:plan});
-      rcBuilding=false;rcStep=0;rcSetup={};brainStale();await refreshScreen();toast('Your plan is ready \u2713');return;
+      var dt=(race&&race.date&&/^\d{4}-\d{2}-\d{2}$/.test(race.date))?race.date:((plan.target_date&&/^\d{4}-\d{2}-\d{2}$/.test(plan.target_date))?plan.target_date:null);
+      await setRunPlan({goal:plan.goal||(race&&race.name?race.name:goalLabel),goal_type:plan.goal_type||goalType,target_date:dt,days_per_week:plan.days_per_week||dayArr.length||4,level:(ben?ben.label:''),baseline:'',plan:plan});
+      if(race&&race.date){try{var ex=await getCountdowns();var nm=race.name||goalLabel;if(!ex.some(function(c){return c.d===race.date&&c.n===nm;})&&typeof addCountdownDB==='function')await addCountdownDB(nm,race.date);}catch(e){}}
+      rcBuilding=false;rcScreen='goal';rcBack=[];rcStep=0;rcSetup={};brainStale();await refreshScreen();toast('Your plan is ready \u2713');return;
     }
     rcBuilding=false;await refreshScreen();toast('Couldn\u2019t build it just then \u2014 try again');
   }catch(e){rcBuilding=false;await refreshScreen();toast('Coach couldn\u2019t reach the AI \u2014 try again');}
@@ -1531,7 +1632,7 @@ function rcMsgsHTML(){return rcChat.map(function(m){return m.role==='assistant'?
 function rcRenderMsgs(){var c=document.getElementById('rcMsgs');if(!c)return;c.innerHTML=rcMsgsHTML();c.scrollTop=c.scrollHeight;}
 function rcSetThinking(b){var t=document.getElementById('rcThinking');if(t)t.style.display=b?'block':'none';}
 function rcSegSchema(){return 'Each day: {"day":"Mon","date":"YYYY-MM-DD","type":"rest|easy|recovery|long|steady|tempo|threshold|intervals|fartlek|hills|cross|strength","title":"short name","km":8,"segments":[{"label":"Warm-up","measure":"time|distance","minutes":10,"km":2,"paceKey":"easy|recovery|long|marathon|threshold|tenK|fiveK|interval|rep","reps":5,"recoveryMin":1.5}],"note":"one coaching cue"}. Simple run = ONE segment. Interval/tempo = warm-up + work segment (set reps & recoveryMin) + cool-down. Rest: type rest, empty segments. paceKey MUST be one of the listed keys.';}
-function rcPlanSpec(){return 'When you have the goal, timeframe and an idea of their fitness (from their Garmin runs in the context or a time they gave), reply with ONLY a fenced json object, no other text:\n```json\n{"goal":"short label","goal_type":"race|distance|weight|general","race_distance":"5K|10K|Half|Marathon|none","target_date":"YYYY-MM-DD or null","benchmark":{"distance_m":5000,"time_s":1650},"days_per_week":4,"long_run_day":"Sun","phases":[{"name":"Base","weeks":4,"focus":"..."}],"weeks":[{"week":1,"phase":"Base","focus":"...","totalKm":25,"key":"..."}],"detail":{"week":1,"days":[ ...7 days Mon-Sun... ]}}\n```\nbenchmark = numeric distance(m)/time(s) of their best recent effort (use their Garmin runs if available). phases cover the whole block to race day. weeks = one entry per week to target. detail = CURRENT week. ALSO include "schedule": an array covering EVERY training day across ALL weeks to the target, each {"date":"YYYY-MM-DD","type":"easy|long|tempo|threshold|intervals|recovery|cross|strength","title":"short name","km":8} (omit pure rest days). Use real calendar dates starting from the coming week. '+rcSegSchema()+' Build realistic VOLUME based on their recent weekly mileage from Garmin, and schedule around their shifts/energy/sleep in the context. If they lift weights, include strength sessions (type "strength") through the week and in the schedule, complementing the runs and fitting their shifts \u2014 never a hard run and heavy legs back to back.';}
+function rcPlanSpec(){return 'When you have the goal, timeframe and an idea of their fitness (from their Garmin runs in the context or a time they gave), reply with ONLY a fenced json object, no other text:\n```json\n{"goal":"short label","goal_type":"race|distance|weight|general","race_distance":"5K|10K|Half|Marathon|none","target_date":"YYYY-MM-DD or null","benchmark":{"distance_m":5000,"time_s":1650},"days_per_week":4,"long_run_day":"Sun","phases":[{"name":"Base","weeks":4,"focus":"..."}],"weeks":[{"week":1,"phase":"Base","focus":"...","totalKm":25,"key":"..."}],"detail":{"week":1,"days":[ ...7 days Mon-Sun... ]}}\n```\nbenchmark = numeric distance(m)/time(s) of their best recent effort (use their Garmin runs if available). phases cover the whole block to race day. weeks = one entry per week to target. detail = CURRENT week. ALSO include "schedule": an array covering EVERY training day across ALL weeks to the target, each {"date":"YYYY-MM-DD","type":"easy|long|tempo|threshold|intervals|recovery|cross|strength","title":"short name","km":8} (omit pure rest days). Use real calendar dates starting from the coming week. '+rcSegSchema()+' COACHING METHODOLOGY \u2014 follow strictly (this is how elite plans like Runna are built): (1) 80/20 polarised \u2014 ~80% of running is easy/recovery/long at conversational pace, only ~20% is quality. (2) Quality work: 1 hard session/week for newer runners, up to 2 for experienced \u2014 a tempo/threshold run and/or an interval session. Intervals default to THRESHOLD pace (paceKey "threshold") because raising lactate threshold drives distance gains; use faster VO2-max intervals (paceKey "fiveK"/"tenK") only for 5K/10K speed; add strides on an easy day for turnover. (3) NEVER two hard days back-to-back \u2014 always an easy/recovery day or rest between quality sessions. (4) Long run = 25-35% of weekly volume at easy-moderate pace, placed on a day they have most time (around shifts). (5) Progress weekly volume gradually (~10%/week); every ~4th week is a DELOAD (cut volume ~20-30%); TAPER 1-3 weeks before a race (drop volume, keep a little intensity). (6) Phases: Base (aerobic) \u2192 Build (add quality) \u2192 Peak (race-specific) \u2192 Taper. (7) Schedule sessions ONLY on the days they can run; keep the weekly pattern consistent. (8) Honour their preference: comfortable = lower volume/intensity, progressive = higher. (9) Pitch starting volume to their stated level and recent mileage. (10) If they lift, include strength (type "strength"), never heavy legs the day before a hard run.';}
 async function coachAdapt(reason){
   var p=await getRunPlan();if(!p||!p.plan||!p.plan.detail||!p.plan.detail.days)return null;
   var td=runToday();
