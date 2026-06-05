@@ -103,7 +103,7 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 @keyframes tIn{0%{opacity:0;transform:translateY(24px) scale(.93);}55%{opacity:1;}100%{opacity:1;transform:none;}}
 /* ============ CARDS ============ */
 .card{background:linear-gradient(180deg,var(--surface),var(--surface-2));border-radius:20px;padding:18px;border:1px solid var(--line);box-shadow:var(--shadow);}
-.stack{display:grid;gap:13px;}
+.stack{display:grid;gap:13px;max-width:560px;margin-inline:auto;width:100%;}
 .ctitle{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.1em;text-transform:uppercase;margin:2px 2px 12px;}
 .row{display:flex;align-items:center;gap:12px;padding:12px 8px;border-radius:13px;transition:background .18s;}
 .row:active{background:var(--surface-3);}
@@ -1382,11 +1382,11 @@ async function addDayShift(iso){
 // ============================================================
 var RUN_DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 var RC_WEEK=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-var rcChat=[],rcBusy=false,rcEditing=false;
+var rcChat=[],rcBusy=false,rcEditing=false,rcStep=0,rcSetup={},rcChatStart=false,rcBuilding=false;
 var PACE_KEYS=[['recovery','Recovery','#A2A6AE'],['easy','Easy','#3D5AFF'],['long','Long','#7C5CFF'],['marathon','Marathon','#5E78FF'],['threshold','Threshold','#DB4A3D'],['tenK','10K','#C68A2E'],['fiveK','5K / Interval','#E0623A'],['rep','Rep / Strides','#B23A86']];
 function runToday(){return RUN_DAYS[new Date().getDay()];}
 function startRunSetup(){rcEditPlan();}
-function cancelRunSetup(){rcEditing=false;rcChat=[];refreshScreen();}
+function cancelRunSetup(){rcEditing=false;rcChatStart=false;rcChat=[];rcStep=0;rcSetup={};refreshScreen();}
 function rcEditPlan(){rcEditing=true;rcChat=[{role:'assistant',content:'What\u2019s changed? New goal, a fresh race result, an injury, a busy patch \u2014 tell me and I\u2019ll rebuild your plan from your latest data.'}];refreshScreen();}
 function pad2(n){n=Math.round(n);return (n<10?'0':'')+n;}
 function paceStr(sec){if(!sec||sec<0)return '';return Math.floor(sec/60)+':'+pad2(sec%60);}
@@ -1449,17 +1449,80 @@ async function rcParseGarmin(text){
 }
 
 // ---- Conversational setup ----
+function rcStyles(){return '<style>'+
+  '.rc-ai{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:16px 16px 16px 5px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:90%}.rc-me{align-self:flex-end;background:var(--accent);color:#fff;border-radius:16px 16px 5px 16px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:85%}.rc-in{flex:1;box-sizing:border-box;padding:13px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;outline:none}'+
+  '.rc-opt{appearance:none;text-align:left;cursor:pointer;font-family:inherit;background:linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--line);border-radius:16px;padding:16px 16px;display:flex;flex-direction:column;gap:3px;transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .18s,box-shadow .18s;box-shadow:var(--shadow)}'+
+  '.rc-opt:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 14px 30px -16px color-mix(in srgb,var(--accent) 60%,transparent)}'+
+  '.rc-opt:active{transform:translateY(0) scale(.99)}'+
+  '.rc-opt-l{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:16px;letter-spacing:-.02em;color:var(--ink)}'+
+  '.rc-opt-s{font-size:12px;color:var(--sub);font-weight:500}'+
+  '.rc-cap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:4px 2px}.rc-cap span{font-size:11px;color:var(--sub);line-height:1.25;font-weight:600}'+
+  '.rc-dot{width:7px;height:7px;border-radius:50%;background:var(--surface-3);transition:.2s}.rc-dot.on{background:var(--accent);width:20px;border-radius:4px}'+
+  '@keyframes rcpulse{0%,100%{opacity:.4;transform:scale(.9)}50%{opacity:1;transform:scale(1.05)}}.rc-pulse{animation:rcpulse 1.3s ease-in-out infinite}'+
+  '</style>';}
+function rcSetupSteps(){return [
+  {key:'goal',q:'What are you training for?',sub:'Pick a goal \u2014 I\u2019ll shape everything around it.',opts:[{l:'5K',s:'Race or PB',v:'race'},{l:'10K',s:'Race or PB',v:'race'},{l:'Half Marathon',s:'21.1 km',v:'race'},{l:'Marathon',s:'42.2 km',v:'race'},{l:'Get fitter',s:'Build a base',v:'general'},{l:'Lose weight',s:'Run to lean up',v:'weight'}]},
+  {key:'when',q:'By when?',sub:'This sets how hard we ramp.',opts:[{l:'In 6 weeks',v:'6'},{l:'In 8 weeks',v:'8'},{l:'In 12 weeks',v:'12'},{l:'In 16 weeks',v:'16'},{l:'No deadline',s:'Ongoing',v:'ongoing'}]},
+  {key:'days',q:'How many days a week can you train?',sub:'Be honest \u2014 I\u2019ll fit it to your shifts.',opts:[{l:'3 days',v:'3'},{l:'4 days',v:'4'},{l:'5 days',v:'5'},{l:'6 days',v:'6'}]},
+  {key:'lift',q:'Do you lift as well?',sub:'I\u2019ll weave strength around your runs.',opts:[{l:'Yes, I lift',s:'Runs + strength',v:'lift'},{l:'Just running',s:'Runs only',v:'run'}]}
+];}
 function runCoachChatHTML(){
-  if(!rcChat.length)rcChat=[{role:'assistant',content:'Let\u2019s build your plan. What are you training for and by when (a race, a distance, or just getting fitter)? I\u2019ll set your paces and the schedule from your Garmin runs \u2014 import them below if you haven\u2019t, or just tell me a recent time to start.'}];
-  return '<div class="stack">'+
-    '<style>.rc-ai{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:16px 16px 16px 5px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:90%}.rc-me{align-self:flex-end;background:var(--accent);color:#fff;border-radius:16px 16px 5px 16px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:85%}.rc-in{flex:1;box-sizing:border-box;padding:13px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;outline:none}</style>'+
-    garminCard()+
-    '<div class="card dark" style="display:flex;align-items:center;gap:10px"><div class="chip sm" style="--tc:#fff;background:rgba(255,255,255,.18)">'+icon('trend',16,2.2)+'</div><div><div class="rt" style="color:#fff">Your coach</div><div style="font-size:12px;opacity:.85">I plan from your Garmin data, shifts, sleep & goals.</div></div></div>'+
-    '<div class="card"><div id="rcMsgs" style="display:flex;flex-direction:column;gap:10px;max-height:48vh;overflow-y:auto">'+rcMsgsHTML()+'</div>'+
-    '<div id="rcThinking" class="rs" style="display:none;margin:10px 2px 0">Coach is building your plan\u2026</div>'+
-    '<div style="display:flex;gap:8px;margin-top:14px"><input id="rcInput" class="rc-in" placeholder="Type your answer\u2026" onkeydown="if(event.key===\'Enter\'){event.preventDefault();rcSend();}"/><button onclick="rcSend()" style="background:var(--accent);color:#fff;border:none;border-radius:14px;padding:0 18px;font-weight:700;cursor:pointer;font-family:inherit">Send</button></div></div>'+
-    (rcEditing?'<button class="reqbtn" onclick="cancelRunSetup()">Cancel</button>':'')+
+  if(rcBuilding)return rcBuildingHTML();
+  if(rcEditing||rcChatStart)return rcChatHTML();
+  return rcSetupHTML();
+}
+function rcSetupHTML(){
+  var steps=rcSetupSteps();var i=Math.min(rcStep,steps.length-1);var step=steps[i];
+  var first=currentUser?currentUser.name.split(' ')[0]:'';
+  var head=(i===0)
+    ? '<div class="card" style="background:var(--grad);color:#fff;border:none;box-shadow:0 18px 44px -22px color-mix(in srgb,var(--accent) 80%,transparent)"><div style="font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.85;font-weight:700">Run Coach</div><div class="serif" style="font-size:25px;font-weight:700;line-height:1.08;letter-spacing:-.03em;margin-top:7px">Let\u2019s build your training'+(first?', '+esc(first):'')+'.</div><div style="font-size:13.5px;opacity:.9;margin-top:7px;line-height:1.45">I plan it around your whole life \u2014 your shifts, your sleep, your real runs \u2014 and adapt as things change.</div><div style="display:flex;gap:6px;margin-top:16px;border-top:1px solid rgba(255,255,255,.18);padding-top:14px"><div class="rc-cap" style="color:#fff"><span style="opacity:.95">'+icon('calendar',18,2)+'</span><span style="color:rgba(255,255,255,.9)">Around your shifts</span></div><div class="rc-cap"><span style="opacity:.95">'+icon('health',18,2)+'</span><span style="color:rgba(255,255,255,.9)">Adapts to sleep</span></div><div class="rc-cap"><span style="opacity:.95">'+icon('trend',18,2)+'</span><span style="color:rgba(255,255,255,.9)">Paces from real runs</span></div></div></div>'
+    : '<div style="display:flex;align-items:center;gap:12px;padding:2px"><button onclick="rcSetupBack()" style="width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center">'+icon('back',18,2.2)+'</button><div class="rs" style="font-weight:600">'+esc(rcSetup.goal?rcSetup.goal.label:'')+(rcSetup.when?' \u00B7 '+esc(rcSetup.when.label):'')+'</div></div>';
+  var grid='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">'+step.opts.map(function(o){return '<button class="rc-opt" onclick="rcPick(\''+step.key+'\',\''+esc(o.l)+'\',\''+o.v+'\')"><span class="rc-opt-l">'+esc(o.l)+'</span>'+(o.s?'<span class="rc-opt-s">'+esc(o.s)+'</span>':'')+'</button>';}).join('')+'</div>';
+  var qcard='<div class="card"><div class="serif" style="font-size:20px;font-weight:700;letter-spacing:-.02em">'+esc(step.q)+'</div>'+(step.sub?'<div class="rs" style="margin-top:4px">'+esc(step.sub)+'</div>':'')+grid+'</div>';
+  var dots='<div style="display:flex;gap:6px;justify-content:center;align-items:center;margin-top:2px">'+steps.map(function(s,k){return '<span class="rc-dot'+(k<=i?' on':'')+'"></span>';}).join('')+'</div>';
+  var alt='<div style="display:flex;justify-content:center;margin-top:2px"><button onclick="rcTypeInstead()" style="background:none;border:none;color:var(--sub);font-size:13px;font-family:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Prefer to just talk? Tell me in your own words</button></div>';
+  var imp=(i===0)?garminCard():'';
+  return '<div class="stack">'+rcStyles()+head+qcard+dots+(i===0?imp:'')+alt+'</div>';
+}
+function rcBuildingHTML(){
+  return '<div class="stack">'+rcStyles()+'<div class="card" style="text-align:center;padding:46px 22px"><div class="rc-pulse" style="width:60px;height:60px;border-radius:18px;background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 16px 36px -14px color-mix(in srgb,var(--accent) 75%,transparent)">'+icon('spark',28,2)+'</div><div class="serif" style="font-size:20px;font-weight:700">Building your plan\u2026</div><div class="rs" style="margin-top:6px;line-height:1.5;max-width:300px;margin-inline:auto">Reading your runs, shifts and sleep, then laying out a plan that fits your life and lands on your calendar.</div></div></div>';
+}
+function rcChatHTML(){
+  if(!rcChat.length)rcChat=[{role:'assistant',content:'Tell me what you\u2019re training for and roughly by when \u2014 or paste a recent time. I\u2019ll handle the rest and build it around your life.'}];
+  return '<div class="stack">'+rcStyles()+garminCard()+
+    '<div class="card"><div id="rcMsgs" style="display:flex;flex-direction:column;gap:10px;max-height:50vh;overflow-y:auto">'+rcMsgsHTML()+'</div>'+
+    '<div id="rcThinking" class="rs" style="display:none;margin:10px 2px 0">Coach is thinking\u2026</div>'+
+    '<div style="display:flex;gap:8px;margin-top:14px"><input id="rcInput" class="rc-in" placeholder="Type your answer\u2026" onkeydown="if(event.key===\'Enter\'){event.preventDefault();rcSend();}"/><button onclick="rcSend()" style="background:var(--grad);color:#fff;border:none;border-radius:14px;padding:0 18px;font-weight:700;cursor:pointer;font-family:inherit">Send</button></div></div>'+
+    '<button class="reqbtn" onclick="'+(rcEditing?'cancelRunSetup()':'rcBackToOptions()')+'">'+(rcEditing?'Cancel':'\u2039 Back to quick setup')+'</button>'+
   '</div>';
+}
+function rcSetupBack(){if(rcStep>0)rcStep--;refreshScreen();}
+function rcBackToOptions(){rcChatStart=false;rcChat=[];refreshScreen();}
+function rcTypeInstead(){rcChatStart=true;rcChat=[];refreshScreen();}
+function rcPick(key,label,val){
+  rcSetup[key]={label:label,val:val};
+  var steps=rcSetupSteps();rcStep++;
+  if(rcStep>=steps.length){rcBuildFromSetup();}
+  else{refreshScreen();}
+}
+async function rcBuildFromSetup(){
+  rcBuilding=true;await refreshScreen();
+  try{
+    var s=rcSetup;var goalLabel=(s.goal&&s.goal.label)||'Get fitter';var goalType=(s.goal&&s.goal.val)||'general';
+    var when=(s.when&&s.when.val);var whenTxt=(!when||when==='ongoing')?'no fixed race date \u2014 ongoing improvement':('in about '+when+' weeks');
+    var days=(s.days&&s.days.val)||'4';var lift=(s.lift&&s.lift.val==='lift');
+    var task='Build my full training plan now. Goal: '+goalLabel+' ('+goalType+'). Target: '+whenTxt+'. I can train '+days+' days a week.'+(lift?' I also lift weights \u2014 include strength sessions woven around the runs.':' Running only.')+' Use my recent runs and life context for fitness and volume; compute target_date from the timeframe relative to today; set paces from my data.';
+    var plan=await brainThink(task,{json:true,contract:rcPlanSpec(),maxTokens:3800,persona:'You are '+(currentUser?currentUser.name.split(' ')[0]:'their')+'\u2019s expert running & strength coach. Build a precise, periodised plan from their real data and life. Never generic.'});
+    if(plan&&plan.detail&&plan.detail.days){
+      var engLogs=rcEngineFromLogs(await getRunLogs(60));
+      plan.engine=engLogs||rcEngine(plan.benchmark)||null;
+      plan.startDate=localDay();plan.log=plan.log||{};plan.schedule=plan.schedule||[];rcMergeSchedule(plan);
+      var dt=(plan.target_date&&/^\d{4}-\d{2}-\d{2}$/.test(plan.target_date))?plan.target_date:null;
+      await setRunPlan({goal:plan.goal||goalLabel,goal_type:plan.goal_type||goalType,target_date:dt,days_per_week:plan.days_per_week||parseInt(days,10),level:'',baseline:'',plan:plan});
+      rcBuilding=false;rcStep=0;rcSetup={};brainStale();await refreshScreen();toast('Your plan is ready \u2713');return;
+    }
+    rcBuilding=false;await refreshScreen();toast('Couldn\u2019t build it just then \u2014 try again');
+  }catch(e){rcBuilding=false;await refreshScreen();toast('Coach couldn\u2019t reach the AI \u2014 try again');}
 }
 function garminCard(){
   return '<div class="card" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:#1F9D6B">'+icon('trend',16,2.2)+'</div><div style="flex:1"><div class="rt">Import your Garmin runs</div><div class="rs">Garmin Connect \u2192 export activities (CSV) \u2192 upload. I\u2019ll plan from your real training.</div></div><button class="tbtn add" onclick="rcImportGarmin()">Import</button></div>';
@@ -1498,7 +1561,7 @@ async function rcSend(){
       plan.startDate=localDay();plan.log=plan.log||{};plan.schedule=plan.schedule||[];rcMergeSchedule(plan);
       var dt=(plan.target_date&&/^\d{4}-\d{2}-\d{2}$/.test(plan.target_date))?plan.target_date:null;
       await setRunPlan({goal:plan.goal||'My training',goal_type:plan.goal_type||'general',target_date:dt,days_per_week:plan.days_per_week||4,level:'',baseline:'',plan:plan});
-      rcChat=[];rcBusy=false;rcEditing=false;await refreshScreen();toast('Plan ready \u2713');return;
+      rcChat=[];rcBusy=false;rcEditing=false;rcChatStart=false;rcStep=0;rcSetup={};await refreshScreen();toast('Plan ready \u2713');return;
     }
     rcChat.push({role:'assistant',content:ans});rcBusy=false;rcSetThinking(false);rcRenderMsgs();
   }catch(e){rcBusy=false;rcSetThinking(false);rcChat.push({role:'assistant',content:'I had trouble building that just then \u2014 try once more.'});rcRenderMsgs();}
