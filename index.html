@@ -1019,19 +1019,14 @@ function homeHTML(){
   var fname=currentUser?currentUser.name.split(' ')[0]:'';
   var brief=lsGet('forge.brief')||'Your day at a glance';
   var en=enabledTabs();
-  var hero='<div class="tile hero" onclick="go(\'today\')"><div style="display:flex;align-items:center;gap:8px;font-size:12px;opacity:.9;letter-spacing:.06em;text-transform:uppercase">'+icon('sun',15)+' Today</div><div class="hero-greet serif">'+greet+(fname?', '+esc(fname):'')+'</div><div class="hero-sub" id="briefLine">'+esc(brief)+'</div></div>';
-  var cats=CATS.filter(function(c){return c.tabs.some(function(t){return en.indexOf(t)>=0;});}).map(function(c){
-    var on=c.tabs.filter(function(t){return en.indexOf(t)>=0;});
-    var sub=on.slice(0,3).map(function(t){var ct=catalogById(t);return ct?ct.label:t;}).join(' · ');
-    return '<div class="tile" onclick="go(\'cat_'+c.id+'\')"><div class="chip">'+icon(c.icon,21,2.2)+'</div><div><div class="t">'+esc(c.label)+'</div><div class="s">'+esc(sub)+'</div></div></div>';
-  }).join('');
-  var futureTile='<div class="tile" onclick="go(\'futureme\')"><div class="chip">'+icon('star',21,2.2)+'</div><div><div class="t">Future Me</div><div class="s">Who you\'re becoming</div></div></div>';
-  var understudyTile='<div class="tile" onclick="go(\'understudy\')"><div class="chip">'+icon('check',21,2.2)+'</div><div><div class="t">Chronos</div><div class="s">Plans your time</div></div></div>';
+  var hero='<div class="tile hero" onclick="go(\'understudy\')"><div style="display:flex;align-items:center;gap:8px;font-size:12px;opacity:.9;letter-spacing:.06em;text-transform:uppercase">'+icon('spark',15)+' Chronos</div><div class="hero-greet serif">'+greet+(fname?', '+esc(fname):'')+'</div><div class="hero-sub" id="briefLine">Tap to see what matters today</div></div>';
   var aiTile='<div class="tile" onclick="go(\'ai\')"><div class="chip">'+icon('spark',21,2.2)+'</div><div><div class="t">Forge AI</div><div class="s">Ask about your world</div></div></div>';
+  var coachTile='<div class="tile" onclick="go(\'runcoach\')"><div class="chip">'+icon('trend',21,2.2)+'</div><div><div class="t">Run Coach</div><div class="s">Adapts to your life</div></div></div>';
+  var calTile='<div class="tile" onclick="go(\'calendar\')"><div class="chip">'+icon('calendar',21,2.2)+'</div><div><div class="t">Calendar</div><div class="s">Your days &amp; sessions</div></div></div>';
   var ownerTile=isOwner()?'<div class="tile" onclick="go(\'owner\')"><div class="chip">'+icon('grid',21,2.2)+'</div><div><div class="t">Dashboard</div><div class="s">Owner only</div></div></div>':'';
-  var customise='<div class="tile ghost" onclick="go(\'tabs\')"><div class="chip ghostchip">'+icon('grid',20,2.2)+'</div><div><div class="t">Customise</div><div class="s">Add or remove tabs</div></div></div>';
-  var req='<div class="tile ghost" onclick="openRequest()"><div class="chip ghostchip">'+icon('plus',20,2.4)+'</div><div><div class="t">Request a feature</div><div class="s">Tell me what to build</div></div></div>';
-  return '<div class="home-grid" id="homeGrid">'+hero+cats+futureTile+understudyTile+aiTile+ownerTile+customise+req+'</div>';
+  var more='<div class="tile ghost" onclick="go(\'tabs\')"><div class="chip ghostchip">'+icon('grid',20,2.2)+'</div><div><div class="t">Other sections</div><div class="s">Being rebuilt \u2014 one at a time</div></div></div>';
+  var req='<div class="tile ghost" onclick="openRequest()"><div class="chip ghostchip">'+icon('plus',20,2.4)+'</div><div><div class="t">Tell me your vision</div><div class="s">What this should do</div></div></div>';
+  return '<div class="home-grid" id="homeGrid">'+hero+coachTile+calTile+aiTile+ownerTile+more+req+'</div>';
 }
 
 function skeletonHTML(){
@@ -1312,39 +1307,46 @@ async function trackerInsight(kind){
   }catch(e){if(host)host.innerHTML='<div class="rs">Couldn\u2019t reach Forge AI right now \u2014 try again in a moment.</div>';}
 }
 // ============================================================
-// CALENDAR & SHIFTS — your real schedule. The coach & Chronos
-// read this automatically; you never tell them separately.
+// CALENDAR & SHIFTS — the home of every day's plan: your shifts
+// AND your training sessions (written here by the Run Coach).
 // ============================================================
 var calMonth=null;
 function calPad(n){return (n<10?'0':'')+n;}
 function calShiftMonth(n){var d=calMonth||new Date();calMonth=new Date(d.getFullYear(),d.getMonth()+n,1);refreshScreen();}
+function rcSessionMap(planObj){var m={};((planObj&&planObj.schedule)||[]).forEach(function(s){if(s&&s.date)m[s.date]=s;});return m;}
+function calDow(iso){return new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'short'});}
 async function renderCalendar(){
   var base=calMonth||new Date();var y=base.getFullYear(),m=base.getMonth();
   var last=new Date(y,m+1,0);
   var fromISO=y+'-'+calPad(m+1)+'-01',toISO=y+'-'+calPad(m+1)+'-'+calPad(last.getDate());
   var shifts=await getShifts(fromISO,toISO);
   var byDay={};shifts.forEach(function(s){(byDay[s.day]=byDay[s.day]||[]).push(s);});
-  var firstDow=(new Date(y,m,1).getDay()+6)%7; // Monday-first
-  var todayISO=localDay();
+  var rp=await getRunPlan();var planObj=rp&&rp.plan;var sess=rcSessionMap(planObj);
+  var firstDow=(new Date(y,m,1).getDay()+6)%7;var todayISO=localDay();
   var dows=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(d){return '<div style="text-align:center;font-size:10.5px;color:var(--sub);font-weight:700;padding:2px 0">'+d+'</div>';}).join('');
   var cells='';for(var i=0;i<firstDow;i++)cells+='<div></div>';
-  for(var dd=1;dd<=last.getDate();dd++){var iso=y+'-'+calPad(m+1)+'-'+calPad(dd);var has=byDay[iso];var isT=iso===todayISO;
-    cells+='<div onclick="openDay(\''+iso+'\')" style="aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:'+(isT?'var(--accent)':(has?'var(--surface-2)':'transparent'))+';color:'+(isT?'#fff':'var(--ink)')+';border:1px solid '+(has&&!isT?'var(--line)':'transparent')+'"><div style="font-size:13px;font-weight:600">'+dd+'</div>'+(has?'<div style="display:flex;gap:2px;margin-top:2px">'+has.slice(0,3).map(function(){return '<span style="width:4px;height:4px;border-radius:50%;background:'+(isT?'#fff':'var(--accent)')+'"></span>';}).join('')+'</div>':'')+'</div>';
+  for(var dd=1;dd<=last.getDate();dd++){var iso=y+'-'+calPad(m+1)+'-'+calPad(dd);var sh=byDay[iso];var se=sess[iso];var isT=iso===todayISO;
+    var dots='';if(se)dots+='<span style="width:5px;height:5px;border-radius:50%;background:'+(isT?'#fff':sessTypeColor(se.type))+'"></span>';if(sh)dots+='<span style="width:5px;height:5px;border-radius:50%;background:'+(isT?'#fff':'#1F9D6B')+'"></span>';
+    cells+='<div onclick="openDay(\''+iso+'\')" style="aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:'+(isT?'var(--accent)':((sh||se)?'var(--surface-2)':'transparent'))+';color:'+(isT?'#fff':'var(--ink)')+';border:1px solid '+((sh||se)&&!isT?'var(--line)':'transparent')+'"><div style="font-size:13px;font-weight:600">'+dd+'</div>'+(dots?'<div style="display:flex;gap:2px;margin-top:2px">'+dots+'</div>':'')+'</div>';
   }
   var inStyle='flex:1;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;outline:none';
-  var add='<div class="card"><div class="ctitle">Add shifts</div><div class="rs" style="margin:-2px 0 8px">Just type them \u2014 e.g. \u201Cwork 9-5 Mon to Fri\u201D or \u201Clate shift Saturday\u201D.</div><div style="display:flex;gap:8px"><input id="calNL" placeholder="Type your shifts\u2026" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addShiftsNL();}" style="'+inStyle+'"/><button onclick="addShiftsNL()" style="background:var(--accent);color:#fff;border:none;border-radius:13px;padding:0 18px;font-weight:700;cursor:pointer;font-family:inherit">Add</button></div></div>';
-  var grid='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><button onclick="calShiftMonth(-1)" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:16px;color:var(--ink)">\u2039</button><div class="serif" style="font-size:18px;font-weight:700">'+base.toLocaleDateString(undefined,{month:'long',year:'numeric'})+'</div><button onclick="calShiftMonth(1)" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:16px;color:var(--ink)">\u203A</button></div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+dows+cells+'</div></div>';
-  var up=shifts.filter(function(s){return s.day>=todayISO;}).slice(0,8);
-  var upCard=up.length?'<div class="card"><div class="ctitle">Upcoming shifts</div>'+up.map(function(s){return shiftRow(s);}).join('')+'</div>':'';
-  return '<div class="stack">'+add+grid+upCard+'</div>';
+  var add='<div class="card"><div class="ctitle">Add shifts</div><div class="rs" style="margin:-2px 0 8px">Type them \u2014 e.g. \u201Cwork 9-5 Mon to Fri\u201D or \u201Clate shift Saturday\u201D.</div><div style="display:flex;gap:8px"><input id="calNL" placeholder="Type your shifts\u2026" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addShiftsNL();}" style="'+inStyle+'"/><button onclick="addShiftsNL()" style="background:var(--accent);color:#fff;border:none;border-radius:13px;padding:0 18px;font-weight:700;cursor:pointer;font-family:inherit">Add</button></div></div>';
+  var grid='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><button onclick="calShiftMonth(-1)" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:16px;color:var(--ink)">\u2039</button><div class="serif" style="font-size:18px;font-weight:700">'+base.toLocaleDateString(undefined,{month:'long',year:'numeric'})+'</div><button onclick="calShiftMonth(1)" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:16px;color:var(--ink)">\u203A</button></div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+dows+cells+'</div><div style="display:flex;gap:14px;margin-top:12px;font-size:11.5px;color:var(--sub)"><span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:5px"></span>Session</span><span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#1F9D6B;margin-right:5px"></span>Shift</span></div></div>';
+  // 7-day agenda
+  var ag='';for(var k=0;k<7;k++){var dt=new Date();dt.setDate(dt.getDate()+k);var iso=dt.getFullYear()+'-'+calPad(dt.getMonth()+1)+'-'+calPad(dt.getDate());var se=sess[iso];var sh=byDay[iso];if(!se&&!sh&&k>0)continue;
+    var label=k===0?'Today':calDow(iso)+' '+dt.getDate();
+    var bits=[];if(se)bits.push('<span style="color:'+sessTypeColor(se.type)+';font-weight:600">'+esc(se.title||se.type)+(se.km?' \u00B7 '+se.km+'km':'')+'</span>');if(sh)bits.push(sh.map(function(s){return esc(s.label||'Shift')+(s.start?' '+s.start:'');}).join(', '));
+    ag+='<div class="row" onclick="openDay(\''+iso+'\')"><div style="width:62px;font-weight:700;font-size:12.5px;color:'+(k===0?'var(--accent)':'var(--sub)')+'">'+label+'</div><div style="flex:1"><div class="rt" style="font-size:13.5px">'+(bits.join(' \u00B7 ')||'\u2014')+'</div></div><span style="color:var(--sub)">\u203A</span></div>';
+  }
+  var agCard='<div class="card"><div class="ctitle">Next 7 days</div>'+(ag||'<div class="rs" style="padding:6px 0">Nothing scheduled. Add shifts above, or build a plan in the Run Coach.</div>')+'</div>';
+  return '<div class="stack">'+add+grid+agCard+'</div>';
 }
 function shiftRow(s){var d=new Date(s.day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});var t=(s.start||'')+(s.end?' \u2013 '+s.end:'');return '<div class="row"><div style="flex:1"><div class="rt" style="font-size:14px">'+esc(s.label||'Shift')+'</div><div class="rs">'+d+(t?' \u00B7 '+esc(t):'')+'</div></div><button class="del" onclick="rmShift(\''+s.id+'\')">'+icon('x',13)+'</button></div>';}
 async function rmShift(id){await deleteShiftDB(id);await refreshScreen();}
 async function addShiftsNL(){
   var inp=document.getElementById('calNL');var txt=(inp&&inp.value||'').trim();if(!txt)return;
-  toast('Reading your shifts\u2026');
-  var now=new Date();
-  var sys='Convert the user\u2019s description of their work shifts into structured data. Today is '+now.toLocaleDateString(undefined,{weekday:'long'})+', '+localDay()+'. Output ONLY a fenced json array; each item {"date":"YYYY-MM-DD","label":"short e.g. Work / Early / Late","start":"HH:MM or empty","end":"HH:MM or empty"}. Expand ranges like "Mon to Fri" into each dated day in the current/upcoming week. Resolve relative days (this/next Saturday) from today. Leave times empty if not given.';
+  toast('Reading your shifts\u2026');var now=new Date();
+  var sys='Convert the user\u2019s description of their work shifts into structured data. Today is '+now.toLocaleDateString(undefined,{weekday:'long'})+', '+localDay()+'. Output ONLY a fenced json array; each item {"date":"YYYY-MM-DD","label":"short e.g. Work / Early / Late","start":"HH:MM or empty","end":"HH:MM or empty"}. Expand ranges like "Mon to Fri" into each dated day in the current/upcoming week. Resolve relative days from today. Leave times empty if not given.';
   try{
     var ans=await askAI([{role:'user',content:txt}],sys,900);
     var jm=ans.match(/```(?:json)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;var arr=[];
@@ -1356,10 +1358,13 @@ async function addShiftsNL(){
 }
 async function openDay(iso){
   var shifts=await getShifts(iso,iso);
+  var rp=await getRunPlan();var se=rp&&rp.plan?rcSessionMap(rp.plan)[iso]:null;
   var d=new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
-  var rows=shifts.length?shifts.map(function(s){return '<div class="trow"><div style="flex:1"><div class="rt">'+esc(s.label)+'</div><div class="rs">'+esc((s.start||'')+(s.end?' \u2013 '+s.end:'')||'all day')+'</div></div><button class="tbtn rm" onclick="rmShiftDay(\''+s.id+'\',\''+iso+'\')">Remove</button></div>';}).join(''):'<p style="color:var(--sub);font-size:14px;margin:8px 2px">No shifts yet.</p>';
+  var sessHtml=se?'<div style="background:var(--surface-2);border:1px solid var(--line);border-left:3px solid '+sessTypeColor(se.type)+';border-radius:11px;padding:11px 13px;margin-bottom:8px"><div class="rs" style="font-size:11px;color:'+sessTypeColor(se.type)+';font-weight:700;text-transform:uppercase">Training \u00B7 '+esc(se.type||'')+'</div><div class="rt" style="margin-top:2px">'+esc(se.title||se.type)+(se.km?' \u00B7 '+se.km+' km':'')+'</div></div>':'';
+  var rows=shifts.length?shifts.map(function(s){return '<div class="trow"><div style="flex:1"><div class="rt">'+esc(s.label)+'</div><div class="rs">'+esc((s.start||'')+(s.end?' \u2013 '+s.end:'')||'all day')+'</div></div><button class="tbtn rm" onclick="rmShiftDay(\''+s.id+'\',\''+iso+'\')">Remove</button></div>';}).join(''):(se?'':'<p style="color:var(--sub);font-size:14px;margin:8px 2px">Nothing yet.</p>');
+  var coachBtn=se?'<button class="btn btn-primary" onclick="closeOverlay();go(\'runcoach\')">Open Run Coach</button>':'';
   var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
-  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()"><h3>'+d+'</h3>'+rows+'<input id="dayNL" placeholder="Add a shift, e.g. work 9-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addDayShift(\''+iso+'\');}" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:10px"/><div class="btnrow"><button class="btn btn-primary" onclick="addDayShift(\''+iso+'\')">Add</button><button class="btn" onclick="closeOverlay()">Done</button></div></div>';
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()"><h3>'+d+'</h3>'+sessHtml+rows+'<input id="dayNL" placeholder="Add a shift, e.g. work 9-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addDayShift(\''+iso+'\');}" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:10px"/><div class="btnrow">'+coachBtn+'<button class="btn btn-primary" onclick="addDayShift(\''+iso+'\')">Add shift</button><button class="btn" onclick="closeOverlay()">Done</button></div></div>';
   document.getElementById('app').appendChild(o);
 }
 async function rmShiftDay(id,iso){await deleteShiftDB(id);closeOverlay();await refreshScreen();openDay(iso);}
@@ -1463,7 +1468,19 @@ function rcMsgsHTML(){return rcChat.map(function(m){return m.role==='assistant'?
 function rcRenderMsgs(){var c=document.getElementById('rcMsgs');if(!c)return;c.innerHTML=rcMsgsHTML();c.scrollTop=c.scrollHeight;}
 function rcSetThinking(b){var t=document.getElementById('rcThinking');if(t)t.style.display=b?'block':'none';}
 function rcSegSchema(){return 'Each day: {"day":"Mon","date":"YYYY-MM-DD","type":"rest|easy|recovery|long|steady|tempo|threshold|intervals|fartlek|hills|cross|strength","title":"short name","km":8,"segments":[{"label":"Warm-up","measure":"time|distance","minutes":10,"km":2,"paceKey":"easy|recovery|long|marathon|threshold|tenK|fiveK|interval|rep","reps":5,"recoveryMin":1.5}],"note":"one coaching cue"}. Simple run = ONE segment. Interval/tempo = warm-up + work segment (set reps & recoveryMin) + cool-down. Rest: type rest, empty segments. paceKey MUST be one of the listed keys.';}
-function rcPlanSpec(){return 'When you have the goal, timeframe and an idea of their fitness (from their Garmin runs in the context or a time they gave), reply with ONLY a fenced json object, no other text:\n```json\n{"goal":"short label","goal_type":"race|distance|weight|general","race_distance":"5K|10K|Half|Marathon|none","target_date":"YYYY-MM-DD or null","benchmark":{"distance_m":5000,"time_s":1650},"days_per_week":4,"long_run_day":"Sun","phases":[{"name":"Base","weeks":4,"focus":"..."}],"weeks":[{"week":1,"phase":"Base","focus":"...","totalKm":25,"key":"..."}],"detail":{"week":1,"days":[ ...7 days Mon-Sun... ]}}\n```\nbenchmark = numeric distance(m)/time(s) of their best recent effort (use their Garmin runs if available). phases cover the whole block to race day. weeks = one entry per week to target. detail = CURRENT week. '+rcSegSchema()+' Build realistic VOLUME based on their recent weekly mileage from Garmin, and schedule around their shifts/energy/sleep in the context.';}
+function rcPlanSpec(){return 'When you have the goal, timeframe and an idea of their fitness (from their Garmin runs in the context or a time they gave), reply with ONLY a fenced json object, no other text:\n```json\n{"goal":"short label","goal_type":"race|distance|weight|general","race_distance":"5K|10K|Half|Marathon|none","target_date":"YYYY-MM-DD or null","benchmark":{"distance_m":5000,"time_s":1650},"days_per_week":4,"long_run_day":"Sun","phases":[{"name":"Base","weeks":4,"focus":"..."}],"weeks":[{"week":1,"phase":"Base","focus":"...","totalKm":25,"key":"..."}],"detail":{"week":1,"days":[ ...7 days Mon-Sun... ]}}\n```\nbenchmark = numeric distance(m)/time(s) of their best recent effort (use their Garmin runs if available). phases cover the whole block to race day. weeks = one entry per week to target. detail = CURRENT week. ALSO include "schedule": an array covering EVERY training day across ALL weeks to the target, each {"date":"YYYY-MM-DD","type":"easy|long|tempo|threshold|intervals|recovery|cross|strength","title":"short name","km":8} (omit pure rest days). Use real calendar dates starting from the coming week. '+rcSegSchema()+' Build realistic VOLUME based on their recent weekly mileage from Garmin, and schedule around their shifts/energy/sleep in the context. If they lift weights, include strength sessions (type "strength") through the week and in the schedule, complementing the runs and fitting their shifts \u2014 never a hard run and heavy legs back to back.';}
+async function coachAdapt(reason){
+  var p=await getRunPlan();if(!p||!p.plan||!p.plan.detail||!p.plan.detail.days)return null;
+  var td=runToday();
+  var paces=p.plan.engine?Object.keys(p.plan.engine.paces).reduce(function(a,k){a[k]=paceStr(p.plan.engine.paces[k])+'/km';return a;},{}):{};
+  var contract='You are adjusting '+(currentUser?currentUser.name.split(' ')[0]:'their')+'\u2019s CURRENT training week to fit real life. Reason for this check: '+(reason||'data changed')+'. Today is '+td+'. Their fixed paces (use exactly): '+JSON.stringify(paces)+'. Read their recent runs, last night\u2019s sleep and their shifts in the context. Adjust ONLY '+td+' and the days AFTER it \u2014 never change earlier days. You may move a session to another day, shrink its distance, downgrade to recovery or rest, or reorder run vs strength \u2014 to protect recovery and fit their shifts and energy. Hold the weekly intent where you reasonably can. If nothing needs changing, return the week unchanged with a note saying so. Output ONLY a fenced json object:\n```json\n{"days":[ ...all 7 days Mon-Sun with your adjustments... ],"note":"one short sentence on what you changed and why, e.g. \u2018Shortened today\u2019s run and pushed intervals to Thursday \u2014 you slept 5h and have a late shift.\u2019"}\n```\n'+rcSegSchema()+' Current week to adjust: '+JSON.stringify(p.plan.detail.days);
+  try{
+    var d=await brainThink('Adapt my week to what\u2019s happening in my life right now.',{json:true,contract:contract,maxTokens:2400});
+    if(d&&d.days){p.plan.detail.days=d.days;if(typeof rcMergeSchedule==='function')rcMergeSchedule(p.plan);p.plan.lastAdapt={note:d.note||'Adjusted your week.',at:localDay()};await setRunPlan(p);brainStale();return p.plan.lastAdapt;}
+  }catch(e){}
+  return null;
+}
+async function coachAdaptNow(){toast('Coach is reading your week\u2026');var a=await coachAdapt('manual check-in');await refreshScreen();toast(a?a.note:'Couldn\u2019t adjust just now \u2014 try again.');}
 async function rcSend(){
   if(rcBusy)return;var inp=document.getElementById('rcInput');var txt=(inp&&inp.value||'').trim();if(!txt)return;
   rcChat.push({role:'user',content:txt});if(inp)inp.value='';rcBusy=true;rcRenderMsgs();rcSetThinking(true);
@@ -1478,7 +1495,7 @@ async function rcSend(){
     if(plan&&plan.detail&&plan.detail.days){
       var engLogs=rcEngineFromLogs(await getRunLogs(60));
       plan.engine=engLogs||rcEngine(plan.benchmark)||null;
-      plan.startDate=localDay();plan.log=plan.log||{};
+      plan.startDate=localDay();plan.log=plan.log||{};plan.schedule=plan.schedule||[];rcMergeSchedule(plan);
       var dt=(plan.target_date&&/^\d{4}-\d{2}-\d{2}$/.test(plan.target_date))?plan.target_date:null;
       await setRunPlan({goal:plan.goal||'My training',goal_type:plan.goal_type||'general',target_date:dt,days_per_week:plan.days_per_week||4,level:'',baseline:'',plan:plan});
       rcChat=[];rcBusy=false;rcEditing=false;await refreshScreen();toast('Plan ready \u2713');return;
@@ -1486,6 +1503,7 @@ async function rcSend(){
     rcChat.push({role:'assistant',content:ans});rcBusy=false;rcSetThinking(false);rcRenderMsgs();
   }catch(e){rcBusy=false;rcSetThinking(false);rcChat.push({role:'assistant',content:'I had trouble building that just then \u2014 try once more.'});rcRenderMsgs();}
 }
+function rcMergeSchedule(plan){if(!plan)return;plan.schedule=plan.schedule||[];var byDate={};plan.schedule.forEach(function(s){if(s&&s.date)byDate[s.date]=s;});((plan.detail&&plan.detail.days)||[]).forEach(function(d){if(d&&d.date&&(d.type||'').toLowerCase()!=='rest')byDate[d.date]={date:d.date,type:d.type,title:d.title||d.type,km:d.km||0};});plan.schedule=Object.keys(byDate).sort().map(function(k){return byDate[k];});}
 function rcParse(ans){var jm=ans.match(/```json([\s\S]*?)```/i);var raw=jm?jm[1]:ans;try{return JSON.parse(raw.trim());}catch(e){try{return JSON.parse((raw.match(/\{[\s\S]*\}/)||[''])[0]);}catch(e2){return null;}}}
 
 async function renderRunCoach(){
@@ -1523,6 +1541,7 @@ function runPlanView(p,logs){
     today='<div class="card" style="border:1.5px solid var(--accent)"><div style="display:flex;justify-content:space-between;align-items:center"><div class="small" style="color:var(--accent)">TODAY \u00B7 '+td+'</div>'+(rest?'':'<span class="dot" style="background:'+sessTypeColor(t)+'"></span>')+'</div>'+
       '<div class="serif" style="font-size:23px;font-weight:700;margin-top:6px">'+esc(todayS.title||todayS.type||'Session')+(todayS.km?' \u00B7 '+todayS.km+' km':'')+'</div>'+
       sessionDetailHTML(plan,todayS)+
+      ((plan.lastAdapt&&plan.lastAdapt.at===localDay()&&plan.lastAdapt.note)?'<div style="display:flex;gap:8px;margin-top:11px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:11px"><span style="color:var(--accent);flex:none;margin-top:1px">'+icon('spark',15,2.2)+'</span><div class="rs" style="line-height:1.45;color:var(--ink)">'+esc(plan.lastAdapt.note)+'</div></div>':'')+
       (rest?'':'<div style="display:flex;gap:8px;margin-top:13px"><button class="tbtn add" style="flex:1" onclick="logRun()">Log run</button></div>'+
         '<div style="display:flex;gap:6px;margin-top:9px"><button onclick="rcDone(\''+td+'\',\'good\')" style="flex:1;background:'+(dn&&log[k].fb==='good'?'var(--ok)':'var(--surface-2)')+';color:'+(dn&&log[k].fb==='good'?'#fff':'var(--sub)')+';border:1px solid var(--line);border-radius:11px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Nailed it</button><button onclick="rcDone(\''+td+'\',\'easy\')" style="flex:1;background:'+(dn&&log[k].fb==='easy'?'var(--ok)':'var(--surface-2)')+';color:'+(dn&&log[k].fb==='easy'?'#fff':'var(--sub)')+';border:1px solid var(--line);border-radius:11px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Too easy</button><button onclick="rcDone(\''+td+'\',\'hard\')" style="flex:1;background:'+(dn&&log[k].fb==='hard'?'var(--danger)':'var(--surface-2)')+';color:'+(dn&&log[k].fb==='hard'?'#fff':'var(--sub)')+';border:1px solid var(--line);border-radius:11px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Too hard</button></div>')+
       '</div>';
@@ -1535,14 +1554,15 @@ function runPlanView(p,logs){
   var doneCount=0,total=0;
   var rows=RC_WEEK.map(function(d){var s=null;for(var i=0;i<days.length;i++){if((days[i].day||'')===d){s=days[i];break;}}if(!s)s={day:d,type:'rest',title:'Rest'};var t=(s.type||'').toLowerCase();var none=t==='rest';if(!none)total++;var k=dayKeyOf(plan,d);var dn=log[k]&&log[k].done;if(dn)doneCount++;var on=d===td;
     return '<div class="row"'+(on?' style="background:var(--surface-2);border-radius:12px"':'')+' onclick="rcOpenSession(\''+d+'\')"><div style="width:34px;font-weight:700;font-size:13px;color:'+(on?'var(--accent)':'var(--sub)')+'">'+d+'</div><span class="dot" style="background:'+sessTypeColor(t)+';margin-right:2px"></span><div style="flex:1"><div class="rt" style="font-size:14px">'+esc(s.title||s.type)+(s.km&&!none?' \u00B7 '+s.km+' km':'')+'</div></div>'+(none?'':'<span style="font-size:13px;color:'+(dn?'var(--ok)':'var(--sub)')+';font-weight:700">'+(dn?'\u2713':'\u203A')+'</span>')+'</div>';}).join('');
-  var weekCard='<div class="card"><div class="ctitle" style="margin:0">This week \u00B7 '+doneCount+'/'+total+' done</div>'+rows+'<div style="display:flex;gap:8px;margin-top:12px"><button class="tbtn add" onclick="rcReshuffle()">Reshuffle week</button><button class="tbtn" onclick="rcNextWeek()" style="background:var(--surface-3);color:var(--ink)">Next week \u2192</button></div></div>';
+  var weekCard='<div class="card"><div class="ctitle" style="margin:0">This week \u00B7 '+doneCount+'/'+total+' done</div>'+rows+'<div style="display:flex;gap:8px;margin-top:12px"><button class="tbtn add" onclick="coachAdaptNow()">'+icon('spark',15,2.2)+' Adapt to my life</button><button class="tbtn" onclick="rcNextWeek()" style="background:var(--surface-3);color:var(--ink)">Next week \u2192</button></div></div>';
   var prog=progressCard(p,logs);
   var block='';
   if(plan.weeks&&plan.weeks.length){block='<div class="card"><div class="ctitle">The full plan</div>'+plan.weeks.map(function(w){var cur=(detail.week===w.week);return '<div class="row"'+(cur?' style="background:var(--surface-2);border-radius:12px"':'')+'><div style="width:48px;font-weight:700;font-size:12px;color:'+(cur?'var(--accent)':'var(--sub)')+'">Wk '+w.week+'</div><div style="flex:1"><div class="rt" style="font-size:13.5px">'+esc(w.focus||'')+(w.phase?' \u00B7 '+esc(w.phase):'')+'</div><div class="rs">'+(w.totalKm?w.totalKm+' km':'')+(w.key?' \u00B7 '+esc(w.key):'')+'</div></div>'+(cur?'':'<button class="tbtn add" onclick="rcViewWeek('+w.week+')">View</button>')+'</div>';}).join('')+'</div>';}
   var logCard='';var rl=logs.slice(0,8);
   if(rl.length){logCard='<div class="card"><div class="ctitle">Recent runs</div>'+rl.map(function(l){var ds=new Date(l.day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});var pace=(l.km&&l.min)?(' \u00B7 '+paceStr(Math.round(l.min*60/l.km))+'/km'):'';return '<div class="row" onclick="rcRunDetail(\''+l.id+'\')"><div style="flex:1"><div class="rt" style="font-size:14px">'+(l.km||0)+' km'+(l.min?' in '+Math.round(l.min)+' min':'')+pace+(l.hr?' \u00B7 '+l.hr+' bpm':'')+'</div><div class="rs">'+ds+(l.source==='garmin'?' \u00B7 Garmin':'')+' \u00B7 tap for detail</div></div><span style="color:var(--sub);font-weight:700">\u203A</span></div>';}).join('')+'</div>';}
+  var calLink='<div class="card" onclick="go(\'calendar\')" style="display:flex;align-items:center;gap:12px;cursor:pointer"><div class="chip sm" style="--tc:var(--accent)">'+icon('calendar',16,2.2)+'</div><div style="flex:1"><div class="rt">Your sessions are on your Calendar</div><div class="rs">See every day alongside your shifts</div></div><span style="color:var(--sub)">\u203A</span></div>';
   var ctrls='<button class="tbtn" style="background:var(--surface-3);color:var(--ink)" onclick="rcEditPlan()">Talk to coach</button>';
-  return '<div class="stack">'+head+gImport+(today||'')+predCard+paceCard+weekCard+prog+block+logCard+ctrls+'</div>';
+  return '<div class="stack">'+head+gImport+(today||'')+calLink+predCard+paceCard+weekCard+prog+block+logCard+ctrls+'</div>';
 }
 function progressCard(p,logs){
   var plan=p.plan||{};var weeks=plan.weeks||[];
@@ -1588,7 +1608,7 @@ async function rcGenWeek(p,n,wk,extra){
     var ans=await askAI([{role:'user',content:'Detail week '+n+'.'}],sys,2600);
     var d=null;var jm=ans.match(/```json([\s\S]*?)```/i);if(jm){try{d=JSON.parse(jm[1].trim());}catch(e){}}
     if(!d){try{d=JSON.parse((ans.match(/\{[\s\S]*\}/)||[''])[0]);}catch(e){}}
-    if(d&&d.days){p.plan.detail=d;await setRunPlan(p);await refreshScreen();toast('Week '+n+' ready \u2713');}
+    if(d&&d.days){p.plan.detail=d;rcMergeSchedule(p.plan);await setRunPlan(p);await refreshScreen();toast('Week '+n+' ready \u2713');}
     else toast('Couldn\u2019t build it \u2014 try again');
   }catch(e){toast('Couldn\u2019t reach your coach right now');}
 }
@@ -1617,7 +1637,9 @@ async function rcSaveRun(){
   var I=function(id){var n=parseInt(g(id),10);return isNaN(n)?null:n;};
   await addRunFull({day:g('arDate')||localDay(),km:Math.round(km*100)/100,min:(min!=null?Math.round(min*10)/10:null),hr:I('arHr'),maxhr:I('arMax'),cad:I('arCad'),elev:I('arElev'),cal:I('arCal'),rpe:I('arRpe'),notes:g('arNotes')||null,source:'manual'});
   var p=await getRunPlan();if(p&&p.plan){var eng=rcEngineFromLogs(await getRunLogs(60));if(eng){p.plan.engine=eng;await setRunPlan(p);}}
-  closeOverlay();await refreshScreen();toast('Run saved \u2713');
+  closeOverlay();await refreshScreen();
+  if(p&&p.plan&&p.plan.detail){toast('Run saved \u2014 coach is adapting your week\u2026');var a=await coachAdapt('they just logged a run');await refreshScreen();toast(a?a.note:'Run saved \u2713');}
+  else{toast('Run saved \u2713');}
 }
 async function rcRunDetail(id){
   var logs=await getRunLogs(60);var l=null;logs.forEach(function(x){if(x.id===id)l=x;});if(!l)return;
@@ -1660,69 +1682,72 @@ async function lcSend(){
     lcChat.push({role:'assistant',content:ans});lcBusy=false;lcThinking(false);lcRenderMsgs();
   }catch(e){lcBusy=false;lcThinking(false);lcChat.push({role:'assistant',content:'Trouble saving that \u2014 try once more.'});lcRenderMsgs();}
 }
+// ============================================================
+// THE BRAIN — one intelligence that reads everything in Forge and
+// drives every section. Chronos is its front door. Each tab will
+// plug into brainThink() instead of making its own shallow call.
+// ============================================================
+var brainBusy=false;
+async function brainThink(task,opts){
+  opts=opts||{};
+  var first=currentUser?currentUser.name.split(' ')[0]:'the user';
+  var ctx=await gatherUserContext();
+  var persona=opts.persona||('You are the intelligence behind '+first+'\u2019s life app, Forge. You can see everything about them below and you reason across ALL of it together \u2014 calendar, work shifts, sleep, training, money, goals and who they want to become (Future Me). Be specific, personal and decisive. Never generic, never a list of platitudes.');
+  var sys=persona+'\n\n'+(opts.contract||'')+'\n\nEVERYTHING YOU KNOW ABOUT '+first.toUpperCase()+':\n'+ctx;
+  var ans=await askAI([{role:'user',content:task}],sys,opts.maxTokens||1200);
+  if(opts.json){
+    var jm=ans.match(/```(?:json|forge)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;
+    try{return JSON.parse(raw.trim());}catch(e){try{return JSON.parse((raw.match(/[\[{][\s\S]*[\]}]/)||[''])[0]);}catch(e2){return null;}}
+  }
+  return ans;
+}
+function brainStale(){chronosToday=null;}
+
+// ---- Chronos: the command center, powered by the brain ----
+var chronosToday=null; // {date, data}
 async function renderUnderstudy(){
   var lc=await getLifeContext();
   var weekSection;
-  if(lcEditing){weekSection=lcChatHTML();}
+  if(typeof lcEditing!=='undefined'&&lcEditing){weekSection=lcChatHTML();}
   else if(lc&&lc.summary){weekSection='<div class="card"><div class="ctitle">What Chronos knows about your week</div><div class="rs" style="line-height:1.5;margin-top:2px">'+esc(lc.summary)+'</div><button class="tbtn add" style="margin-top:10px" onclick="teachChronos()">Update</button></div>';}
-  else {weekSection='<div class="card" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:var(--accent)">'+icon('clock',16,2.2)+'</div><div style="flex:1"><div class="rt">Teach Chronos your week</div><div class="rs">So everything plans around your real life</div></div><button class="tbtn add" onclick="teachChronos()">Start</button></div>';}
-  var pending=await getProposals('pending');
-  var done=await getProposals('approved');
-  var head='<div class="card dark"><div class="small">Chronos</div><div style="font-size:14px;line-height:1.5;margin-top:6px">It proposes, you approve. Nothing happens without your nod \u2014 every action is reversible from its own tab.</div></div>';
-  var gen='<div class="card" id="udGen" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:var(--accent)">'+icon('spark',16,2.2)+'</div><div style="flex:1"><div class="rt">Plan toward Future Me</div><div class="rs">Let Chronos draft your next few days</div></div><button class="tbtn add" onclick="generateProposals()">Plan</button></div>';
-  var queue;
-  if(pending.length){
-    var rows=pending.map(function(p){return '<div class="card"><div class="rt">'+esc(p.summary)+'</div>'+(p.why?'<div class="rs" style="margin-top:3px;line-height:1.45">'+esc(p.why)+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:11px"><button class="tbtn add" onclick="approveProposal(\''+p.id+'\')">Approve</button><button class="tbtn rm" onclick="dismissProposal(\''+p.id+'\')">Dismiss</button></div></div>';}).join('');
-    queue='<div class="ctitle" style="padding:2px 4px">For your approval ('+pending.length+')</div>'+(pending.length>1?'<button class="reqbtn" onclick="approveAllProposals()">'+icon('check',16)+' Approve all '+pending.length+'</button>':'')+rows;
-  }else{
-    queue='<div class="card"><div class="rs" style="text-align:center;padding:14px 0">Nothing waiting. Tap \u201CPlan\u201D and Chronos will draft actions that move you toward your goals.</div></div>';
-  }
-  var log=done.length?'<div class="card"><div class="ctitle">Recently done</div>'+done.slice(0,8).map(function(p){return '<div class="row"><div class="chip sm" style="--tc:#1F9D6B">'+icon('check',14,2.4)+'</div><div style="flex:1"><div class="rt" style="font-size:14px">'+esc(p.summary)+'</div></div></div>';}).join('')+'</div>':'';
-  return '<div class="stack">'+head+weekSection+gen+queue+log+'</div>';
+  else {weekSection='<div class="card" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:var(--accent)">'+icon('clock',16,2.2)+'</div><div style="flex:1"><div class="rt">Teach Chronos your week</div><div class="rs">So it plans around your real life</div></div><button class="tbtn add" onclick="teachChronos()">Start</button></div>';}
+  var head='<div class="card dark"><div style="display:flex;align-items:center;gap:11px"><div class="chip sm" style="--tc:#fff;background:rgba(255,255,255,.18)">'+icon('spark',16,2.2)+'</div><div><div class="rt" style="color:#fff">Chronos</div><div style="font-size:12.5px;opacity:.85;line-height:1.4">Your command center \u2014 it reads everything and tells you what to do.</div></div></div></div>';
+  var body;
+  if(chronosToday&&chronosToday.date===localDay()&&chronosToday.data){body=chronosRender(chronosToday.data);}
+  else{body='<div class="card" id="chGen" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:var(--accent)">'+icon('spark',16,2.2)+'</div><div style="flex:1"><div class="rt">Plan my day</div><div class="rs">Chronos looks at everything and lays out your day</div></div><button class="tbtn add" onclick="chronosPlanDay()">Plan</button></div>';}
+  return '<div class="stack">'+head+weekSection+body+'</div>';
 }
-function proposalSummary(a){
-  var t=String(a.type||'').toLowerCase();
-  if(t==='add_task')return 'Add task: '+a.title;
-  if(t==='add_reminder')return 'Reminder: '+a.title;
-  if(t==='add_goal')return 'New goal: '+a.title;
-  if(t==='add_note')return 'Note: '+a.title;
-  if(t==='add_shopping')return 'Shopping: '+((a.items||[a.title]).filter(Boolean).join(', '));
-  if(t==='add_to_list')return 'Add to '+a.tab+': '+a.title;
-  if(t==='set_dinner')return (a.day||'')+' dinner: '+a.meal;
-  if(t==='plan_week_dinners')return 'Plan '+Object.keys(a.meals||{}).length+' dinners';
-  if(t==='add_countdown')return 'Countdown: '+a.name+' ('+a.date+')';
-  return a.title||a.name||'';
+function chronosRender(d){
+  var brief=d.briefing?'<div class="card"><div class="ctitle">Today</div><div style="font-size:15px;line-height:1.55;margin-top:2px">'+aiFmt(d.briefing)+'</div></div>':'';
+  var flags=(d.flags&&d.flags.length)?'<div class="card" style="border-left:3px solid var(--warn)"><div class="ctitle" style="color:var(--warn)">Heads up</div>'+d.flags.map(function(f){return '<div class="rs" style="line-height:1.5;margin-top:4px">\u2022 '+esc(f)+'</div>';}).join('')+'</div>':'';
+  var kc={focus:'#3D5AFF',move:'#1F9D6B',rest:'#7C5CFF',admin:'#6C707A',social:'#C68A2E',food:'#E0623A',money:'#1F9D6B'};
+  var items=(d.day&&d.day.length)?'<div class="card"><div class="ctitle">Your day, in order</div>'+d.day.map(function(it,i){
+    var c=kc[(it.kind||'').toLowerCase()]||'var(--accent)';
+    var act=(it.action&&it.action.type)?(it._added?'<div class="rs" style="margin-top:7px;color:var(--ok);font-weight:600">'+icon('check',13,2.6)+' Added</div>':'<button class="tbtn add" style="margin-top:8px" onclick="chronosDo('+i+')">Add to my app</button>'):'';
+    return '<div style="display:flex;gap:11px;padding:11px 0;border-top:1px solid var(--line)"><span style="width:7px;height:7px;border-radius:50%;background:'+c+';margin-top:6px;flex:none"></span><div style="flex:1"><div class="rt" style="font-size:14.5px">'+esc(it.title||'')+(it.when?' <span class="rs" style="font-weight:500">\u00B7 '+esc(it.when)+'</span>':'')+'</div>'+(it.why?'<div class="rs" style="line-height:1.45;margin-top:2px">'+esc(it.why)+'</div>':'')+act+'</div></div>';
+  }).join('')+'</div>':'';
+  var re='<button class="reqbtn" onclick="chronosPlanDay()">'+icon('spark',16)+' Re-plan my day</button>';
+  return brief+flags+items+re;
 }
-async function generateProposals(){
-  var host=document.getElementById('udGen');if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Chronos is planning your next few days\u2026</div>';
+async function chronosPlanDay(){
+  if(brainBusy)return;brainBusy=true;
+  var host=document.getElementById('chGen');if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Chronos is reading everything and planning your day\u2026</div>';
   try{
-    var ctx=await gatherUserContext();
-    var first=currentUser?currentUser.name.split(' ')[0]:'the user';
-    var sys='You are Chronos, '+first+'\u2019s proactive assistant inside their life-app Forge. Using their data and FUTURE ME north star below, propose 3-6 concrete, high-value actions for the next few days that move them toward who they want to become AND clear low-value load. Be specific and personal (block deep-work time, schedule a run/gym, draft an outreach, plan dinners from what they like, add a useful reminder). Respond with ONLY a fenced json array, no prose before or after: ```json\\n[{"type":"add_task","title":"...","note":"...","why":"one short line on how this serves their Future Me"}]\\n``` Allowed types ONLY: add_task{title,note?}, add_reminder{title,note?}, add_goal{title}, add_note{title}, add_shopping{items:[..]}, add_to_list{tab,title}, set_dinner{day,meal}, plan_week_dinners{meals:{Mon:".."}}, add_countdown{name,date:"YYYY-MM-DD"}. Use real values drawn from their data. CONTEXT:\\n'+ctx;
-    var ans=await askAI([{role:'user',content:'Plan my next few days toward my goals.'}],sys,900);
-    var arr=[];var jm=ans.match(/```(?:json|forge)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;
-    try{arr=JSON.parse(raw.trim());}catch(e){try{arr=JSON.parse((raw.match(/\[[\s\S]*\]/)||[''])[0]);}catch(e2){arr=[];}}
-    if(!Array.isArray(arr)||!arr.length){if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Couldn\u2019t draft a plan just now \u2014 tap Plan to try again.</div>';return;}
-    var made=0;
-    for(var i=0;i<arr.length&&i<8;i++){var a=arr[i];if(!a||!a.type)continue;var summ=proposalSummary(a);if(!summ)continue;await addProposal(a.type,a,summ,a.why||'');made++;}
-    await refreshScreen();
-    toast(made+' proposal'+(made!==1?'s':'')+' ready');
-  }catch(e){if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Chronos couldn\u2019t reach Forge AI right now \u2014 try again in a moment.</div>';}
+    var first=currentUser?currentUser.name.split(' ')[0]:'their';
+    var contract='Plan '+first+'\u2019s day RIGHT NOW. Reason across their work shifts, training plan, sleep, energy, goals and Future Me \u2014 together, not separately. Adapt to reality: if they slept badly or worked overtime, protect recovery and move or shrink hard sessions; fit training and lifts around their shifts and commitments; surface real conflicts. Respond with ONLY a fenced json object:\n```json\n{"briefing":"2-3 warm, direct sentences on what today looks like and the ONE thing that matters most","day":[{"title":"short imperative","when":"e.g. 6:00 PM / after work / now","why":"one line tying it to their schedule, energy or goals","kind":"focus|move|rest|admin|social|food|money","action":{"type":"add_task","title":"...","note":"..."}}],"flags":["any conflict or caution worth flagging, or omit"]}\n```\nThe "action" field is OPTIONAL \u2014 include only when there is a concrete thing to add to their app. Allowed action types: add_task{title,note?}, add_reminder{title,note?}, add_goal{title}, add_note{title}, add_shopping{items:[..]}, set_dinner{day,meal}, add_countdown{name,date:"YYYY-MM-DD"}. Order the day sensibly around their shifts. 5-8 items.';
+    var data=await brainThink('Plan my day.',{json:true,contract:contract,maxTokens:1500});
+    if(!data||!data.day){brainBusy=false;if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Couldn\u2019t plan just now \u2014 try again.</div>';return;}
+    chronosToday={date:localDay(),data:data};brainBusy=false;await refreshScreen();
+  }catch(e){brainBusy=false;if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Chronos couldn\u2019t reach the AI right now \u2014 try again.</div>';}
 }
-async function approveProposal(id){
-  var p=(await getProposals('pending')).filter(function(x){return x.id===id;})[0];
-  if(!p)return;
-  await runAIActions([p.payload]);
-  await setProposalStatus(id,'approved');
-  await refreshScreen();toast('Done \u2713');
+async function chronosDo(i){
+  if(!chronosToday||!chronosToday.data||!chronosToday.data.day)return;
+  var it=chronosToday.data.day[i];if(!it||!it.action||!it.action.type)return;
+  var done=await runAIActions([it.action]);
+  it._added=true;chronosToday.data.day[i]=it;
+  toast(done&&done.length?done[0]:'Added \u2713');await refreshScreen();
 }
-async function approveAllProposals(){
-  var ps=await getProposals('pending');if(!ps.length)return;
-  await runAIActions(ps.map(function(p){return p.payload;}));
-  for(var i=0;i<ps.length;i++)await setProposalStatus(ps[i].id,'approved');
-  await refreshScreen();toast(ps.length+' action'+(ps.length!==1?'s':'')+' done \u2713');
-}
-async function dismissProposal(id){await setProposalStatus(id,'rejected');await refreshScreen();}
+
 async function renderGenericList(tab){
   var items=await loadItems(tab);var t=catalogById(tab);var accent=(t&&t.chip)||'#94A3B8';
   var rows=items.map(function(it){return '<div class="row"><span class="dot" style="background:'+accent+'"></span><div style="flex:1"><div class="rt">'+esc(it.t)+'</div>'+(it.s?'<div class="rs">'+esc(it.s)+'</div>':'')+'</div><button class="del" onclick="delItem(\''+it.id+'\',\''+tab+'\')">'+icon('x',15)+'</button></div>';}).join('');
@@ -2181,7 +2206,9 @@ async function gatherUserContext(){
   lines.push('Today: '+today.toDateString());
   try{var lc=await getLifeContext();if(lc&&(lc.summary||lc.routine)){lines.push('Typical week & commitments: '+(lc.summary||'')+(lc.routine?(' | '+JSON.stringify(lc.routine)):''));}}catch(e){}
   try{var _t2=new Date();_t2.setDate(_t2.getDate()+14);var _sh=await getShifts(localDay(),_t2.getFullYear()+'-'+('0'+(_t2.getMonth()+1)).slice(-2)+'-'+('0'+_t2.getDate()).slice(-2));if(_sh.length){lines.push('Upcoming shifts (work around these): '+_sh.map(function(s){var dd=new Date(s.day+'T00:00:00');return dd.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'})+(s.label?' '+s.label:'')+(s.start?' '+s.start+(s.end?'-'+s.end:''):'');}).join('; '));}}catch(e){}
-  try{var rp=await getRunPlan();if(rp&&rp.plan){var td=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];var ts=null;((rp.plan.detail&&rp.plan.detail.days)||[]).forEach(function(w){if(w.day===td)ts=w;});lines.push('Running goal: '+rp.goal+(ts?(' — today: '+(ts.type||'')+(ts.km?' '+ts.km+'km':'')+(ts.pace?' @ '+ts.pace:'')):''));}}catch(e){}
+  try{var _td=localDay();var _ts=await getShifts(_td,_td);if(_ts.length)lines.push('TODAY\u2019S SHIFTS (plan around these): '+_ts.map(function(s){return (s.label||'Shift')+(s.start?' '+s.start+(s.end?'-'+s.end:''):'');}).join('; '));}catch(e){}
+  try{var rl=await getRunLogs(6);if(rl&&rl.length){lines.push('Recent runs (their real training load): '+rl.map(function(l){return l.day+' '+l.km+'km'+(l.min?'/'+Math.round(l.min)+'min':'')+(l.hr?'/'+l.hr+'bpm':'');}).join('; '));}}catch(e){}
+  try{var rp=await getRunPlan();if(rp&&rp.plan){var td=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];var ts=null;((rp.plan.detail&&rp.plan.detail.days)||[]).forEach(function(w){if(w.day===td)ts=w;});lines.push('Running goal: '+rp.goal+(ts?(' — today\u2019s session: '+(ts.type||'')+(ts.km?' '+ts.km+'km':'')+(ts.title?' ('+ts.title+')':'')):''));}}catch(e){}
   try{var fm=await getFutureMe();if(fm&&fm.profile)lines.push('FUTURE ME (their north star \u2014 weigh every suggestion against this; favour what moves them toward it): '+fm.profile);var fgs=await getFutureGoals();if(fgs&&fgs.length)lines.push('Long-term goals: '+fgs.map(function(g){return '['+g.horizon+'] '+g.t+' ('+Math.round(g.progress)+'%)';}).join('; '));}catch(e){}
   try{var b=await getFinBalance();if(b!=null)lines.push('Logged balance: A$'+Number(b).toLocaleString());}catch(e){}
   try{var inv=await getInvestments();if(inv&&inv.length){var ivt=inv.reduce(function(s,x){return s+x.v;},0);lines.push('Investments: A$'+ivt.toLocaleString()+' across '+inv.length+' ('+inv.map(function(x){return x.n+' A$'+x.v.toLocaleString();}).join(', ')+')');}}catch(e){}
