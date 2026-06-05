@@ -499,6 +499,11 @@ async function deleteTrackerLog(id){try{await sb.from('trackers').delete().eq('i
 async function getProposals(status){if(!currentUser)return[];try{var q=sb.from('proposals').select('*').eq('user_id',currentUser.id);if(status)q=q.eq('status',status);var r=await q.order('created_at',{ascending:false});return (r.data||[]).map(function(x){var pl={};try{pl=JSON.parse(x.payload);}catch(e){}return{id:x.id,type:x.type,payload:pl,summary:x.summary,why:x.why,status:x.status};});}catch(e){return[];}}
 async function addProposal(type,payload,summary,why){try{await sb.from('proposals').insert({user_id:currentUser.id,type:type,payload:JSON.stringify(payload),summary:summary,why:why||null,status:'pending'});}catch(e){console.error(e);}}
 async function setProposalStatus(id,status){try{await sb.from('proposals').update({status:status}).eq('id',id);}catch(e){}}
+async function getRunPlan(){if(!currentUser)return null;try{var r=await sb.from('run_plan').select('*').eq('user_id',currentUser.id).maybeSingle();if(!r.data)return null;var d=r.data;return{goal:d.goal,target_date:d.target_date,days_per_week:d.days_per_week,level:d.level,baseline:d.baseline,plan:d.plan?JSON.parse(d.plan):null};}catch(e){return null;}}
+async function setRunPlan(o){if(!currentUser)return;try{var r=await sb.from('run_plan').upsert({user_id:currentUser.id,goal:o.goal,target_date:o.target_date||null,days_per_week:o.days_per_week||null,level:o.level||null,baseline:o.baseline||null,plan:JSON.stringify(o.plan||{}),updated_at:new Date().toISOString()},{onConflict:'user_id'});if(r&&r.error)toast('Couldn\u2019t save plan: '+r.error.message);}catch(e){toast('Couldn\u2019t save plan');}}
+async function getRunLogs(limit){if(!currentUser)return[];try{var r=await sb.from('run_logs').select('*').eq('user_id',currentUser.id).order('day',{ascending:false}).limit(limit||10);return (r.data||[]).map(function(x){return{id:x.id,day:x.day,km:Number(x.distance_km),min:x.duration_min!=null?Number(x.duration_min):null,effort:x.effort||'',notes:x.notes||''};});}catch(e){return[];}}
+async function addRunLogDB(day,km,min,effort,notes){try{await sb.from('run_logs').insert({user_id:currentUser.id,day:day,distance_km:km,duration_min:min,effort:effort||null,notes:notes||null});}catch(e){}}
+async function deleteRunLogDB(id){try{await sb.from('run_logs').delete().eq('id',id);}catch(e){}}
 async function getCountdowns(){if(!currentUser)return[];try{var r=await sb.from('countdowns').select('*').eq('user_id',currentUser.id).order('target_date');return (r.data||[]).map(function(x){return{id:x.id,n:x.name,d:x.target_date};});}catch(e){return[];}}
 async function addCountdownDB(n,d){await sb.from('countdowns').insert({user_id:currentUser.id,name:n,target_date:d});}
 async function deleteCountdownDB(id){await sb.from('countdowns').delete().eq('id',id);}
@@ -645,7 +650,7 @@ function subscribeTabs(){
 function addTab(id){var a=enabledTabs();if(a.indexOf(id)<0){a.push(id);setEnabledTabs(a);}refreshScreen();toast('Added ✓');}
 function removeTab(id){setEnabledTabs(enabledTabs().filter(function(x){return x!==id;}));refreshScreen();toast('Removed');}
 const ADDABLE={work:'task',reminders:'reminder',goals:'habit',notes:'note',documents:'document',shopping:'item',subs:'subscription',workouts:'workout',recipes:'recipe',mood:'note',sleep:'entry',water:'log',meds:'medication',projects:'project',journal:'entry',books:'book',movies:'title',study:'topic',wishlist:'wish',gifts:'gift',pets:'pet',home2:'job',habits:'habit',fitness:'workout',health:'entry'};
-function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'},futureme:{label:'Future Me',sub:'Who you\'re becoming'},understudy:{label:'Understudy',sub:'Proposes, you approve'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
+function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'},futureme:{label:'Future Me',sub:'Who you\'re becoming'},understudy:{label:'Understudy',sub:'Proposes, you approve'},runcoach:{label:'Run Coach',sub:'Your AI running coach'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
 
 // ============================================================
 // AUTH SCREENS (PIN + signup) — rendered into #stage-overlay layers
@@ -1013,12 +1018,13 @@ function homeHTML(){
     return '<div class="tile" onclick="go(\'cat_'+c.id+'\')"><div class="chip">'+icon(c.icon,21,2.2)+'</div><div><div class="t">'+esc(c.label)+'</div><div class="s">'+esc(sub)+'</div></div></div>';
   }).join('');
   var futureTile='<div class="tile" onclick="go(\'futureme\')"><div class="chip">'+icon('star',21,2.2)+'</div><div><div class="t">Future Me</div><div class="s">Who you\'re becoming</div></div></div>';
+  var runTile='<div class="tile" onclick="go(\'runcoach\')"><div class="chip">'+icon('trend',21,2.2)+'</div><div><div class="t">Run Coach</div><div class="s">Your AI running coach</div></div></div>';
   var understudyTile='<div class="tile" onclick="go(\'understudy\')"><div class="chip">'+icon('check',21,2.2)+'</div><div><div class="t">Understudy</div><div class="s">Plans, you approve</div></div></div>';
   var aiTile='<div class="tile" onclick="go(\'ai\')"><div class="chip">'+icon('spark',21,2.2)+'</div><div><div class="t">Forge AI</div><div class="s">Ask about your world</div></div></div>';
   var ownerTile=isOwner()?'<div class="tile" onclick="go(\'owner\')"><div class="chip">'+icon('grid',21,2.2)+'</div><div><div class="t">Dashboard</div><div class="s">Owner only</div></div></div>':'';
   var customise='<div class="tile ghost" onclick="go(\'tabs\')"><div class="chip ghostchip">'+icon('grid',20,2.2)+'</div><div><div class="t">Customise</div><div class="s">Add or remove tabs</div></div></div>';
   var req='<div class="tile ghost" onclick="openRequest()"><div class="chip ghostchip">'+icon('plus',20,2.4)+'</div><div><div class="t">Request a feature</div><div class="s">Tell me what to build</div></div></div>';
-  return '<div class="home-grid" id="homeGrid">'+hero+cats+futureTile+understudyTile+aiTile+ownerTile+customise+req+'</div>';
+  return '<div class="home-grid" id="homeGrid">'+hero+cats+futureTile+runTile+understudyTile+aiTile+ownerTile+customise+req+'</div>';
 }
 
 function skeletonHTML(){
@@ -1215,6 +1221,7 @@ async function renderTab(tab){
   if(tab==='ai')return renderAI();
   if(tab==='futureme')return renderFutureMe();
   if(tab==='understudy')return renderUnderstudy();
+  if(tab==='runcoach')return renderRunCoach();
   if(TRACKERS[tab])return renderTracker(tab);
   if(tab==='calendar')return renderCalendar();
   if(tab==='contacts')return renderContacts();
@@ -1296,6 +1303,114 @@ async function trackerInsight(kind){
     if(host)host.innerHTML='<div><div class="rt" style="margin-bottom:6px">Forge AI on your '+esc(cfg.label.toLowerCase())+'</div><div class="rs" style="line-height:1.5">'+aiFmt(ans)+'</div></div>';
   }catch(e){if(host)host.innerHTML='<div class="rs">Couldn\u2019t reach Forge AI right now \u2014 try again in a moment.</div>';}
 }
+// ============================================================
+// RUN COACH — goal in → AI training schedule (what/when/how fast)
+// ============================================================
+var runSetup=false;
+var RUN_DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function runToday(){return RUN_DAYS[new Date().getDay()];}
+function startRunSetup(){runSetup=true;refreshScreen();}
+function cancelRunSetup(){runSetup=false;refreshScreen();}
+
+async function renderRunCoach(){
+  if(runSetup)return runCoachSetupHTML(await getRunPlan());
+  var p=await getRunPlan();
+  if(!p||!p.plan){
+    return '<div class="stack"><div class="card" style="text-align:center;padding:28px 22px"><div class="chip" style="margin:0 auto 14px;width:54px;height:54px;border-radius:16px;--tc:var(--accent)">'+icon('trend',26,2)+'</div><div class="serif" style="font-size:21px;font-weight:700">Your running coach</div><div class="rs" style="margin-top:8px;line-height:1.55">Tell me your goal and how you run today, and I\u2019ll build a week-by-week schedule \u2014 what to run each day, how far, and how hard.</div><button onclick="startRunSetup()" style="margin-top:18px;padding:13px 24px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Set up my plan</button></div></div>';
+  }
+  return runPlanView(p, await getRunLogs(8));
+}
+function runSelect(id,label,opts,val){
+  var o=opts.map(function(x){return '<option value="'+esc(x)+'"'+(x===val?' selected':'')+'>'+esc(x)+'</option>';}).join('');
+  return '<div class="card"><div class="ctitle">'+label+'</div><select id="'+id+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px">'+o+'</select></div>';
+}
+function runCoachSetupHTML(p){
+  p=p||{};
+  var goalV=p.goal||'';
+  var dateV=p.target_date||'';
+  return '<div class="stack">'+
+    '<div class="card dark"><div class="serif" style="font-size:19px;font-weight:700">Build my running plan</div><div style="font-size:13px;opacity:.85;margin-top:4px">A few quick questions \u2014 your coach does the rest.</div></div>'+
+    '<div class="card"><div class="ctitle">Your goal</div><input id="rcGoal" placeholder="e.g. Run a sub-25 5k, or my first 10k" value="'+esc(goalV)+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px"/></div>'+
+    '<div class="card"><div class="ctitle">Target date (optional)</div><input id="rcDate" type="date" value="'+esc(dateV)+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px"/></div>'+
+    runSelect('rcDays','Days per week you can run',['3','4','5','6'],String(p.days_per_week||'4'))+
+    runSelect('rcLevel','Where you\u2019re at',['New to running','Getting back into it','Regular runner','Experienced'],p.level||'Getting back into it')+
+    runSelect('rcBase','Longest you can comfortably run now',['Under 2 km','2\u20135 km','5\u201310 km','10 km+'],p.baseline||'2\u20135 km')+
+    '<button onclick="buildRunPlan()" style="padding:14px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Build my plan</button>'+
+    '<button onclick="cancelRunSetup()" class="reqbtn">Cancel</button>'+
+  '</div>';
+}
+async function buildRunPlan(){
+  var goal=(document.getElementById('rcGoal').value||'').trim();
+  if(!goal){toast('What\u2019s your running goal?');return;}
+  var date=document.getElementById('rcDate').value||'';
+  var days=document.getElementById('rcDays').value;
+  var level=document.getElementById('rcLevel').value;
+  var base=document.getElementById('rcBase').value;
+  toast('Building your plan\u2026');
+  var first=currentUser?currentUser.name.split(' ')[0]:'the runner';
+  var plan=null;
+  try{
+    var sys='You are an expert running coach building a plan for '+first+'. Goal: '+goal+'. Target date: '+(date||'none set')+'. Can train '+days+' days/week. Level: '+level+'. Longest comfortable run now: '+base+'. '+
+    'Design THIS WEEK\u2019s schedule plus how it progresses. Respond with ONLY a fenced json object: ```json\n{"summary":"1-2 sentence approach","week":[{"day":"Mon","type":"easy|tempo|intervals|long|rest|cross","km":5,"pace":"conversational ~6:30/km","note":"short cue"}, ... all 7 days Mon-Sun],"progression":"1-2 lines on how distance/intensity ramps over the coming weeks toward the goal"}``` '+
+    'Respect their training days (rest on the others), keep it safe for their level, include one long run and easy days, give realistic km and pace/effort. Days must be Mon,Tue,Wed,Thu,Fri,Sat,Sun.';
+    var ans=await askAI([{role:'user',content:'Build my running plan.'}],sys,1100);
+    var jm=ans.match(/```(?:json)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;
+    try{plan=JSON.parse(raw.trim());}catch(e){try{plan=JSON.parse((raw.match(/\{[\s\S]*\}/)||[''])[0]);}catch(e2){plan=null;}}
+  }catch(e){plan=null;}
+  if(!plan||!plan.week){toast('Coach couldn\u2019t draft it \u2014 try again');return;}
+  await setRunPlan({goal:goal,target_date:date||null,days_per_week:parseInt(days,10),level:level,baseline:base,plan:plan});
+  runSetup=false;await refreshScreen();toast('Plan ready \u2713');
+}
+function runTypeColor(t){t=(t||'').toLowerCase();return t==='long'?'#7C5CFF':t==='tempo'?'#DB4A3D':t==='intervals'?'#C68A2E':t==='rest'?'#A2A6AE':t==='cross'?'#1F9D6B':'#3D5AFF';}
+function runPlanView(p,logs){
+  var plan=p.plan||{};var week=plan.week||[];
+  var td=runToday();
+  var todayS=null;for(var i=0;i<week.length;i++){if((week[i].day||'')===td){todayS=week[i];break;}}
+  // countdown
+  var cd='';
+  if(p.target_date){var diff=Math.ceil((new Date(p.target_date+'T00:00:00')-new Date())/86400000);if(diff>=0){var wks=Math.floor(diff/7);cd=wks>0?(wks+' week'+(wks>1?'s':'')+' to go'):(diff+' day'+(diff!==1?'s':'')+' to go');}}
+  var head='<div class="card dark"><div class="small">Goal</div><div class="serif" style="font-size:22px;font-weight:700;margin-top:2px;line-height:1.2">'+esc(p.goal)+'</div>'+(cd?'<div style="font-size:13px;opacity:.85;margin-top:6px">'+cd+'</div>':'')+(plan.summary?'<div style="font-size:13.5px;opacity:.9;margin-top:8px;line-height:1.45">'+esc(plan.summary)+'</div>':'')+'</div>';
+  var today;
+  if(todayS){
+    var rest=(todayS.type||'').toLowerCase()==='rest';
+    today='<div class="card" style="border:1.5px solid var(--accent)"><div class="small" style="color:var(--accent)">TODAY \u00B7 '+td+'</div>'+
+      (rest?'<div class="serif" style="font-size:24px;font-weight:700;margin-top:4px">Rest day</div><div class="rs" style="margin-top:4px">Recover \u2014 light stretch or a walk if you like.</div>':
+      '<div class="serif" style="font-size:24px;font-weight:700;margin-top:4px;text-transform:capitalize">'+esc(todayS.type||'Run')+(todayS.km?' \u00B7 '+todayS.km+' km':'')+'</div>'+(todayS.pace?'<div class="rt" style="margin-top:6px">Pace/effort: <span style="font-weight:600">'+esc(todayS.pace)+'</span></div>':'')+(todayS.note?'<div class="rs" style="margin-top:4px;line-height:1.45">'+esc(todayS.note)+'</div>':''))+
+      '<button class="reqbtn" style="margin-top:12px" onclick="logRun()">'+icon('plus',16)+' Log a run</button></div>';
+  } else { today='<button class="reqbtn" onclick="logRun()">'+icon('plus',16)+' Log a run</button>'; }
+  var order=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var rows=order.map(function(d){var s=null;for(var i=0;i<week.length;i++){if((week[i].day||'')===d){s=week[i];break;}}if(!s)s={day:d,type:'rest'};var rest=(s.type||'').toLowerCase()==='rest';var on=d===td;return '<div class="row"'+(on?' style="background:var(--surface-2);border-radius:12px"':'')+'><div style="width:38px;font-weight:700;font-size:13px;color:'+(on?'var(--accent)':'var(--sub)')+'">'+d+'</div><span class="dot" style="background:'+runTypeColor(s.type)+';margin-right:4px"></span><div style="flex:1"><div class="rt" style="font-size:14px;text-transform:capitalize">'+esc(s.type||'rest')+(s.km&&!rest?' \u00B7 '+s.km+' km':'')+'</div>'+(s.pace&&!rest?'<div class="rs">'+esc(s.pace)+'</div>':'')+'</div></div>';}).join('');
+  var weekCard='<div class="card"><div class="ctitle">This week</div>'+rows+(plan.progression?'<div class="rs" style="margin-top:10px;line-height:1.45;border-top:1px solid var(--line);padding-top:10px">'+esc(plan.progression)+'</div>':'')+'<div style="display:flex;gap:8px;margin-top:12px"><button class="tbtn add" onclick="refreshRunWeek()">Refresh week</button><button class="tbtn" onclick="startRunSetup()" style="background:var(--surface-3);color:var(--ink)">Edit goal</button></div></div>';
+  var logCard='';
+  if(logs&&logs.length){
+    logCard='<div class="card"><div class="ctitle">Recent runs</div>'+logs.map(function(l){var ds=new Date(l.day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});var pace=(l.km&&l.min)?(' \u00B7 '+(l.min/l.km).toFixed(1)+' min/km'):'';return '<div class="row"><div style="flex:1"><div class="rt" style="font-size:14px">'+(l.km||0)+' km'+(l.min?' in '+l.min+' min':'')+pace+'</div><div class="rs">'+ds+(l.effort?' \u00B7 '+esc(l.effort):'')+(l.notes?' \u00B7 '+esc(l.notes):'')+'</div></div><button class="del" onclick="delRunLog(\''+l.id+'\')">'+icon('x',13)+'</button></div>';}).join('')+'</div>';
+  }
+  return '<div class="stack">'+head+today+weekCard+logCard+'</div>';
+}
+function logRun(){
+  openForm('Log a run','',[{key:'km',label:'Distance (km)',numeric:true},{key:'min',label:'Time (minutes)',numeric:true},{key:'effort',label:'How did it feel? (easy / hard…)'},{key:'notes',label:'Notes (optional)'}],async function(v){
+    var km=parseFloat(v.km);if(isNaN(km)){toast('Enter distance');return;}
+    await addRunLogDB(localDay(),km,parseFloat(v.min)||null,v.effort||'',v.notes||'');
+    closeOverlay();await refreshScreen();toast('Run logged \u2713');
+  });
+}
+async function delRunLog(id){await deleteRunLogDB(id);await refreshScreen();}
+async function refreshRunWeek(){
+  var p=await getRunPlan();if(!p){startRunSetup();return;}
+  toast('Refreshing your week\u2026');
+  var first=currentUser?currentUser.name.split(' ')[0]:'the runner';
+  var logs=await getRunLogs(7);
+  var recent=logs.map(function(l){return l.day+': '+l.km+'km'+(l.min?'/'+l.min+'min':'')+(l.effort?' ('+l.effort+')':'');}).join('; ')||'no runs logged yet';
+  try{
+    var sys='You are '+first+'\u2019s running coach. Their goal: '+p.goal+'. Level: '+p.level+'. Days/week: '+p.days_per_week+'. Recent runs: '+recent+'. Based on how they\u2019ve been going, give the NEXT week\u2019s schedule. Respond ONLY with the same fenced json object format: ```json\n{"summary":"...","week":[{"day":"Mon","type":"...","km":5,"pace":"...","note":"..."}],"progression":"..."}```';
+    var ans=await askAI([{role:'user',content:'Plan my next week.'}],sys,1100);
+    var jm=ans.match(/```(?:json)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;var plan=null;
+    try{plan=JSON.parse(raw.trim());}catch(e){try{plan=JSON.parse((raw.match(/\{[\s\S]*\}/)||[''])[0]);}catch(e2){}}
+    if(plan&&plan.week){p.plan=plan;await setRunPlan(p);await refreshScreen();toast('Week updated \u2713');}
+    else toast('Couldn\u2019t refresh \u2014 try again');
+  }catch(e){toast('Couldn\u2019t reach your coach right now');}
+}
+
 // ============================================================
 // UNDERSTUDY — proposes actions toward Future Me; you approve in a batch.
 // ============================================================
@@ -1582,7 +1697,7 @@ async function renderFutureMe(){
   var hz=[['1y','1 year'],['5y','5 years'],['10y','10 years'],['life','Lifetime']];
   var sections=hz.map(function(h){
     var gs=goals.filter(function(g){return g.horizon===h[0];});
-    var rows=gs.length?gs.map(function(g){var p=Math.max(0,Math.min(100,g.progress));return '<div style="padding:9px 0;border-top:1px solid var(--line-2)"><div style="display:flex;justify-content:space-between;align-items:center"><div class="rt" style="font-size:14px">'+esc(g.t)+'</div><button class="del" onclick="delFutureG(\''+g.id+'\')">'+icon('x',13)+'</button></div><div class="bar" style="margin-top:7px"><div style="width:'+p+'%;background:var(--accent)"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span class="rs">'+Math.round(p)+'%</span><button class="tbtn add" onclick="progFutureG(\''+g.id+'\','+g.progress+')">Update</button></div></div>';}).join(''):'<div class="rs" style="padding:6px 0">No goals here yet.</div>';
+    var rows=gs.length?gs.map(function(g){var p=Math.max(0,Math.min(100,g.progress));return '<div style="padding:9px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center"><div class="rt" style="font-size:14px">'+esc(g.t)+'</div><button class="del" onclick="delFutureG(\''+g.id+'\')">'+icon('x',13)+'</button></div><div class="bar" style="margin-top:7px"><div style="width:'+p+'%;background:var(--accent)"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span class="rs">'+Math.round(p)+'%</span><button class="tbtn add" onclick="progFutureG(\''+g.id+'\','+g.progress+')">Update</button></div></div>';}).join(''):'<div class="rs" style="padding:6px 0">No goals here yet.</div>';
     return '<div class="card"><div class="ctitle">'+h[1]+'</div>'+rows+'<button class="reqbtn" style="margin-top:8px" onclick="addFutureG(\''+h[0]+'\')">'+icon('plus',15)+' Add goal</button></div>';
   }).join('');
   var ci='';
@@ -1796,6 +1911,7 @@ async function gatherUserContext(){
   var lines=[],today=new Date();
   lines.push('Name: '+(currentUser?currentUser.name:'the user'));
   lines.push('Today: '+today.toDateString());
+  try{var rp=await getRunPlan();if(rp&&rp.plan){var td=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];var ts=null;(rp.plan.week||[]).forEach(function(w){if(w.day===td)ts=w;});lines.push('Running goal: '+rp.goal+(ts?(' — today: '+(ts.type||'')+(ts.km?' '+ts.km+'km':'')+(ts.pace?' @ '+ts.pace:'')):''));}}catch(e){}
   try{var fm=await getFutureMe();if(fm&&fm.profile)lines.push('FUTURE ME (their north star \u2014 weigh every suggestion against this; favour what moves them toward it): '+fm.profile);var fgs=await getFutureGoals();if(fgs&&fgs.length)lines.push('Long-term goals: '+fgs.map(function(g){return '['+g.horizon+'] '+g.t+' ('+Math.round(g.progress)+'%)';}).join('; '));}catch(e){}
   try{var b=await getFinBalance();if(b!=null)lines.push('Logged balance: A$'+Number(b).toLocaleString());}catch(e){}
   try{var inv=await getInvestments();if(inv&&inv.length){var ivt=inv.reduce(function(s,x){return s+x.v;},0);lines.push('Investments: A$'+ivt.toLocaleString()+' across '+inv.length+' ('+inv.map(function(x){return x.n+' A$'+x.v.toLocaleString();}).join(', ')+')');}}catch(e){}
