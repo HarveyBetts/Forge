@@ -487,6 +487,7 @@ async function getFutureMe(){if(!currentUser)return null;try{var r=await sb.from
 async function setFutureMe(answers,profile){if(!currentUser)return false;try{var r=await sb.from('future_me').upsert({user_id:currentUser.id,answers:JSON.stringify(answers||{}),profile:profile||'',last_checkin:new Date().toISOString(),updated_at:new Date().toISOString()},{onConflict:'user_id'});if(r&&r.error){toast('Couldn\u2019t save: '+r.error.message);return false;}return true;}catch(e){toast('Couldn\u2019t save Future Me');return false;}}
 async function getFutureGoals(){if(!currentUser)return[];try{var r=await sb.from('future_goals').select('*').eq('user_id',currentUser.id).order('created_at');return (r.data||[]).map(function(x){return{id:x.id,horizon:x.horizon,dim:x.dimension,t:x.title,progress:Number(x.progress)};});}catch(e){return[];}}
 async function addFutureGoalDB(h,dim,title){await sb.from('future_goals').insert({user_id:currentUser.id,horizon:h,dimension:dim,title:title});}
+async function deleteFutureMe(){if(!currentUser)return;try{await sb.from('future_goals').delete().eq('user_id',currentUser.id);await sb.from('future_me').delete().eq('user_id',currentUser.id);}catch(e){}}
 async function updateFutureGoalDB(id,p){await sb.from('future_goals').update({progress:p}).eq('id',id);}
 async function deleteFutureGoalDB(id){await sb.from('future_goals').delete().eq('id',id);}
 async function ownerResetPin(id,hash){var r=await sb.rpc('forge_owner_set_pin',{p_id:id,p_hash:hash});if(r&&r.error)throw r.error;}
@@ -1018,13 +1019,12 @@ function homeHTML(){
     return '<div class="tile" onclick="go(\'cat_'+c.id+'\')"><div class="chip">'+icon(c.icon,21,2.2)+'</div><div><div class="t">'+esc(c.label)+'</div><div class="s">'+esc(sub)+'</div></div></div>';
   }).join('');
   var futureTile='<div class="tile" onclick="go(\'futureme\')"><div class="chip">'+icon('star',21,2.2)+'</div><div><div class="t">Future Me</div><div class="s">Who you\'re becoming</div></div></div>';
-  var runTile='<div class="tile" onclick="go(\'runcoach\')"><div class="chip">'+icon('trend',21,2.2)+'</div><div><div class="t">Run Coach</div><div class="s">Your AI running coach</div></div></div>';
   var understudyTile='<div class="tile" onclick="go(\'understudy\')"><div class="chip">'+icon('check',21,2.2)+'</div><div><div class="t">Understudy</div><div class="s">Plans, you approve</div></div></div>';
   var aiTile='<div class="tile" onclick="go(\'ai\')"><div class="chip">'+icon('spark',21,2.2)+'</div><div><div class="t">Forge AI</div><div class="s">Ask about your world</div></div></div>';
   var ownerTile=isOwner()?'<div class="tile" onclick="go(\'owner\')"><div class="chip">'+icon('grid',21,2.2)+'</div><div><div class="t">Dashboard</div><div class="s">Owner only</div></div></div>':'';
   var customise='<div class="tile ghost" onclick="go(\'tabs\')"><div class="chip ghostchip">'+icon('grid',20,2.2)+'</div><div><div class="t">Customise</div><div class="s">Add or remove tabs</div></div></div>';
   var req='<div class="tile ghost" onclick="openRequest()"><div class="chip ghostchip">'+icon('plus',20,2.4)+'</div><div><div class="t">Request a feature</div><div class="s">Tell me what to build</div></div></div>';
-  return '<div class="home-grid" id="homeGrid">'+hero+cats+futureTile+runTile+understudyTile+aiTile+ownerTile+customise+req+'</div>';
+  return '<div class="home-grid" id="homeGrid">'+hero+cats+futureTile+understudyTile+aiTile+ownerTile+customise+req+'</div>';
 }
 
 function skeletonHTML(){
@@ -1304,23 +1304,24 @@ async function trackerInsight(kind){
   }catch(e){if(host)host.innerHTML='<div class="rs">Couldn\u2019t reach Forge AI right now \u2014 try again in a moment.</div>';}
 }
 // ============================================================
-// RUN COACH — goal in → AI training schedule, aware of lifting,
-// work/busy days, and the rest of your Forge data.
+// FITNESS COACH — deep intake → AI training schedule, aware of
+// lifting, work/busy days, your numbers, kit, and your Forge data.
 // ============================================================
 var runSetup=false;
 var RUN_DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 var RC_WEEK=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-var rcLift=[],rcBusy=[];
+var RC_EQUIP=['Treadmill','Gym access','Running track','Roads','Trails','GPS watch','Heart-rate monitor','None of these'];
+var rcLift=[],rcBusy=[],rcEquip=[];
 function runToday(){return RUN_DAYS[new Date().getDay()];}
 function startRunSetup(){runSetup=true;refreshScreen();}
 function cancelRunSetup(){runSetup=false;refreshScreen();}
-function toggleRunDay(kind,day,el){var arr=kind==='lift'?rcLift:rcBusy;var i=arr.indexOf(day);if(i>=0){arr.splice(i,1);el.classList.remove('on');}else{arr.push(day);el.classList.add('on');}}
+function toggleRunDay(kind,val,el){var arr=kind==='lift'?rcLift:kind==='busy'?rcBusy:rcEquip;var i=arr.indexOf(val);if(i>=0){arr.splice(i,1);el.classList.remove('on');}else{arr.push(val);el.classList.add('on');}}
 
 async function renderRunCoach(){
-  if(runSetup){var pp=await getRunPlan();rcLift=(pp&&pp.plan&&pp.plan._lift)||[];rcBusy=(pp&&pp.plan&&pp.plan._busy)||[];return runCoachSetupHTML(pp);}
+  if(runSetup){var pp=await getRunPlan();var ik=(pp&&pp.plan&&pp.plan._intake)||{};rcLift=(pp&&pp.plan&&pp.plan._lift)||[];rcBusy=(pp&&pp.plan&&pp.plan._busy)||[];rcEquip=ik.equip||[];return runCoachSetupHTML(pp,ik);}
   var p=await getRunPlan();
   if(!p||!p.plan){
-    return '<div class="stack"><div class="card" style="text-align:center;padding:28px 22px"><div class="chip" style="margin:0 auto 14px;width:54px;height:54px;border-radius:16px;--tc:var(--accent)">'+icon('trend',26,2)+'</div><div class="serif" style="font-size:21px;font-weight:700">Your fitness coach</div><div class="rs" style="margin-top:8px;line-height:1.55">Tell me your goal \u2014 a race, a bodyweight target, getting fitter \u2014 and how your week looks, and I\u2019ll build a schedule that works around your lifting and your shifts. It learns from the rest of your Forge data too.</div><button onclick="startRunSetup()" style="margin-top:18px;padding:13px 24px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Set up my plan</button></div></div>';
+    return '<div class="stack"><div class="card" style="text-align:center;padding:28px 22px"><div class="chip" style="margin:0 auto 14px;width:54px;height:54px;border-radius:16px;--tc:var(--accent)">'+icon('trend',26,2)+'</div><div class="serif" style="font-size:21px;font-weight:700">Your fitness coach</div><div class="rs" style="margin-top:8px;line-height:1.55">Tell me your goal, your numbers and how your week looks \u2014 I\u2019ll build a real training plan that works around your lifting and shifts, and learns from the rest of your Forge data.</div><button onclick="startRunSetup()" style="margin-top:18px;padding:13px 24px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Set up my plan</button></div></div>';
   }
   return runPlanView(p, await getRunLogs(8));
 }
@@ -1328,57 +1329,80 @@ function runSelect(id,label,opts,val){
   var o=opts.map(function(x){return '<option value="'+esc(x)+'"'+(x===val?' selected':'')+'>'+esc(x)+'</option>';}).join('');
   return '<div class="card"><div class="ctitle">'+label+'</div><select id="'+id+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px">'+o+'</select></div>';
 }
-function runDayPicker(kind,label,sub,selected){
-  var chips=RC_WEEK.map(function(d){var on=selected.indexOf(d)>=0?' on':'';return '<button type="button" class="rcday'+on+'" onclick="toggleRunDay(\''+kind+'\',\''+d+'\',this)">'+d+'</button>';}).join('');
-  return '<div class="card"><div class="ctitle">'+label+'</div><div class="rs" style="margin:-2px 0 8px">'+sub+'</div><div style="display:flex;gap:6px">'+chips+'</div></div>';
+function runField(id,label,ph,val,type){
+  return '<div class="card"><div class="ctitle">'+label+'</div><input id="'+id+'" '+(type?'type="'+type+'" ':'')+'placeholder="'+esc(ph||'')+'" value="'+esc(val||'')+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px"/></div>';
 }
-function runCoachSetupHTML(p){
-  p=p||{};
+function runChipGroup(kind,label,sub,options,selected){
+  var chips=options.map(function(d){var on=selected.indexOf(d)>=0?' on':'';return '<button type="button" class="rcday'+on+'" onclick="toggleRunDay(\''+kind+'\',\''+d.replace(/'/g,"\\'")+'\',this)">'+esc(d)+'</button>';}).join('');
+  return '<div class="card"><div class="ctitle">'+label+'</div>'+(sub?'<div class="rs" style="margin:-2px 0 8px">'+sub+'</div>':'')+'<div style="display:flex;flex-wrap:wrap;gap:6px">'+chips+'</div></div>';
+}
+function runCoachSetupHTML(p,ik){
+  p=p||{};ik=ik||{};
   return '<div class="stack">'+
-    '<style>.rcday{flex:1;padding:9px 0;border:1px solid var(--line);background:var(--surface-2);color:var(--sub);border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}.rcday.on{background:var(--accent);color:#fff;border-color:var(--accent)}</style>'+
-    '<div class="card dark"><div class="serif" style="font-size:19px;font-weight:700">Build my plan</div><div style="font-size:13px;opacity:.85;margin-top:4px">A few quick questions \u2014 your coach handles the rest, and adapts as things change.</div></div>'+
-    runSelect('rcType','What kind of goal?',['Train for a race','Lose weight','Build muscle / gain weight','Get fitter (general)'],p.goal_type||'Get fitter (general)')+
-    '<div class="card"><div class="ctitle">Your goal, in your words</div><input id="rcGoal" placeholder="e.g. Run a marathon, or put on 5 kg" value="'+esc(p.goal||'')+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px"/></div>'+
-    '<div class="card"><div class="ctitle">Target date (optional)</div><input id="rcDate" type="date" value="'+esc(p.target_date||'')+'" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:4px"/></div>'+
-    runSelect('rcDays','Days a week you can train',['2','3','4','5','6'],String(p.days_per_week||'4'))+
-    runDayPicker('lift','Lifting / gym days','Tap the days you lift \u2014 I\u2019ll plan runs around them.',rcLift)+
-    runDayPicker('busy','Work shifts / busy days this week','Tap days you\u2019re stretched \u2014 I\u2019ll keep those easy or rest.',rcBusy)+
-    runSelect('rcLevel','Where you\u2019re at with running',['New to running','Getting back into it','Regular runner','Experienced'],p.level||'Getting back into it')+
-    runSelect('rcBase','Longest you can comfortably run now',['Under 2 km','2\u20135 km','5\u201310 km','10 km+'],p.baseline||'2\u20135 km')+
-    '<button onclick="buildRunPlan()" style="padding:14px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Build my plan</button>'+
+    '<style>.rcday{flex:1 0 auto;min-width:44px;padding:9px 12px;border:1px solid var(--line);background:var(--surface-2);color:var(--sub);border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}.rcday.on{background:var(--accent);color:#fff;border-color:var(--accent)}</style>'+
+    '<div class="card dark"><div class="serif" style="font-size:19px;font-weight:700">Build my plan</div><div style="font-size:13px;opacity:.85;margin-top:4px">The more you tell me, the sharper your plan. Optional fields can stay blank.</div></div>'+
+    '<div class="ctitle" style="padding:2px 4px">The goal</div>'+
+    runSelect('rcType','What kind of goal?',['Train for a race','Lose weight','Build muscle / gain weight','Get faster','Get fitter (general)'],p.goal_type||'Get fitter (general)')+
+    runField('rcGoal','Your goal, in your words','e.g. Sub-25 5k, first marathon, put on 5 kg',p.goal)+
+    runField('rcDate','Target date (optional)',null,p.target_date,'date')+
+    '<div class="ctitle" style="padding:2px 4px">Where you\u2019re at</div>'+
+    runSelect('rcLevel','Running experience',['New to running','Getting back into it','Regular runner','Experienced','Competitive'],p.level||'Getting back into it')+
+    runSelect('rcVol','Current weekly running',['None right now','Under 10 km','10\u201320 km','20\u201340 km','40\u201360 km','60 km+'],ik.volume||'Under 10 km')+
+    runSelect('rcBase','Longest you can comfortably run now',['Under 2 km','2\u20135 km','5\u201310 km','10\u201320 km','20 km+'],p.baseline||'2\u20135 km')+
+    runField('rcBest5','Recent best 5k time (optional)','e.g. 27:30',ik.best5k)+
+    runField('rcBest10','Recent best 10k / longer (optional)','e.g. 58:00',ik.best10k)+
+    '<div class="card"><div class="ctitle">Your numbers (all optional)</div>'+
+      '<div style="display:flex;gap:8px;margin-top:4px"><input id="rcVo2" type="number" placeholder="VO\u2082 max" value="'+esc(ik.vo2||'')+'" style="flex:1;min-width:0;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:14px"/><input id="rcRhr" type="number" placeholder="Resting HR" value="'+esc(ik.rhr||'')+'" style="flex:1;min-width:0;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:14px"/></div>'+
+      '<div style="display:flex;gap:8px;margin-top:8px"><input id="rcAge" type="number" placeholder="Age" value="'+esc(ik.age||'')+'" style="flex:1;min-width:0;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:14px"/><input id="rcWt" type="number" placeholder="Bodyweight (kg)" value="'+esc(ik.weight||'')+'" style="flex:1;min-width:0;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:14px"/></div></div>'+
+    '<div class="ctitle" style="padding:2px 4px">Your week</div>'+
+    runSelect('rcDays','Days a week you can train',['2','3','4','5','6','7'],String(p.days_per_week||'4'))+
+    runChipGroup('lift','Lifting / gym days','Tap the days you lift \u2014 runs get planned around them.',RC_WEEK,rcLift)+
+    runChipGroup('busy','Work shifts / busy days this week','Tap days you\u2019re stretched \u2014 kept easy or rest.',RC_WEEK,rcBusy)+
+    runSelect('rcTime','Preferred time to train',['Flexible','Early morning','Lunchtime','Evening'],ik.time||'Flexible')+
+    '<div class="ctitle" style="padding:2px 4px">Kit & context</div>'+
+    runChipGroup('equip','What do you have access to?','',RC_EQUIP,rcEquip)+
+    runSelect('rcTerrain','Where you mostly run',['Mixed','Roads','Trails','Treadmill','Track'],ik.terrain||'Mixed')+
+    runField('rcCross','Other training you do (optional)','e.g. cycling, swimming, football',ik.cross)+
+    runField('rcInj','Injuries or niggles to respect (optional)','e.g. dodgy left knee',ik.injuries)+
+    '<button onclick="buildRunPlan()" style="padding:14px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:6px">Build my plan</button>'+
     '<button onclick="cancelRunSetup()" class="reqbtn">Cancel</button>'+
   '</div>';
 }
+function rcVal(id){var e=document.getElementById(id);return e?(e.value||'').trim():'';}
 async function buildRunPlan(){
-  var goal=(document.getElementById('rcGoal').value||'').trim();
-  if(!goal){toast('What\u2019s your goal?');return;}
-  var type=document.getElementById('rcType').value;
-  var date=document.getElementById('rcDate').value||'';
-  var days=document.getElementById('rcDays').value;
-  var level=document.getElementById('rcLevel').value;
-  var base=document.getElementById('rcBase').value;
+  var goal=rcVal('rcGoal');if(!goal){toast('What\u2019s your goal?');return;}
+  var type=rcVal('rcType'),date=rcVal('rcDate'),days=rcVal('rcDays'),level=rcVal('rcLevel'),base=rcVal('rcBase');
+  var intake={volume:rcVal('rcVol'),best5k:rcVal('rcBest5'),best10k:rcVal('rcBest10'),vo2:rcVal('rcVo2'),rhr:rcVal('rcRhr'),age:rcVal('rcAge'),weight:rcVal('rcWt'),time:rcVal('rcTime'),terrain:rcVal('rcTerrain'),cross:rcVal('rcCross'),injuries:rcVal('rcInj'),equip:rcEquip.slice()};
   var lift=rcLift.slice(),busy=rcBusy.slice();
   toast('Building your plan\u2026');
   var first=currentUser?currentUser.name.split(' ')[0]:'the athlete';
   var ctx='';try{ctx=await gatherUserContext();}catch(e){}
   var logs=await getRunLogs(6);
   var recent=logs.length?logs.map(function(l){return l.day+': '+l.km+'km'+(l.min?'/'+l.min+'min':'');}).join('; '):'none logged yet';
+  var profile=[
+    'GOAL TYPE: '+type,'GOAL: '+goal,'TARGET DATE: '+(date||'none'),
+    'Experience: '+level,'Current weekly volume: '+intake.volume,'Longest comfortable run: '+base,
+    intake.best5k?'Best 5k: '+intake.best5k:'',intake.best10k?'Best 10k+: '+intake.best10k:'',
+    intake.vo2?'VO2 max: '+intake.vo2:'',intake.rhr?'Resting HR: '+intake.rhr:'',
+    intake.age?'Age: '+intake.age:'',intake.weight?'Bodyweight: '+intake.weight+'kg':'',
+    'Can train '+days+' days/week','Preferred time: '+intake.time,
+    'Equipment/access: '+(intake.equip.join(', ')||'unspecified'),'Usual terrain: '+intake.terrain,
+    intake.cross?'Other training: '+intake.cross:'',intake.injuries?'INJURIES TO RESPECT: '+intake.injuries:'',
+    'LIFTING/GYM DAYS: '+(lift.join(', ')||'none'),'BUSY/WORK DAYS: '+(busy.join(', ')||'none'),
+    'Recent runs: '+recent
+  ].filter(Boolean).join('\n');
   var plan=null;
   try{
-    var sys='You are '+first+'\u2019s personal fitness coach. Build THIS WEEK\u2019s training schedule.\n'+
-    'GOAL TYPE: '+type+'\nGOAL: '+goal+'\nTARGET DATE: '+(date||'none')+'\nCan train '+days+' days/week. Running level: '+level+'. Longest comfortable run now: '+base+'.\n'+
-    'LIFTING/GYM DAYS: '+(lift.length?lift.join(', '):'none given')+' \u2014 schedule easy runs or rest around these; never put a hard run on a heavy leg day.\n'+
-    'BUSY / WORK-SHIFT DAYS: '+(busy.length?busy.join(', '):'none given')+' \u2014 keep these easy or rest.\n'+
-    'RECENT RUNS: '+recent+'\n'+
-    'If the goal is weight gain/loss, the plan is still a weekly training schedule, but add a short, sensible, non-prescriptive nutrition cue in the progression note (e.g. slight surplus + protein for muscle) \u2014 no strict calorie numbers.\n'+
-    'Use the wider context about their life below to be realistic. Respond with ONLY a fenced json object: ```json\n{"summary":"1-2 sentence approach","week":[{"day":"Mon","type":"easy|tempo|intervals|long|rest|cross|lift","km":5,"pace":"conversational ~6:30/km","note":"short cue"}, ... all 7 days Mon-Sun],"progression":"how it ramps over coming weeks toward the goal, plus any nutrition cue"}```\n'+
-    'Mark their lifting days with type "lift" (km 0). Days must be Mon,Tue,Wed,Thu,Fri,Sat,Sun.\n\nLIFE CONTEXT:\n'+ctx;
-    var ans=await askAI([{role:'user',content:'Build my plan.'}],sys,1200);
+    var sys='You are '+first+'\u2019s expert personal fitness coach. Build THIS WEEK\u2019s training schedule from the detailed profile below.\n'+profile+'\n\n'+
+    'Use their real numbers to set paces (e.g. derive easy/tempo/interval paces from their 5k time or VO2 max). Schedule easy runs or rest around lifting days; never a hard run on a heavy leg day or a busy/work day. Respect any injuries. If the goal is weight gain/loss, still give a weekly training schedule and add a short, sensible, non-prescriptive nutrition cue in the progression note (no strict calorie numbers). '+
+    'Respond with ONLY a fenced json object: ```json\n{"summary":"1-2 sentence approach tailored to them","week":[{"day":"Mon","type":"easy|tempo|intervals|long|rest|cross|lift","km":5,"pace":"e.g. ~6:30/km easy","note":"short specific cue"}, ... all 7 days Mon-Sun],"progression":"how it ramps over coming weeks toward the goal, plus any nutrition cue"}```\n'+
+    'Mark their lifting days type "lift" (km 0). Days must be Mon,Tue,Wed,Thu,Fri,Sat,Sun.\n\nWIDER LIFE CONTEXT:\n'+ctx;
+    var ans=await askAI([{role:'user',content:'Build my plan.'}],sys,1400);
     var jm=ans.match(/```(?:json)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;
     try{plan=JSON.parse(raw.trim());}catch(e){try{plan=JSON.parse((raw.match(/\{[\s\S]*\}/)||[''])[0]);}catch(e2){plan=null;}}
   }catch(e){plan=null;}
   if(!plan||!plan.week){toast('Coach couldn\u2019t draft it \u2014 try again');return;}
-  plan._lift=lift;plan._busy=busy;
+  plan._lift=lift;plan._busy=busy;plan._intake=intake;
   await setRunPlan({goal:goal,goal_type:type,target_date:date||null,days_per_week:parseInt(days,10),level:level,baseline:base,plan:plan});
   runSetup=false;await refreshScreen();toast('Plan ready \u2713');
 }
@@ -1421,13 +1445,13 @@ async function refreshRunWeek(){
   var first=currentUser?currentUser.name.split(' ')[0]:'the athlete';
   var logs=await getRunLogs(7);
   var recent=logs.map(function(l){return l.day+': '+l.km+'km'+(l.min?'/'+l.min+'min':'')+(l.effort?' ('+l.effort+')':'');}).join('; ')||'no runs logged yet';
-  var lift=(p.plan&&p.plan._lift)||[],busy=(p.plan&&p.plan._busy)||[];
+  var lift=(p.plan&&p.plan._lift)||[],busy=(p.plan&&p.plan._busy)||[];var ik=(p.plan&&p.plan._intake)||{};
   try{
-    var sys='You are '+first+'\u2019s fitness coach. Goal: '+p.goal+' ('+(p.goal_type||'')+'). Level: '+p.level+'. Days/week: '+p.days_per_week+'. Lifting days: '+(lift.join(', ')||'none')+'. Busy/work days: '+(busy.join(', ')||'none')+'. Recent runs: '+recent+'. Based on how they\u2019ve been going, give NEXT week\u2019s schedule \u2014 progress them sensibly, keep runs easy around lifting and busy days. Respond ONLY with the same fenced json: ```json\n{"summary":"...","week":[{"day":"Mon","type":"...","km":5,"pace":"...","note":"..."}],"progression":"..."}```';
-    var ans=await askAI([{role:'user',content:'Plan my next week.'}],sys,1200);
+    var sys='You are '+first+'\u2019s fitness coach. Goal: '+p.goal+' ('+(p.goal_type||'')+'). Level: '+p.level+'. Days/week: '+p.days_per_week+'. Best 5k: '+(ik.best5k||'n/a')+'. Lifting days: '+(lift.join(', ')||'none')+'. Busy/work days: '+(busy.join(', ')||'none')+'. Injuries: '+(ik.injuries||'none')+'. Recent runs: '+recent+'. Based on how they\u2019ve been going, give NEXT week\u2019s schedule \u2014 progress sensibly, keep runs easy around lifting and busy days, respect injuries. Respond ONLY with the same fenced json: ```json\n{"summary":"...","week":[{"day":"Mon","type":"...","km":5,"pace":"...","note":"..."}],"progression":"..."}```';
+    var ans=await askAI([{role:'user',content:'Plan my next week.'}],sys,1300);
     var jm=ans.match(/```(?:json)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;var plan=null;
     try{plan=JSON.parse(raw.trim());}catch(e){try{plan=JSON.parse((raw.match(/\{[\s\S]*\}/)||[''])[0]);}catch(e2){}}
-    if(plan&&plan.week){plan._lift=lift;plan._busy=busy;p.plan=plan;await setRunPlan(p);await refreshScreen();toast('Week updated \u2713');}
+    if(plan&&plan.week){plan._lift=lift;plan._busy=busy;plan._intake=ik;p.plan=plan;await setRunPlan(p);await refreshScreen();toast('Week updated \u2713');}
     else toast('Couldn\u2019t refresh \u2014 try again');
   }catch(e){toast('Couldn\u2019t reach your coach right now');}
 }
@@ -1531,11 +1555,12 @@ function catScreenHTML(cid){
     var ct=catalogById(t);
     return '<div class="tile" onclick="go(\''+t+'\',false,\'cat_'+c.id+'\')"><div class="chip">'+icon(ct.icon||t,21,2.2)+'</div><div><div class="t">'+esc(ct.label)+'</div><div class="s">'+esc(ct.sub)+'</div></div></div>';
   }).join('');
+  var rcTile=c.id==='fitness'?'<div class="tile" onclick="go(\'runcoach\',false,\'cat_fitness\')"><div class="chip">'+icon('trend',21,2.2)+'</div><div><div class="t">Run Coach</div><div class="s">Your AI fitness coach</div></div></div>':'';
   var hasMore=c.tabs.some(function(t){return en.indexOf(t)<0&&catalogById(t);});
   var addBtn=hasMore?'<button class="cat-add" onclick="addToCatSheet(\''+c.id+'\')">'+icon('plus',18,2.4)+'<span>Add to '+esc(c.label)+'</span></button>':'';
   var empty=onTabs.length?'':'<div class="cat-empty">Nothing here yet — add something below.</div>';
   var aiBtn='<button class="cat-add cat-ai" onclick="openAICat(\''+c.id+'\')">'+icon('spark',18,2.2)+'<span>Ask Forge AI about '+esc(c.label)+'</span></button>';
-  return '<div class="home-grid">'+tiles+'</div>'+empty+addBtn+aiBtn;
+  return '<div class="home-grid">'+rcTile+tiles+'</div>'+empty+addBtn+aiBtn;
 }
 // In-context picker for adding tabs to a category (replaces the old ghost tiles)
 function addToCatSheet(cid){
@@ -1723,24 +1748,35 @@ async function renderFutureMe(){
   }).join('');
   var ci='';
   if(fm.lastCheckin){var days=Math.floor((Date.now()-new Date(fm.lastCheckin).getTime())/86400000);var due=days>=90;ci='<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div class="rt">Quarterly check-in</div><div class="rs">'+(due?'It\'s been '+days+' days \u2014 is this still who you want to be?':'Last reviewed '+days+' day'+(days===1?'':'s')+' ago')+'</div></div><button onclick="startFutureQuiz()" style="padding:9px 15px;background:'+(due?'var(--accent)':'var(--surface-3)')+';color:'+(due?'#fff':'var(--ink)')+';border:none;border-radius:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Review</button></div>';}
-  return '<div class="stack">'+prof+sections+ci+'</div>';
+  var manage='<div class="card" style="display:flex;gap:8px"><button class="tbtn add" style="flex:1" onclick="startFutureQuiz()">Retake quiz</button><button class="tbtn rm" style="flex:1" onclick="resetFutureMe()">Reset Future Me</button></div>';
+  return '<div class="stack">'+prof+sections+ci+manage+'</div>';
 }
+function resetFutureMe(){if(!confirm('Reset Future Me? This clears your profile and goals so you can start fresh.'))return;(async function(){await deleteFutureMe();await refreshScreen();toast('Future Me reset');})();}
 /* ===== FUTURE ME — interactive "Wrapped"-style quiz ===== */
 var FQ_STEPS=[
   {type:'intro'},
   {type:'multi',key:'priorities',q:'What matters most to you right now?',sub:'Pick up to three',max:3,options:['Health & energy','Money & freedom','Relationships','Career & craft','Adventure','Family','Learning','Peace of mind']},
-  {type:'slider',key:'drive',q:'Right now, how driven are you feeling?',lo:'Cruising',hi:'Unstoppable'},
-  {type:'choice',key:'orientation',q:'Five years from now, you\u2019d rather have\u2026',options:['More freedom','More mastery','More connection']},
-  {type:'choice',key:'money',q:'Money, to you, is mostly for\u2026',options:['Security','Experiences','Building something']},
+  {type:'scale',key:'drive',q:'How driven do you feel right now?',lo:'Cruising',hi:'Unstoppable'},
+  {type:'scale',key:'health_now',q:'How happy are you with your health & fitness today?',lo:'Not at all',hi:'Thriving'},
   {type:'text',key:'health',q:'In 5 years, your body & energy feel like\u2026',ph:'Strong, light, clear-headed\u2026'},
+  {type:'scale',key:'money_importance',q:'How important is financial freedom to you?',lo:'Not really',hi:'Everything'},
+  {type:'choice',key:'money',q:'Money, to you, is mostly for\u2026',options:['Security','Experiences','Building something']},
   {type:'text',key:'career',q:'The work you\u2019d be proud to be doing:',ph:'Be honest \u2014 even if it scares you'},
+  {type:'scale',key:'career_now',q:'How fulfilled are you by your work right now?',lo:'Drained',hi:'Lit up'},
+  {type:'choice',key:'orientation',q:'Five years from now, you\u2019d rather have\u2026',options:['More freedom','More mastery','More connection']},
+  {type:'scale',key:'relationships_close',q:'How close & supported do you feel by the people around you?',lo:'Distant',hi:'Deeply'},
   {type:'choice',key:'relationships',q:'The people around you are\u2026',options:['A tight few','A wide circle','Family first']},
+  {type:'scale',key:'adventure',q:'How adventurous do you want the next 5 years to be?',lo:'Steady',hi:'Wild'},
   {type:'text',key:'experiences',q:'One thing you must do before you\u2019re old:',ph:'A place, a feat, a moment\u2026'},
+  {type:'scale',key:'discipline',q:'How disciplined are you these days?',lo:'All over the place',hi:'Locked in'},
   {type:'text',key:'skills',q:'A skill you want to genuinely own:',ph:'Something you\u2019d love to be great at'},
+  {type:'scale',key:'risk',q:'How much risk are you willing to take to get there?',lo:'Play it safe',hi:'All in'},
   {type:'choice',key:'character',q:'You want to be known as someone who\u2019s\u2026',options:['Kind','Disciplined','Bold','Wise','Generous']},
+  {type:'text',key:'legacy',q:'At the end of it all, what do you want people to say about you?',ph:'Your one line\u2026'},
   {type:'text',key:'extra',q:'Anything else Future You wants you to know?',ph:'Optional \u2014 a line to your future self',optional:true}
 ];
-var FQ_LABELS={priorities:'Priorities',drive:'Drive (0-100)',orientation:'5-year leaning',money:'Money is for',health:'Health & body',career:'Career',relationships:'Relationships',experiences:'Must-do experience',skills:'Skill to own',character:'Character',extra:'Note to self'};
+var FQ_LABELS={priorities:'Priorities',drive:'Drive (1-10)',health_now:'Health satisfaction (1-10)',health:'Health & body',money_importance:'Money importance (1-10)',money:'Money is for',career:'Career',career_now:'Work fulfilment (1-10)',orientation:'5-year leaning',relationships_close:'Closeness (1-10)',relationships:'Relationships',adventure:'Adventure appetite (1-10)',experiences:'Must-do experience',discipline:'Discipline (1-10)',skills:'Skill to own',risk:'Risk appetite (1-10)',character:'Character',legacy:'Legacy',extra:'Note to self'};
+
 var fqStep=0,fqAns={},fqLayer=null,fqResult={profile:'',goals:[]};
 
 function startFutureQuiz(){openFutureQuiz();}
@@ -1811,6 +1847,10 @@ function renderFQ(){
   }else if(s.type==='slider'){
     if(fqAns[s.key]==null)fqAns[s.key]=50;var v=fqAns[s.key];
     html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><div class="fq-slider-wrap"><div class="fq-val" id="fqVal">'+v+'</div><input type="range" min="0" max="100" value="'+v+'" oninput="fqAns[\''+s.key+'\']=+this.value;var e=document.getElementById(\'fqVal\');if(e)e.textContent=this.value"><div class="fq-ends"><span>'+s.lo+'</span><span>'+s.hi+'</span></div></div></div>';
+    footHtml='<button class="fq-next" onclick="fqNext()">Continue</button>';
+  }else if(s.type==='scale'){
+    if(fqAns[s.key]==null)fqAns[s.key]=5;var sv=fqAns[s.key];
+    html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><div class="fq-slider-wrap"><div class="fq-val" id="fqVal">'+sv+'</div><input type="range" min="1" max="10" step="1" value="'+sv+'" oninput="fqAns[\''+s.key+'\']=+this.value;var e=document.getElementById(\'fqVal\');if(e)e.textContent=this.value"><div class="fq-ends"><span>'+(s.lo||'1')+'</span><span>'+(s.hi||'10')+'</span></div></div></div>';
     footHtml='<button class="fq-next" onclick="fqNext()">Continue</button>';
   }else if(s.type==='text'){
     html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><textarea class="fq-text" id="fqText" placeholder="'+(s.ph||'')+'">'+esc(fqAns[s.key]||'')+'</textarea></div>';
