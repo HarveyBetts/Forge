@@ -500,6 +500,8 @@ async function deleteTrackerLog(id){try{await sb.from('trackers').delete().eq('i
 async function getProposals(status){if(!currentUser)return[];try{var q=sb.from('proposals').select('*').eq('user_id',currentUser.id);if(status)q=q.eq('status',status);var r=await q.order('created_at',{ascending:false});return (r.data||[]).map(function(x){var pl={};try{pl=JSON.parse(x.payload);}catch(e){}return{id:x.id,type:x.type,payload:pl,summary:x.summary,why:x.why,status:x.status};});}catch(e){return[];}}
 async function addProposal(type,payload,summary,why){try{await sb.from('proposals').insert({user_id:currentUser.id,type:type,payload:JSON.stringify(payload),summary:summary,why:why||null,status:'pending'});}catch(e){console.error(e);}}
 async function setProposalStatus(id,status){try{await sb.from('proposals').update({status:status}).eq('id',id);}catch(e){}}
+async function getLifeContext(){if(!currentUser)return null;try{var r=await sb.from('life_context').select('*').eq('user_id',currentUser.id).maybeSingle();if(!r.data)return null;var rt=null;try{rt=r.data.routine?JSON.parse(r.data.routine):null;}catch(e){}return{routine:rt,summary:r.data.summary||''};}catch(e){return null;}}
+async function setLifeContext(routine,summary){if(!currentUser)return;try{await sb.from('life_context').upsert({user_id:currentUser.id,routine:JSON.stringify(routine||{}),summary:summary||'',updated_at:new Date().toISOString()},{onConflict:'user_id'});}catch(e){}}
 async function getRunPlan(){if(!currentUser)return null;try{var r=await sb.from('run_plan').select('*').eq('user_id',currentUser.id).maybeSingle();if(!r.data)return null;var d=r.data;return{goal:d.goal,target_date:d.target_date,days_per_week:d.days_per_week,level:d.level,baseline:d.baseline,plan:d.plan?JSON.parse(d.plan):null};}catch(e){return null;}}
 async function setRunPlan(o){if(!currentUser)return;try{var r=await sb.from('run_plan').upsert({user_id:currentUser.id,goal:o.goal,target_date:o.target_date||null,days_per_week:o.days_per_week||null,level:o.level||null,baseline:o.baseline||null,plan:JSON.stringify(o.plan||{}),updated_at:new Date().toISOString()},{onConflict:'user_id'});if(r&&r.error)toast('Couldn\u2019t save plan: '+r.error.message);}catch(e){toast('Couldn\u2019t save plan');}}
 async function getRunLogs(limit){if(!currentUser)return[];try{var r=await sb.from('run_logs').select('*').eq('user_id',currentUser.id).order('day',{ascending:false}).limit(limit||10);return (r.data||[]).map(function(x){return{id:x.id,day:x.day,km:Number(x.distance_km),min:x.duration_min!=null?Number(x.duration_min):null,effort:x.effort||'',notes:x.notes||''};});}catch(e){return[];}}
@@ -1336,7 +1338,7 @@ function runCoachChatHTML(){
 function rcMsgsHTML(){return rcChat.map(function(m){return m.role==='assistant'?'<div class="rc-ai">'+aiFmt(m.content)+'</div>':'<div class="rc-me">'+esc(m.content)+'</div>';}).join('');}
 function rcRenderMsgs(){var c=document.getElementById('rcMsgs');if(!c)return;c.innerHTML=rcMsgsHTML();c.scrollTop=c.scrollHeight;}
 function rcSetThinking(b){var t=document.getElementById('rcThinking');if(t)t.style.display=b?'block':'none';}
-function rcPlanSpec(){return 'When you have enough (goal, timeframe, and a benchmark to set paces), reply with ONLY a fenced json object and no other text:\n```json\n{"goal":"short label","goal_type":"race|weight|muscle|general","target_date":"YYYY-MM-DD or null","paces":{"easy":"m:ss/km","steady":"m:ss/km","tempo":"m:ss/km","threshold":"m:ss/km","interval":"m:ss/km","long":"m:ss/km","race":"m:ss/km"},"phases":[{"name":"Base","weeks":4,"focus":"..."}],"weeks":[{"week":1,"focus":"...","totalKm":20,"key":"..."}],"detail":{"week":1,"days":[{"day":"Mon","type":"rest|easy|steady|tempo|threshold|intervals|long|cross|lift","title":"...","km":5,"pace":"easy","steps":["10 min easy warm-up","5 x 1km @ threshold (5:05/km) w/ 90s jog","10 min cool-down"]}]}}\n```\nRules: paces derived from their benchmark. phases cover the whole block to race day. weeks has one entry PER WEEK from now to the target (focus, total km, key session). detail is the CURRENT week only, all 7 days Mon-Sun, each a real structured session (easy days can be a single step; quality days need warm-up/main/cool-down). Use real pace numbers in steps.';}
+function rcPlanSpec(){return 'When you have enough (goal, timeframe, and a benchmark to set paces), reply with ONLY a fenced json object and no other text:\n```json\n{"goal":"short label","goal_type":"race|weight|muscle|general","target_date":"YYYY-MM-DD or null","paces":{"easy":"m:ss/km","steady":"m:ss/km","tempo":"m:ss/km","threshold":"m:ss/km","interval":"m:ss/km","long":"m:ss/km","race":"m:ss/km"},"phases":[{"name":"Base","weeks":4,"focus":"..."}],"weeks":[{"week":1,"focus":"...","totalKm":20,"key":"..."}],"detail":{"week":1,"days":[{"day":"Mon","type":"rest|easy|steady|tempo|threshold|intervals|long|cross|lift","title":"...","km":5,"pace":"easy","steps":["10 min easy warm-up","5 x 1km @ threshold (5:05/km) w/ 90s jog","10 min cool-down"]}]}}\n```\nRules: BE REALISTIC ABOUT THEIR LIFE \u2014 use their typical week, work hours, energy and sleep from the context. Put long/hard sessions on lighter days or days off; keep workdays easy or shorter; avoid hard efforts the evening before an early start or when they\u2019ll be under-slept or drained; build in recovery. If you don\u2019t yet know their working week, energy or sleep, ask briefly and conversationally before finalising. Also include a "lifeContext":{"summary":"one line on their week/energy/sleep","routine":{"days":[{"day":"Mon","items":["work 9-5"]}],"sleep":"~7h","energy":"best mornings"}} object capturing anything you learned about their week. paces derived from their benchmark. phases cover the whole block to race day. weeks has one entry PER WEEK from now to the target (focus, total km, key session). detail is the CURRENT week only, all 7 days Mon-Sun, each a real structured session (easy days can be a single step; quality days need warm-up/main/cool-down). Use real pace numbers in steps.';}
 async function rcSend(){
   if(rcBusy)return;
   var inp=document.getElementById('rcInput');var txt=(inp&&inp.value||'').trim();if(!txt)return;
@@ -1353,6 +1355,7 @@ async function rcSend(){
     if(plan&&plan.detail&&plan.detail.days){
       var dt=(plan.target_date&&/^\d{4}-\d{2}-\d{2}$/.test(plan.target_date))?plan.target_date:null;
       plan.done=plan.done||[];
+      if(plan.lifeContext){try{await setLifeContext(plan.lifeContext.routine||plan.lifeContext,plan.lifeContext.summary||'');}catch(e){}}
       await setRunPlan({goal:plan.goal||'My training',goal_type:plan.goal_type||'general',target_date:dt,days_per_week:0,level:'',baseline:'',plan:plan});
       rcChat=[];rcBusy=false;rcEditing=false;await refreshScreen();toast('Plan ready \u2713');return;
     }
@@ -1430,8 +1433,9 @@ async function rcViewWeek(n){
   var first=currentUser?currentUser.name.split(' ')[0]:'mate';
   var logs=await getRunLogs(7);var recent=logs.map(function(l){return l.day+': '+l.km+'km'+(l.min?'/'+l.min+'min':'');}).join('; ')||'none logged';
   var paces=JSON.stringify(p.plan.paces||{});
+  var ctx='';try{ctx=await gatherUserContext();}catch(e){}
   try{
-    var sys='You are '+first+'\u2019s running coach. Goal: '+p.goal+'. Their training paces: '+paces+'. This is WEEK '+n+' of their plan; focus: "'+(wk.focus||'')+'", ~'+(wk.totalKm||'')+'km, key session: "'+(wk.key||'')+'". Recent runs: '+recent+'. Give the detailed week as ONLY a fenced json object: ```json\n{"week":'+n+',"days":[{"day":"Mon","type":"rest|easy|steady|tempo|threshold|intervals|long|cross|lift","title":"...","km":5,"pace":"easy","steps":["..."]}]}```\nAll 7 days Mon-Sun, structured sessions with real paces from their zones; keep runs easy around any lifting/busy days in their data.';
+    var sys='You are '+first+'\u2019s running coach. Goal: '+p.goal+'. Their training paces: '+paces+'. This is WEEK '+n+' of their plan; focus: "'+(wk.focus||'')+'", ~'+(wk.totalKm||'')+'km, key session: "'+(wk.key||'')+'". Recent runs: '+recent+'. Give the detailed week as ONLY a fenced json object: ```json\n{"week":'+n+',"days":[{"day":"Mon","type":"rest|easy|steady|tempo|threshold|intervals|long|cross|lift","title":"...","km":5,"pace":"easy","steps":["..."]}]}```\nAll 7 days Mon-Sun, structured sessions with real paces from their zones; keep runs easy around any lifting/busy days, and be realistic about their work, energy and sleep below.\n\nWHAT YOU KNOW:\n'+ctx;
     var ans=await askAI([{role:'user',content:'Detail week '+n+'.'}],sys,1500);
     var d=null;var jm=ans.match(/```json([\s\S]*?)```/i);if(jm){try{d=JSON.parse(jm[1].trim());}catch(e){}}
     if(d&&d.days){p.plan.detail=d;await setRunPlan(p);await refreshScreen();toast('Week '+n+' ready \u2713');}
@@ -1442,7 +1446,38 @@ async function rcViewWeek(n){
 // ============================================================
 // UNDERSTUDY — proposes actions toward Future Me; you approve in a batch.
 // ============================================================
+var lcChat=[],lcBusy=false,lcEditing=false;
+function teachChronos(){lcEditing=true;lcChat=[{role:'assistant',content:'Tell me about your typical week so I can plan everything realistically \u2014 when you work (e.g. 9-5 Monday), any gym or regular commitments, roughly how you sleep, and when you\u2019ve got energy vs when you\u2019re wiped.'}];refreshScreen();}
+function lcCancel(){lcEditing=false;lcChat=[];refreshScreen();}
+function lcMsgsHTML(){return lcChat.map(function(m){return m.role==='assistant'?'<div class="rc-ai">'+aiFmt(m.content)+'</div>':'<div class="rc-me">'+esc(m.content)+'</div>';}).join('');}
+function lcRenderMsgs(){var c=document.getElementById('lcMsgs');if(!c)return;c.innerHTML=lcMsgsHTML();c.scrollTop=c.scrollHeight;}
+function lcThinking(b){var t=document.getElementById('lcThinking');if(t)t.style.display=b?'block':'none';}
+function lcChatHTML(){
+  return '<div class="card"><style>.rc-ai{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:16px 16px 16px 5px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:90%}.rc-me{align-self:flex-end;background:var(--accent);color:#fff;border-radius:16px 16px 5px 16px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:85%}.rc-in{flex:1;box-sizing:border-box;padding:13px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;outline:none}</style>'+
+    '<div class="ctitle">Teach Chronos your week</div><div id="lcMsgs" style="display:flex;flex-direction:column;gap:10px;max-height:44vh;overflow-y:auto;margin-top:6px">'+lcMsgsHTML()+'</div>'+
+    '<div id="lcThinking" class="rs" style="display:none;margin:10px 2px 0">Saving what I learned\u2026</div>'+
+    '<div style="display:flex;gap:8px;margin-top:14px"><input id="lcInput" class="rc-in" placeholder="Tell me about your week\u2026" onkeydown="if(event.key===\'Enter\'){event.preventDefault();lcSend();}"/><button onclick="lcSend()" style="background:var(--accent);color:#fff;border:none;border-radius:14px;padding:0 18px;font-weight:700;cursor:pointer;font-family:inherit">Send</button></div>'+
+    '<button class="reqbtn" style="margin-top:10px" onclick="lcCancel()">Done</button></div>';
+}
+async function lcSend(){
+  if(lcBusy)return;var inp=document.getElementById('lcInput');var txt=(inp&&inp.value||'').trim();if(!txt)return;
+  lcChat.push({role:'user',content:txt});if(inp)inp.value='';lcBusy=true;lcRenderMsgs();lcThinking(true);
+  try{
+    var first=currentUser?currentUser.name.split(' ')[0]:'mate';
+    var sys='You are Chronos, '+first+'\u2019s assistant, learning their typical week so everything in their app can plan realistically. Ask brief, natural follow-ups ONLY if needed (work/shift hours, regular commitments, sleep, energy patterns). When you have a clear enough picture, reply with ONLY a fenced json object: ```json\n{"summary":"one natural sentence capturing their week, sleep and energy","routine":{"days":[{"day":"Mon","items":["work 9-5","gym 6pm"]},{"day":"Tue","items":[]}],"sleep":"~7h, up at 6","energy":"best in the morning, drained after late shifts"}}\n```';
+    var start=0;for(var i=0;i<lcChat.length;i++){if(lcChat[i].role==='user'){start=i;break;}}
+    var ans=await askAI(lcChat.slice(start).slice(-8),sys,900);
+    var jm=ans.match(/```json([\s\S]*?)```/i);var obj=null;if(jm){try{obj=JSON.parse(jm[1].trim());}catch(e){}}
+    if(obj&&obj.summary){await setLifeContext(obj.routine||{},obj.summary);lcChat=[];lcBusy=false;lcEditing=false;await refreshScreen();toast('Chronos has your week \u2713');return;}
+    lcChat.push({role:'assistant',content:ans});lcBusy=false;lcThinking(false);lcRenderMsgs();
+  }catch(e){lcBusy=false;lcThinking(false);lcChat.push({role:'assistant',content:'Trouble saving that \u2014 try once more.'});lcRenderMsgs();}
+}
 async function renderUnderstudy(){
+  var lc=await getLifeContext();
+  var weekSection;
+  if(lcEditing){weekSection=lcChatHTML();}
+  else if(lc&&lc.summary){weekSection='<div class="card"><div class="ctitle">What Chronos knows about your week</div><div class="rs" style="line-height:1.5;margin-top:2px">'+esc(lc.summary)+'</div><button class="tbtn add" style="margin-top:10px" onclick="teachChronos()">Update</button></div>';}
+  else {weekSection='<div class="card" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:var(--accent)">'+icon('clock',16,2.2)+'</div><div style="flex:1"><div class="rt">Teach Chronos your week</div><div class="rs">So everything plans around your real life</div></div><button class="tbtn add" onclick="teachChronos()">Start</button></div>';}
   var pending=await getProposals('pending');
   var done=await getProposals('approved');
   var head='<div class="card dark"><div class="small">Chronos</div><div style="font-size:14px;line-height:1.5;margin-top:6px">It proposes, you approve. Nothing happens without your nod \u2014 every action is reversible from its own tab.</div></div>';
@@ -1455,7 +1490,7 @@ async function renderUnderstudy(){
     queue='<div class="card"><div class="rs" style="text-align:center;padding:14px 0">Nothing waiting. Tap \u201CPlan\u201D and Chronos will draft actions that move you toward your goals.</div></div>';
   }
   var log=done.length?'<div class="card"><div class="ctitle">Recently done</div>'+done.slice(0,8).map(function(p){return '<div class="row"><div class="chip sm" style="--tc:#1F9D6B">'+icon('check',14,2.4)+'</div><div style="flex:1"><div class="rt" style="font-size:14px">'+esc(p.summary)+'</div></div></div>';}).join('')+'</div>':'';
-  return '<div class="stack">'+head+gen+queue+log+'</div>';
+  return '<div class="stack">'+head+weekSection+gen+queue+log+'</div>';
 }
 function proposalSummary(a){
   var t=String(a.type||'').toLowerCase();
@@ -1955,7 +1990,8 @@ async function gatherUserContext(){
   var lines=[],today=new Date();
   lines.push('Name: '+(currentUser?currentUser.name:'the user'));
   lines.push('Today: '+today.toDateString());
-  try{var rp=await getRunPlan();if(rp&&rp.plan){var td=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];var ts=null;(rp.plan.week||[]).forEach(function(w){if(w.day===td)ts=w;});lines.push('Running goal: '+rp.goal+(ts?(' — today: '+(ts.type||'')+(ts.km?' '+ts.km+'km':'')+(ts.pace?' @ '+ts.pace:'')):''));}}catch(e){}
+  try{var lc=await getLifeContext();if(lc&&(lc.summary||lc.routine)){lines.push('Typical week & commitments: '+(lc.summary||'')+(lc.routine?(' | '+JSON.stringify(lc.routine)):''));}}catch(e){}
+  try{var rp=await getRunPlan();if(rp&&rp.plan){var td=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];var ts=null;((rp.plan.detail&&rp.plan.detail.days)||[]).forEach(function(w){if(w.day===td)ts=w;});lines.push('Running goal: '+rp.goal+(ts?(' — today: '+(ts.type||'')+(ts.km?' '+ts.km+'km':'')+(ts.pace?' @ '+ts.pace:'')):''));}}catch(e){}
   try{var fm=await getFutureMe();if(fm&&fm.profile)lines.push('FUTURE ME (their north star \u2014 weigh every suggestion against this; favour what moves them toward it): '+fm.profile);var fgs=await getFutureGoals();if(fgs&&fgs.length)lines.push('Long-term goals: '+fgs.map(function(g){return '['+g.horizon+'] '+g.t+' ('+Math.round(g.progress)+'%)';}).join('; '));}catch(e){}
   try{var b=await getFinBalance();if(b!=null)lines.push('Logged balance: A$'+Number(b).toLocaleString());}catch(e){}
   try{var inv=await getInvestments();if(inv&&inv.length){var ivt=inv.reduce(function(s,x){return s+x.v;},0);lines.push('Investments: A$'+ivt.toLocaleString()+' across '+inv.length+' ('+inv.map(function(x){return x.n+' A$'+x.v.toLocaleString();}).join(', ')+')');}}catch(e){}
