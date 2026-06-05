@@ -502,6 +502,9 @@ async function addProposal(type,payload,summary,why){try{await sb.from('proposal
 async function setProposalStatus(id,status){try{await sb.from('proposals').update({status:status}).eq('id',id);}catch(e){}}
 async function getLifeContext(){if(!currentUser)return null;try{var r=await sb.from('life_context').select('*').eq('user_id',currentUser.id).maybeSingle();if(!r.data)return null;var rt=null;try{rt=r.data.routine?JSON.parse(r.data.routine):null;}catch(e){}return{routine:rt,summary:r.data.summary||''};}catch(e){return null;}}
 async function setLifeContext(routine,summary){if(!currentUser)return;try{await sb.from('life_context').upsert({user_id:currentUser.id,routine:JSON.stringify(routine||{}),summary:summary||'',updated_at:new Date().toISOString()},{onConflict:'user_id'});}catch(e){}}
+async function getShifts(fromISO,toISO){if(!currentUser)return[];try{var q=sb.from('shifts').select('*').eq('user_id',currentUser.id);if(fromISO)q=q.gte('day',fromISO);if(toISO)q=q.lte('day',toISO);var r=await q.order('day');return (r.data||[]).map(function(x){return{id:x.id,day:x.day,label:x.label||'',start:x.start_t||'',end:x.end_t||'',note:x.note||''};});}catch(e){return[];}}
+async function addShift(o){if(!currentUser)return;try{await sb.from('shifts').insert({user_id:currentUser.id,day:o.day,label:o.label||'Shift',start_t:o.start||null,end_t:o.end||null,note:o.note||null});}catch(e){}}
+async function deleteShiftDB(id){try{await sb.from('shifts').delete().eq('id',id);}catch(e){}}
 async function getRunPlan(){if(!currentUser)return null;try{var r=await sb.from('run_plan').select('*').eq('user_id',currentUser.id).maybeSingle();if(!r.data)return null;var d=r.data;return{goal:d.goal,target_date:d.target_date,days_per_week:d.days_per_week,level:d.level,baseline:d.baseline,plan:d.plan?JSON.parse(d.plan):null};}catch(e){return null;}}
 async function setRunPlan(o){if(!currentUser)return;try{var r=await sb.from('run_plan').upsert({user_id:currentUser.id,goal:o.goal,target_date:o.target_date||null,days_per_week:o.days_per_week||null,level:o.level||null,baseline:o.baseline||null,plan:JSON.stringify(o.plan||{}),updated_at:new Date().toISOString()},{onConflict:'user_id'});if(r&&r.error)toast('Couldn\u2019t save plan: '+r.error.message);}catch(e){toast('Couldn\u2019t save plan');}}
 async function getRunLogs(limit){if(!currentUser)return[];try{var r=await sb.from('run_logs').select('*').eq('user_id',currentUser.id).order('day',{ascending:false}).limit(limit||10);return (r.data||[]).map(function(x){return{id:x.id,day:x.day,km:Number(x.distance_km),min:x.duration_min!=null?Number(x.duration_min):null,effort:x.effort||'',notes:x.notes||''};});}catch(e){return[];}}
@@ -577,6 +580,7 @@ const EXTRA_TABS=[
   {id:'shopping',label:'Shopping',sub:'What to buy',bg:'#F3E8DA',chip:'#F59E0B',icon:'cart',list:true},
   {id:'subs',label:'Subscriptions',sub:'Recurring spend',bg:'#F3E0E4',chip:'#FB7185',icon:'wallet',list:true},
   {id:'workouts',label:'Workouts',sub:'Training log',bg:'#E1EADF',chip:'#4D6BFF',icon:'fitness',list:true},
+  {id:'calendar',label:'Calendar',sub:'Shifts & schedule',bg:'#DEE9F2',chip:'#60A5FA',icon:'calendar'},
   {id:'recipes',label:'Recipes',sub:'Saved meals',bg:'#F5EFD7',chip:'#FBBF24',icon:'fork',list:true},
   {id:'mood',label:'Mood',sub:'How you feel',bg:'#F3E2DA',chip:'#FB923C',icon:'heart',list:true},
   {id:'sleep',label:'Sleep',sub:'Rest log',bg:'#E6E3F1',chip:'#818CF8',icon:'moon',list:true},
@@ -1224,6 +1228,7 @@ async function renderTab(tab){
   if(tab==='futureme')return renderFutureMe();
   if(tab==='understudy')return renderUnderstudy();
   if(tab==='runcoach')return renderRunCoach();
+  if(tab==='calendar')return renderCalendar();
   if(TRACKERS[tab])return renderTracker(tab);
   if(tab==='calendar')return renderCalendar();
   if(tab==='contacts')return renderContacts();
@@ -1305,6 +1310,65 @@ async function trackerInsight(kind){
     if(host)host.innerHTML='<div><div class="rt" style="margin-bottom:6px">Forge AI on your '+esc(cfg.label.toLowerCase())+'</div><div class="rs" style="line-height:1.5">'+aiFmt(ans)+'</div></div>';
   }catch(e){if(host)host.innerHTML='<div class="rs">Couldn\u2019t reach Forge AI right now \u2014 try again in a moment.</div>';}
 }
+// ============================================================
+// CALENDAR & SHIFTS — your real schedule. The coach & Chronos
+// read this automatically; you never tell them separately.
+// ============================================================
+var calMonth=null;
+function calPad(n){return (n<10?'0':'')+n;}
+function calShiftMonth(n){var d=calMonth||new Date();calMonth=new Date(d.getFullYear(),d.getMonth()+n,1);refreshScreen();}
+async function renderCalendar(){
+  var base=calMonth||new Date();var y=base.getFullYear(),m=base.getMonth();
+  var last=new Date(y,m+1,0);
+  var fromISO=y+'-'+calPad(m+1)+'-01',toISO=y+'-'+calPad(m+1)+'-'+calPad(last.getDate());
+  var shifts=await getShifts(fromISO,toISO);
+  var byDay={};shifts.forEach(function(s){(byDay[s.day]=byDay[s.day]||[]).push(s);});
+  var firstDow=(new Date(y,m,1).getDay()+6)%7; // Monday-first
+  var todayISO=localDay();
+  var dows=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(d){return '<div style="text-align:center;font-size:10.5px;color:var(--sub);font-weight:700;padding:2px 0">'+d+'</div>';}).join('');
+  var cells='';for(var i=0;i<firstDow;i++)cells+='<div></div>';
+  for(var dd=1;dd<=last.getDate();dd++){var iso=y+'-'+calPad(m+1)+'-'+calPad(dd);var has=byDay[iso];var isT=iso===todayISO;
+    cells+='<div onclick="openDay(\''+iso+'\')" style="aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:'+(isT?'var(--accent)':(has?'var(--surface-2)':'transparent'))+';color:'+(isT?'#fff':'var(--ink)')+';border:1px solid '+(has&&!isT?'var(--line)':'transparent')+'"><div style="font-size:13px;font-weight:600">'+dd+'</div>'+(has?'<div style="display:flex;gap:2px;margin-top:2px">'+has.slice(0,3).map(function(){return '<span style="width:4px;height:4px;border-radius:50%;background:'+(isT?'#fff':'var(--accent)')+'"></span>';}).join('')+'</div>':'')+'</div>';
+  }
+  var inStyle='flex:1;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;outline:none';
+  var add='<div class="card"><div class="ctitle">Add shifts</div><div class="rs" style="margin:-2px 0 8px">Just type them \u2014 e.g. \u201Cwork 9-5 Mon to Fri\u201D or \u201Clate shift Saturday\u201D.</div><div style="display:flex;gap:8px"><input id="calNL" placeholder="Type your shifts\u2026" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addShiftsNL();}" style="'+inStyle+'"/><button onclick="addShiftsNL()" style="background:var(--accent);color:#fff;border:none;border-radius:13px;padding:0 18px;font-weight:700;cursor:pointer;font-family:inherit">Add</button></div></div>';
+  var grid='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><button onclick="calShiftMonth(-1)" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:16px;color:var(--ink)">\u2039</button><div class="serif" style="font-size:18px;font-weight:700">'+base.toLocaleDateString(undefined,{month:'long',year:'numeric'})+'</div><button onclick="calShiftMonth(1)" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:16px;color:var(--ink)">\u203A</button></div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+dows+cells+'</div></div>';
+  var up=shifts.filter(function(s){return s.day>=todayISO;}).slice(0,8);
+  var upCard=up.length?'<div class="card"><div class="ctitle">Upcoming shifts</div>'+up.map(function(s){return shiftRow(s);}).join('')+'</div>':'';
+  return '<div class="stack">'+add+grid+upCard+'</div>';
+}
+function shiftRow(s){var d=new Date(s.day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});var t=(s.start||'')+(s.end?' \u2013 '+s.end:'');return '<div class="row"><div style="flex:1"><div class="rt" style="font-size:14px">'+esc(s.label||'Shift')+'</div><div class="rs">'+d+(t?' \u00B7 '+esc(t):'')+'</div></div><button class="del" onclick="rmShift(\''+s.id+'\')">'+icon('x',13)+'</button></div>';}
+async function rmShift(id){await deleteShiftDB(id);await refreshScreen();}
+async function addShiftsNL(){
+  var inp=document.getElementById('calNL');var txt=(inp&&inp.value||'').trim();if(!txt)return;
+  toast('Reading your shifts\u2026');
+  var now=new Date();
+  var sys='Convert the user\u2019s description of their work shifts into structured data. Today is '+now.toLocaleDateString(undefined,{weekday:'long'})+', '+localDay()+'. Output ONLY a fenced json array; each item {"date":"YYYY-MM-DD","label":"short e.g. Work / Early / Late","start":"HH:MM or empty","end":"HH:MM or empty"}. Expand ranges like "Mon to Fri" into each dated day in the current/upcoming week. Resolve relative days (this/next Saturday) from today. Leave times empty if not given.';
+  try{
+    var ans=await askAI([{role:'user',content:txt}],sys,900);
+    var jm=ans.match(/```(?:json)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;var arr=[];
+    try{arr=JSON.parse(raw.trim());}catch(e){try{arr=JSON.parse((raw.match(/\[[\s\S]*\]/)||[''])[0]);}catch(e2){}}
+    if(!Array.isArray(arr)||!arr.length){toast('Couldn\u2019t read those \u2014 try rephrasing');return;}
+    var n=0;for(var i=0;i<arr.length;i++){var s=arr[i];if(s&&/^\d{4}-\d{2}-\d{2}$/.test(s.date)){await addShift({day:s.date,label:s.label||'Shift',start:s.start||'',end:s.end||''});n++;}}
+    if(inp)inp.value='';await refreshScreen();toast(n+' shift'+(n!==1?'s':'')+' added \u2713');
+  }catch(e){toast('Couldn\u2019t reach AI \u2014 try again');}
+}
+async function openDay(iso){
+  var shifts=await getShifts(iso,iso);
+  var d=new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+  var rows=shifts.length?shifts.map(function(s){return '<div class="trow"><div style="flex:1"><div class="rt">'+esc(s.label)+'</div><div class="rs">'+esc((s.start||'')+(s.end?' \u2013 '+s.end:'')||'all day')+'</div></div><button class="tbtn rm" onclick="rmShiftDay(\''+s.id+'\',\''+iso+'\')">Remove</button></div>';}).join(''):'<p style="color:var(--sub);font-size:14px;margin:8px 2px">No shifts yet.</p>';
+  var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()"><h3>'+d+'</h3>'+rows+'<input id="dayNL" placeholder="Add a shift, e.g. work 9-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addDayShift(\''+iso+'\');}" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:10px"/><div class="btnrow"><button class="btn btn-primary" onclick="addDayShift(\''+iso+'\')">Add</button><button class="btn" onclick="closeOverlay()">Done</button></div></div>';
+  document.getElementById('app').appendChild(o);
+}
+async function rmShiftDay(id,iso){await deleteShiftDB(id);closeOverlay();await refreshScreen();openDay(iso);}
+async function addDayShift(iso){
+  var inp=document.getElementById('dayNL');var txt=(inp&&inp.value||'').trim();if(!txt)return;
+  try{var ans=await askAI([{role:'user',content:txt}],'Parse this into one work shift for the date '+iso+'. Output ONLY json {"label":"...","start":"HH:MM or empty","end":"HH:MM or empty"}.',300);var jm=ans.match(/\{[\s\S]*\}/);var o=jm?JSON.parse(jm[0]):null;if(o){await addShift({day:iso,label:o.label||txt,start:o.start||'',end:o.end||''});}else{await addShift({day:iso,label:txt,start:'',end:''});}}
+  catch(e){await addShift({day:iso,label:txt,start:'',end:''});}
+  closeOverlay();await refreshScreen();openDay(iso);
+}
+
 // ============================================================
 // FITNESS COACH — Runna-grade: conversational setup → full
 // periodised plan, structured workouts, real pace zones, progress.
@@ -1573,12 +1637,13 @@ function catScreenHTML(cid){
     var ct=catalogById(t);
     return '<div class="tile" onclick="go(\''+t+'\',false,\'cat_'+c.id+'\')"><div class="chip">'+icon(ct.icon||t,21,2.2)+'</div><div><div class="t">'+esc(ct.label)+'</div><div class="s">'+esc(ct.sub)+'</div></div></div>';
   }).join('');
+  var calTile=c.id==='time'?'<div class="tile" onclick="go(\'calendar\',false,\'cat_time\')"><div class="chip">'+icon('calendar',21,2.2)+'</div><div><div class="t">Calendar</div><div class="s">Shifts & schedule</div></div></div>':'';
   var rcTile=c.id==='fitness'?'<div class="tile" onclick="go(\'runcoach\',false,\'cat_fitness\')"><div class="chip">'+icon('trend',21,2.2)+'</div><div><div class="t">Run Coach</div><div class="s">Your AI fitness coach</div></div></div>':'';
   var hasMore=c.tabs.some(function(t){return en.indexOf(t)<0&&catalogById(t);});
   var addBtn=hasMore?'<button class="cat-add" onclick="addToCatSheet(\''+c.id+'\')">'+icon('plus',18,2.4)+'<span>Add to '+esc(c.label)+'</span></button>':'';
   var empty=onTabs.length?'':'<div class="cat-empty">Nothing here yet — add something below.</div>';
   var aiBtn='<button class="cat-add cat-ai" onclick="openAICat(\''+c.id+'\')">'+icon('spark',18,2.2)+'<span>Ask Forge AI about '+esc(c.label)+'</span></button>';
-  return '<div class="home-grid">'+rcTile+tiles+'</div>'+empty+addBtn+aiBtn;
+  return '<div class="home-grid">'+rcTile+calTile+tiles+'</div>'+empty+addBtn+aiBtn;
 }
 // In-context picker for adding tabs to a category (replaces the old ghost tiles)
 function addToCatSheet(cid){
@@ -1991,6 +2056,7 @@ async function gatherUserContext(){
   lines.push('Name: '+(currentUser?currentUser.name:'the user'));
   lines.push('Today: '+today.toDateString());
   try{var lc=await getLifeContext();if(lc&&(lc.summary||lc.routine)){lines.push('Typical week & commitments: '+(lc.summary||'')+(lc.routine?(' | '+JSON.stringify(lc.routine)):''));}}catch(e){}
+  try{var _t2=new Date();_t2.setDate(_t2.getDate()+14);var _sh=await getShifts(localDay(),_t2.getFullYear()+'-'+('0'+(_t2.getMonth()+1)).slice(-2)+'-'+('0'+_t2.getDate()).slice(-2));if(_sh.length){lines.push('Upcoming shifts (work around these): '+_sh.map(function(s){var dd=new Date(s.day+'T00:00:00');return dd.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'})+(s.label?' '+s.label:'')+(s.start?' '+s.start+(s.end?'-'+s.end:''):'');}).join('; '));}}catch(e){}
   try{var rp=await getRunPlan();if(rp&&rp.plan){var td=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];var ts=null;((rp.plan.detail&&rp.plan.detail.days)||[]).forEach(function(w){if(w.day===td)ts=w;});lines.push('Running goal: '+rp.goal+(ts?(' — today: '+(ts.type||'')+(ts.km?' '+ts.km+'km':'')+(ts.pace?' @ '+ts.pace:'')):''));}}catch(e){}
   try{var fm=await getFutureMe();if(fm&&fm.profile)lines.push('FUTURE ME (their north star \u2014 weigh every suggestion against this; favour what moves them toward it): '+fm.profile);var fgs=await getFutureGoals();if(fgs&&fgs.length)lines.push('Long-term goals: '+fgs.map(function(g){return '['+g.horizon+'] '+g.t+' ('+Math.round(g.progress)+'%)';}).join('; '));}catch(e){}
   try{var b=await getFinBalance();if(b!=null)lines.push('Logged balance: A$'+Number(b).toLocaleString());}catch(e){}
