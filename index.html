@@ -1638,10 +1638,17 @@ function rcScrAbility(){
   return rcQCard('How would you describe your running?','This sets your weekly mileage so it\u2019s never too much, too soon.','<div style="margin-top:8px">'+grid+'</div>');
 }
 function rcScrFitness(){
-  var dists=['5K','10K','Half','Marathon'];var fd=rcSetup._fitDist||'5K';
-  var pills='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">'+dists.map(function(d){return '<button class="rc-pill'+(fd===d?' on':'')+'" onclick="rcFitDistPick(\''+d+'\')">'+d+'</button>';}).join('')+'</div>';
-  var input='<div class="rs" style="font-weight:600;margin-bottom:6px">Your recent '+esc(fd)+' time</div><input id="rcFitTime" class="rc-field" placeholder="e.g. 25:30" value="'+esc(rcSetup._fitTime||'')+'" oninput="rcFitTimeIn(this.value)"/><button class="tbtn add" style="margin-top:14px;width:100%;justify-content:center" onclick="rcFitSave()">Set my paces \u2192</button><button class="reqbtn" style="margin-top:8px" onclick="rcFitNew()">Skip \u2014 I don\u2019t have a recent time</button>';
-  return rcQCard('Got a recent time?','A recent result lets me set your exact training paces. Optional \u2014 I\u2019ll estimate from your level otherwise.',pills+input);
+  var dists=[['5K','25:30'],['10K','52:00'],['Half','1:58:00'],['Marathon','4:15:00']];
+  var t=rcSetup.times||{};var td=rcSetup._td||{};
+  var rows=dists.map(function(p){var d=p[0];var saved=t[d];var val=(saved!=null)?durStr(saved):(td[d]||'');
+    return '<div style="margin-bottom:12px"><div class="rs" style="font-weight:600;margin-bottom:6px">'+d+(d==='Half'?' Marathon':'')+'</div><div style="display:flex;gap:8px"><input id="rcT_'+d+'" class="rc-field" inputmode="numeric" placeholder="e.g. '+p[1]+'" value="'+esc(val)+'" oninput="rcTimeDraft(\''+d+'\',this.value)" style="flex:1"/>'+
+      (saved!=null
+        ? '<button class="tbtn" title="Tap to edit" onclick="rcClearTime(\''+d+'\')" style="background:var(--ok);color:#fff;border-color:transparent;white-space:nowrap">'+icon('check',13,2.6)+' Saved</button>'
+        : '<button class="tbtn add" onclick="rcSaveTime(\''+d+'\')">Save</button>')+
+      '</div></div>';}).join('');
+  var n=Object.keys(t).length;
+  var cont='<button class="tbtn add" style="margin-top:4px;width:100%;justify-content:center" onclick="rcFitContinue()">Continue'+(n?' with '+n+' time'+(n>1?'s':''):'')+' \u2192</button>'+(n?'':'<div class="rs" style="text-align:center;margin-top:8px">All optional \u2014 I\u2019ll estimate from your level if you skip.</div>');
+  return rcQCard('Got recent times?','Add a time for any distance you\u2019ve run and tap Save \u2014 each one sharpens your paces. Then Continue.',rows+cont);
 }
 function rcScrDays(){
   var sel=rcSetup.daysSel||[];
@@ -1695,10 +1702,20 @@ function rcPickRace(i){var r=RC_RACES[i];if(!r)return;rcSetup.race={name:r.n,cit
 function rcSaveRaceDate(){var v=(document.getElementById('rcRaceDate')||{}).value;if(v)rcSetup.race.date=v;rcGo('ability');}
 function rcSaveCustomRace(){var n=((document.getElementById('rcRaceName')||{}).value||'').trim();var v=(document.getElementById('rcRaceDate2')||{}).value;if(!v){toast('Pick a race date');return;}rcSetup.race={name:n||'My race',date:v,distance:(rcSetup.goal&&rcSetup.goal.label)||'Race',flag:'\uD83C\uDFC1'};rcGo('ability');}
 function rcPickAbility(label,v){rcSetup.ability={label:label,val:v};rcGo('fitness');}
-function rcFitDistPick(d){rcSetup._fitDist=d;refreshScreen();}
-function rcFitTimeIn(v){rcSetup._fitTime=v;}
-function rcFitSave(){var d=rcSetup._fitDist||'5K';var mins=rcParseTimeMin(rcSetup._fitTime||'');if(mins==null){toast('Enter a time like 25:30');return;}rcSetup.benchmark={distance_m:rcDistM(d),time_s:Math.round(mins*60),label:d};rcSetup.fitnessNew=false;rcGo('days');}
-function rcFitNew(){rcSetup.benchmark=null;rcSetup.fitnessNew=true;rcGo('days');}
+function rcTimeDraft(d,v){rcSetup._td=rcSetup._td||{};rcSetup._td[d]=v;}
+function rcSaveTime(d){var el=document.getElementById('rcT_'+d);var v=(el&&el.value)||((rcSetup._td||{})[d])||'';var mins=rcParseTimeMin(v);if(mins==null||mins<=0){toast('Enter a time like '+(d==='Marathon'||d==='Half'?'1:58:00':'25:30'));return;}rcSetup.times=rcSetup.times||{};rcSetup.times[d]=Math.round(mins*60);if(rcSetup._td)delete rcSetup._td[d];refreshScreen();toast(d+' time saved \u2713');}
+function rcClearTime(d){if(rcSetup.times)delete rcSetup.times[d];refreshScreen();}
+function rcFitContinue(){
+  var t=rcSetup.times||{};var keys=Object.keys(t);
+  if(keys.length){
+    var order=['Marathon','Half','10K','5K'];
+    var gl=(rcSetup.goal&&rcSetup.goal.label)||'';var gk=({'Half Marathon':'Half','Half':'Half','Marathon':'Marathon','10K':'10K','5K':'5K'})[gl]||gl;
+    var pick=(t[gk]!=null)?gk:null;
+    if(!pick){for(var i=0;i<order.length;i++){if(t[order[i]]!=null){pick=order[i];break;}}}
+    rcSetup.benchmark={distance_m:rcDistM(pick),time_s:t[pick],label:pick};rcSetup.fitnessNew=false;
+  }else{rcSetup.benchmark=null;rcSetup.fitnessNew=true;}
+  rcGo('days');
+}
 function rcPickDays(){var sel=(rcSetup.daysSel||[]).slice();if(sel.length<2){toast('Pick at least 2 days');return;}var ord=rcWeekdays.filter(function(d){return sel.indexOf(d)>=0;});rcSetup.days={label:ord.length+' days',val:ord};rcGo('longrun');}
 function rcPickLong(d){rcSetup.longRun=d||'';rcGo('volume');}
 function rcPickVolume(label,v){rcSetup.volume={label:label,val:v};rcGo('difficulty');}
@@ -1725,7 +1742,8 @@ async function rcBuildFromSetup(){
   try{
     var s=rcSetup;var goalLabel=(s.goal&&s.goal.label)||'Get fitter';var goalType=(s.goal&&s.goal.val)||'general';
     var race=s.race;var whenTxt=race&&race.date?('racing '+(race.name||'a race')+' on '+race.date):'no fixed race date \u2014 ongoing improvement';
-    var ben=s.benchmark;var benTxt=ben?('My recent time: '+durStr(ben.time_s)+' for '+(ben.label||'')+'. '):(s.fitnessNew?'No recent time given \u2014 estimate from my ability level and any logged runs. ':'');
+    var ben=s.benchmark;var times=s.times||{};var tk=Object.keys(times);
+    var benTxt=tk.length?('My recent times \u2014 '+tk.map(function(k){return k+': '+durStr(times[k]);}).join(', ')+'. Use these to set my training paces. '):(s.fitnessNew?'No recent times given \u2014 estimate from my ability level and any logged runs. ':'');
     var ability=(s.ability&&s.ability.val)||'intermediate';
     var dayArr=(s.days&&s.days.val)||[];var daysTxt=dayArr.length?dayArr.join(', '):'flexible';
     var longRun=s.longRun?('Long run on '+s.longRun+'. '):'Long run on the day with most time. ';
