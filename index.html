@@ -1576,16 +1576,17 @@ function rcFmtDate(iso){return new Date(iso+'T00:00:00').toLocaleDateString(unde
 RC_RACES.forEach(function(r){r._d=rcNextDate(r.d);});
 RC_RACES.sort(function(a,b){return a._d<b._d?-1:(a._d>b._d?1:0);});
 
-var rcScreen='goal',rcBack=[],rcPreview=null;
+var rcScreen='goal',rcBack=[],rcPreview=null,rcReconfig=false;
 var rcWeekdays=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 function rcToggleDay(d){rcSetup.daysSel=rcSetup.daysSel||[];var i=rcSetup.daysSel.indexOf(d);if(i>=0)rcSetup.daysSel.splice(i,1);else rcSetup.daysSel.push(d);refreshScreen();}
 var RC_FLOW=['goal','race','ability','fitness','days','longrun','volume','difficulty','strength'];
 function rcGo(s){rcBack.push(rcScreen);rcScreen=s;refreshScreen();}
-function rcGoBack(){if(rcBack.length)rcScreen=rcBack.pop();else rcScreen='goal';refreshScreen();}
+function rcGoBack(){if(rcBack.length){rcScreen=rcBack.pop();refreshScreen();return;}if(rcReconfig){rcReconfig=false;rcScreen='goal';refreshScreen();return;}rcScreen='goal';refreshScreen();}
 
 function runCoachChatHTML(){
   if(rcBuilding)return rcBuildingHTML();
   if(rcScreen==='preview'&&rcPreview)return rcSetupHTML();
+  if(rcReconfig)return rcSetupHTML();
   if(rcEditing||rcChatStart)return rcChatHTML();
   if(!rcScreen)rcScreen='goal';
   return rcSetupHTML();
@@ -1746,9 +1747,42 @@ function rcChatHTML(){
     '<button class="reqbtn" onclick="'+(rcEditing?'cancelRunSetup()':'rcBackToOptions()')+'">'+(rcEditing?'Cancel':'\u2039 Back to quick setup')+'</button>'+
   '</div>';
 }
+function rcFallbackPlan(s,eng){
+  s=s||{};
+  var dayArr=(s.days&&s.days.val&&s.days.val.length)?s.days.val.slice():['Mon','Wed','Fri','Sun'];
+  var longRunDay=(s.longRun&&dayArr.indexOf(s.longRun)>=0)?s.longRun:dayArr[dayArr.length-1];
+  var goalLabel=(s.goal&&s.goal.label)||'Get fitter';
+  var goalType=(s.goal&&s.goal.val)||'general';
+  var raceName=(s.race&&s.race.name)?s.race.name:'';
+  var rd=({'5k':'5K','10k':'10K','half':'Half','marathon':'Marathon'})[String(goalType).toLowerCase()]||((s.benchmark&&s.benchmark.label)||'none');
+  if(['5K','10K','Half','Marathon'].indexOf(rd)<0)rd='none';
+  var vol=(s.volume&&s.volume.val)||'steady';
+  var qType=(rd==='5K'||rd==='10K')?'intervals':'threshold';
+  var longKm=({Marathon:20,Half:14,'10K':10,'5K':7})[rd]||10;
+  if(vol==='gradual')longKm-=2;if(vol==='progressive')longKm+=2;if(longKm<5)longKm=5;
+  var easyKm=Math.max(4,Math.round(longKm*0.45));
+  var td=(s.race&&s.race.date&&/^\d{4}-\d{2}-\d{2}$/.test(s.race.date))?s.race.date:null;
+  var weeksN=10;if(td){var dd=Math.ceil((new Date(td+'T00:00:00')-new Date())/86400000);weeksN=Math.max(4,Math.min(20,Math.round(dd/7)));}
+  function dateFor(dn){var idx=RC_WEEK.indexOf(dn);var ti=(new Date().getDay()+6)%7;var delta=(idx-ti+7)%7;var dt=new Date();dt.setDate(dt.getDate()+delta);return dt.getFullYear()+'-'+('0'+(dt.getMonth()+1)).slice(-2)+'-'+('0'+dt.getDate()).slice(-2);}
+  function seg(label,paceKey,km,minutes,reps,rec){return {label:label,paceKey:paceKey||'',km:(km||null),minutes:(minutes||null),reps:(reps||null),recoveryMin:(rec||null),measure:(km?'distance':'time')};}
+  var firstQuality=dayArr.filter(function(x){return x!==longRunDay;})[0];
+  var days=RC_WEEK.map(function(d){
+    if(dayArr.indexOf(d)<0)return {day:d,date:dateFor(d),type:'rest',title:'Rest',km:null,segments:[],note:'Rest or easy mobility.'};
+    if(d===longRunDay)return {day:d,date:dateFor(d),type:'long',title:'Long run',km:longKm,segments:[seg('Long run','long',longKm,null,null,null)],note:'Easy, conversational pace - build endurance.'};
+    if(d===firstQuality){
+      if(qType==='intervals')return {day:d,date:dateFor(d),type:'intervals',title:'Intervals',km:null,segments:[seg('Warm-up','easy',2,null,null,null),seg('Reps','fiveK',0.4,null,6,1.5),seg('Cool-down','easy',1.5,null,null,null)],note:'6 x 400m hard with easy jog recovery.'};
+      return {day:d,date:dateFor(d),type:'threshold',title:'Tempo',km:null,segments:[seg('Warm-up','easy',2,null,null,null),seg('Tempo','threshold',null,20,null,null),seg('Cool-down','easy',1.5,null,null,null)],note:'Comfortably hard and controlled.'};
+    }
+    return {day:d,date:dateFor(d),type:'easy',title:'Easy run',km:easyKm,segments:[seg('Easy run','easy',easyKm,null,null,null)],note:'Keep it relaxed.'};
+  });
+  var phases=[{name:'Base'},{name:'Build'},{name:'Peak'},{name:'Taper'}];
+  var weeks=[];for(var w=1;w<=weeksN;w++){var phase=w<=Math.ceil(weeksN*0.35)?'Base':(w<=Math.ceil(weeksN*0.7)?'Build':(w<=weeksN-2?'Peak':'Taper'));var km=Math.round(easyKm*Math.max(1,dayArr.length-2)+longKm+(w*2));weeks.push({week:w,phase:phase,focus:phase+' week',totalKm:km,key:(w%4===0?'Deload week':(qType==='intervals'?'Intervals + long run':'Tempo + long run'))});}
+  return {goal:(raceName||goalLabel),goal_type:goalType,race_distance:rd,target_date:td,benchmark:(s.benchmark?{distance_m:s.benchmark.distance_m,time_s:s.benchmark.time_s}:null),days_per_week:dayArr.length,long_run_day:longRunDay,phases:phases,weeks:weeks,detail:{week:1,days:days}};
+}
 async function rcBuildFromSetup(){
   rcBuilding=true;await refreshScreen();
   try{
+    var fellBack=false;
     var s=rcSetup;var goalLabel=(s.goal&&s.goal.label)||'Get fitter';var goalType=(s.goal&&s.goal.val)||'general';
     var race=s.race;var whenTxt=race&&race.date?('racing '+(race.name||'a race')+' on '+race.date):'no fixed race date \u2014 ongoing improvement';
     var ben=s.benchmark;var times=s.times||{};var tk=Object.keys(times);
@@ -1758,14 +1792,16 @@ async function rcBuildFromSetup(){
     var longRun=s.longRun?('Long run on '+s.longRun+'. '):'Long run on the day with most time. ';
     var vol=(s.volume&&s.volume.val)||'steady';var diff=(s.difficulty&&s.difficulty.val)||'balanced';var lift=(s.strength&&s.strength.val==='lift');
     var task='Build my full training plan now. Goal: '+goalLabel+' ('+goalType+'). Target: '+whenTxt+'. Running ability: '+ability+' (drives weekly mileage). '+benTxt+'I can ONLY run on these days: '+daysTxt+' ('+dayArr.length+' days/week) \u2014 schedule every session on those days. '+longRun+'Training volume: '+vol+' (gradual=lower, progressive=higher). Difficulty: '+diff+' (comfortable=fewer/gentler hard sessions, challenging=more speed work).'+(lift?' Add strength & mobility sessions woven around the runs.':' Running only.')+' Compute target_date'+(race&&race.date?(' = '+race.date):' from the timeframe')+'. Seed paces from my recent time if given, else my ability and logged runs.';
-    var plan=await brainThink(task,{json:true,contract:rcPlanSpec(),maxTokens:2600,persona:'You are '+(currentUser?currentUser.name.split(' ')[0]:'their')+'\u2019s expert running & strength coach. Build a precise, periodised plan from their real data and life using the Runna-style methodology in the contract. Never generic.'});
+    var plan=await brainThink(task,{json:true,contract:rcPlanSpec(),maxTokens:3600,persona:'You are '+(currentUser?currentUser.name.split(' ')[0]:'their')+'\u2019s expert running & strength coach. Build a precise, periodised plan from their real data and life using the Runna-style methodology in the contract. Never generic.'});
+    if(!(plan&&plan.detail&&plan.detail.days)){try{plan=await brainThink(task,{json:true,contract:rcPlanSpec(),maxTokens:3600});}catch(eR){}}
+    if(!(plan&&plan.detail&&plan.detail.days)){plan=rcFallbackPlan(rcSetup,rcEngineFromLogs(await getRunLogs(60)));fellBack=true;}
     if(plan&&plan.detail&&plan.detail.days){
       var engLogs=rcEngineFromLogs(await getRunLogs(60));
       plan.engine=engLogs||(ben?rcEngine({distance_m:ben.distance_m,time_s:ben.time_s}):null)||rcEngine(plan.benchmark)||null;
-      plan.startDate=localDay();plan.log=plan.log||{};plan.schedule=plan.schedule||[];rcMergeSchedule(plan);
+      plan.startDate=localDay();plan.log=plan.log||{};plan.schedule=plan.schedule||[];rcMergeSchedule(plan);plan.prefs={volume:vol,difficulty:diff,strength:(lift?'lift':'none'),ability:ability,goalVal:goalType,times:times,benchmarkLabel:((ben&&ben.label)||(s.benchmark&&s.benchmark.label)||'')};
       var dt=(race&&race.date&&/^\d{4}-\d{2}-\d{2}$/.test(race.date))?race.date:((plan.target_date&&/^\d{4}-\d{2}-\d{2}$/.test(plan.target_date))?plan.target_date:null);
       rcPreview={plan:plan,setup:s,meta:{goal:plan.goal||(race&&race.name?race.name:goalLabel),goal_type:plan.goal_type||goalType,target_date:dt,days_per_week:plan.days_per_week||dayArr.length||4,level:(s.ability?s.ability.label:''),race:race}};
-      rcBuilding=false;rcScreen='preview';await refreshScreen();return;
+      rcBuilding=false;rcScreen='preview';await refreshScreen();if(fellBack)toast('Built you a solid starter plan - tap Adapt or Talk to coach to fine-tune');return;
     }
     rcBuilding=false;await refreshScreen();toast('Couldn\u2019t build it just then \u2014 try again');
   }catch(e){rcBuilding=false;await refreshScreen();toast('Coach couldn\u2019t reach the AI \u2014 try again');}
@@ -1774,7 +1810,7 @@ async function rcCommitPlan(){
   var P=rcPreview;if(!P)return;var m=P.meta;
   await setRunPlan({goal:m.goal,goal_type:m.goal_type,target_date:m.target_date,days_per_week:m.days_per_week,level:m.level,baseline:'',plan:P.plan});
   if(m.race&&m.race.date){try{var ex=await getCountdowns();var nm=m.race.name||m.goal;if(!ex.some(function(c){return c.d===m.race.date&&c.n===nm;})&&typeof addCountdownDB==='function')await addCountdownDB(nm,m.race.date);}catch(e){}}
-  rcPreview=null;rcScreen='goal';rcBack=[];rcStep=0;rcSetup={};brainStale();await refreshScreen();toast('Plan started \u2713');
+  rcPreview=null;rcReconfig=false;rcScreen='goal';rcBack=[];rcStep=0;rcSetup={};brainStale();await refreshScreen();toast('Plan started \u2713');
 }
 function garminCard(){
   return '<div class="card" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:#1F9D6B">'+icon('trend',16,2.2)+'</div><div style="flex:1"><div class="rt">Import your Garmin runs</div><div class="rs">Garmin Connect \u2192 export activities (CSV) \u2192 upload. I\u2019ll plan from your real training.</div></div><button class="tbtn add" onclick="rcImportGarmin()">Import</button></div>';
@@ -1788,7 +1824,7 @@ async function coachAdapt(reason){
   var p=await getRunPlan();if(!p||!p.plan||!p.plan.detail||!p.plan.detail.days)return null;
   var td=runToday();
   var paces=p.plan.engine?Object.keys(p.plan.engine.paces).reduce(function(a,k){a[k]=paceStr(p.plan.engine.paces[k])+'/km';return a;},{}):{};
-  var contract='You are adjusting '+(currentUser?currentUser.name.split(' ')[0]:'their')+'\u2019s CURRENT training week to fit real life. Reason for this check: '+(reason||'data changed')+'. Today is '+td+'. Their fixed paces (use exactly): '+JSON.stringify(paces)+'. Read their recent runs, last night\u2019s sleep and their shifts in the context. Adjust ONLY '+td+' and the days AFTER it \u2014 never change earlier days. You may move a session to another day, shrink its distance, downgrade to recovery or rest, or reorder run vs strength \u2014 to protect recovery and fit their shifts and energy. Hold the weekly intent where you reasonably can. If nothing needs changing, return the week unchanged with a note saying so. Output ONLY a fenced json object:\n```json\n{"days":[ ...all 7 days Mon-Sun with your adjustments... ],"note":"one short sentence on what you changed and why","insight":"one punchy, specific coach observation about their latest run or readiness vs their paces/recent trend \u2014 like a real coach texting them. Concrete, never generic."}\n```\n'+rcSegSchema()+' Current week to adjust: '+JSON.stringify(p.plan.detail.days);
+  var contract='You are adjusting '+(currentUser?currentUser.name.split(' ')[0]:'their')+'\u2019s CURRENT training week to fit real life. Reason for this check: '+(reason||'data changed')+'. Today is '+td+'. Their fixed paces (use exactly): '+JSON.stringify(paces)+'. Read their recent runs, last night\u2019s sleep and their shifts in the context (only treat sleep or mood as current if dated today; otherwise do not assume how they slept). Adjust ONLY '+td+' and the days AFTER it \u2014 never change earlier days. You may move a session to another day, shrink its distance, downgrade to recovery or rest, or reorder run vs strength \u2014 to protect recovery and fit their shifts and energy. Hold the weekly intent where you reasonably can. If nothing needs changing, return the week unchanged with a note saying so. Output ONLY a fenced json object:\n```json\n{"days":[ ...all 7 days Mon-Sun with your adjustments... ],"note":"one short sentence on what you changed and why","insight":"one punchy, specific coach observation about their latest run or readiness vs their paces/recent trend \u2014 like a real coach texting them. Concrete, never generic."}\n```\n'+rcSegSchema()+' Current week to adjust: '+JSON.stringify(p.plan.detail.days);
   try{
     var d=await brainThink('Adapt my week to what\u2019s happening in my life right now, and give me your read.',{json:true,contract:contract,maxTokens:2400});
     if(d&&d.days){p.plan.detail.days=d.days;if(typeof rcMergeSchedule==='function')rcMergeSchedule(p.plan);p.plan.lastAdapt={note:d.note||'Adjusted your week.',at:localDay()};if(d.insight)p.plan.lastInsight={text:d.insight,at:localDay()};await setRunPlan(p);brainStale();return p.plan.lastAdapt;}
@@ -1823,7 +1859,7 @@ function rcParse(ans){var jm=ans.match(/```json([\s\S]*?)```/i);var raw=jm?jm[1]
 
 async function renderRunCoach(){
   var p=await getRunPlan();
-  if(rcEditing||!p||!p.plan||!p.plan.detail)return runCoachChatHTML();
+  if(rcReconfig||rcEditing||!p||!p.plan||!p.plan.detail)return runCoachChatHTML();
   return runPlanView(p, await getRunLogs(60));
 }
 
@@ -1873,6 +1909,41 @@ async function rcDebrief(){
   o.innerHTML='<div class="sheet" onclick="event.stopPropagation()" style="max-height:80vh;overflow-y:auto"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span class="chip sm" style="--tc:var(--accent)">'+icon('spark',16,2.2)+'</span><h3 style="margin:0">Your week, reviewed</h3></div>'+txt.split(/\n\n+|\n/).filter(function(s){return s.trim();}).map(function(s){return '<p style="margin:0 0 11px;line-height:1.55;color:var(--ink);font-size:14.5px">'+esc(s.trim())+'</p>';}).join('')+'<div class="btnrow"><button class="btn" onclick="closeOverlay()">Done</button></div></div>';
   document.getElementById('app').appendChild(o);
 }
+function deleteRunPlan(){if(!currentUser)return Promise.resolve();try{return sb.from('run_plan').delete().eq('user_id',currentUser.id);}catch(e){return Promise.resolve();}}
+function rcSeedFromPlan(rp){
+  var p=(rp&&rp.plan)||{};var pr=p.prefs||{};
+  var runDays=[];((p.detail&&p.detail.days)||[]).forEach(function(d){if((d.type||'').toLowerCase()!=='rest')runDays.push(d.day);});
+  if(!runDays.length){runDays=['Mon','Wed','Fri','Sun'].slice(0,(p.days_per_week||4));}
+  var rd=(p.race_distance&&p.race_distance!=='none')?p.race_distance:null;
+  var goalVal=pr.goalVal||(rd?({'5K':'5k','10K':'10k','Half':'half','Marathon':'marathon'})[rd]:'improve');
+  var lvl=(rp.level||pr.ability||'');
+  rcSetup={
+    goal:{label:(rd||rp.goal||'Get fitter'),val:goalVal},
+    race:((rp.target_date||p.target_date)?{name:(rp.goal||rd||'Race'),date:(rp.target_date||p.target_date)}:null),
+    ability:(lvl?{label:(lvl.charAt(0).toUpperCase()+lvl.slice(1)),val:String(lvl).toLowerCase()}:null),
+    days:{val:runDays.slice()},daysSel:runDays.slice(),
+    longRun:(p.long_run_day||runDays[runDays.length-1]||null),
+    volume:(pr.volume?{label:pr.volume,val:pr.volume}:null),
+    difficulty:(pr.difficulty?{label:pr.difficulty,val:pr.difficulty}:null),
+    strength:(pr.strength?{label:pr.strength,val:pr.strength}:null),
+    benchmark:(p.benchmark?{distance_m:p.benchmark.distance_m,time_s:p.benchmark.time_s,label:(pr.benchmarkLabel||rd||'')}:null),
+    times:(pr.times||{}),fitnessNew:false
+  };
+}
+function rcAdjust(){
+  var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()"><h3>Adjust your plan</h3>'+
+    '<button class="tbtn" style="width:100%;justify-content:flex-start;margin-bottom:8px;background:var(--surface-2);color:var(--ink)" onclick="rcReconfigure(\'goal\')">Change goal or race</button>'+
+    '<button class="tbtn" style="width:100%;justify-content:flex-start;margin-bottom:8px;background:var(--surface-2);color:var(--ink)" onclick="rcReconfigure(\'days\')">Change running days</button>'+
+    '<button class="tbtn" style="width:100%;justify-content:flex-start;margin-bottom:8px;background:var(--surface-2);color:var(--ink)" onclick="rcRebuild()">Rebuild this plan (same settings)</button>'+
+    '<button class="tbtn rm" style="width:100%;justify-content:flex-start" onclick="rcResetConfirm()">Start over from scratch</button>'+
+    '<div class="btnrow"><button class="btn" onclick="closeOverlay()">Close</button></div></div>';
+  document.getElementById('app').appendChild(o);
+}
+async function rcReconfigure(screen){var rp=await getRunPlan();if(rp&&rp.plan)rcSeedFromPlan(rp);closeOverlay();rcReconfig=true;rcEditing=false;rcChatStart=false;rcPreview=null;rcBuilding=false;rcScreen=screen;rcBack=[];await refreshScreen();}
+async function rcRebuild(){var rp=await getRunPlan();if(rp&&rp.plan)rcSeedFromPlan(rp);closeOverlay();rcReconfig=true;await rcBuildFromSetup();}
+function rcResetConfirm(){var o=document.getElementById('ovl');if(!o)return;o.querySelector('.sheet').innerHTML='<h3>Start over?</h3><p style="color:var(--sub);line-height:1.5;font-size:14.5px;margin:0 0 4px">This clears your current plan so you can build a fresh one. Your run history and PBs stay.</p><div class="btnrow"><button class="btn" onclick="closeOverlay()">Keep my plan</button><button class="btn" style="background:var(--danger);color:#fff" onclick="rcDoReset()">Start over</button></div>';}
+async function rcDoReset(){closeOverlay();toast('Clearing your plan\u2026');try{await deleteRunPlan();}catch(e){}rcReconfig=false;rcEditing=false;rcChatStart=false;rcPreview=null;rcBuilding=false;rcSetup={};rcScreen='goal';rcBack=[];rcStep=0;brainStale();await refreshScreen();}
 function runPlanView(p,logs){
   var plan=p.plan||{};var detail=plan.detail||{days:[]};var days=detail.days||[];var log=plan.log||{};
   var td=runToday();var todayS=null;for(var i=0;i<days.length;i++){if((days[i].day||'')===td){todayS=days[i];break;}}
@@ -1919,7 +1990,7 @@ function runPlanView(p,logs){
   if(fs&&fs.series.length){var fcur=Math.round(fs.series[fs.series.length-1]);var fdelta=fs.series.length>1?Math.round(fs.series[fs.series.length-1]-fs.series[0]):0;fitnessCard='<div class="card"><div class="ctitle">Fitness</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:2px"><div class="serif" style="font-size:32px;font-weight:700;letter-spacing:-.02em">'+fcur+'</div><div class="rs">est. VO\u2082 max'+(fdelta>0?' \u00B7 <span style="color:var(--ok);font-weight:700">\u2191 '+fdelta+'</span>':'')+'</div></div>'+rcSpark(fs.series,'var(--accent)')+'<div class="rs" style="margin-top:6px">Estimated from your best efforts \u2014 your real VO\u2082 max & recovery plug in when you link Garmin or WHOOP.</div></div>';}
   var ld=rcLoad(logs);var loadCard=(ld.acute>0||ld.chronic>0)?'<div class="card"><div class="ctitle">Training load</div><div style="display:flex;gap:7px;margin-top:4px"><div style="flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:9px;text-align:center"><div class="rt" style="font-size:16px">'+ld.acute.toFixed(0)+'</div><div class="rs" style="font-size:11px">km this week</div></div><div style="flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:9px;text-align:center"><div class="rt" style="font-size:16px">'+ld.chronic.toFixed(0)+'</div><div class="rs" style="font-size:11px">4-wk avg</div></div><div style="flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:9px;text-align:center"><div class="rt" style="font-size:16px;color:'+ld.color+'">'+(ld.ratio?ld.ratio.toFixed(2):'\u2013')+'</div><div class="rs" style="font-size:11px">load ratio</div></div></div><div style="display:flex;align-items:center;gap:7px;margin-top:10px"><span style="width:8px;height:8px;border-radius:50%;background:'+ld.color+';flex:none"></span><div class="rs" style="color:var(--ink);font-weight:600">'+esc(ld.status)+'</div></div></div>':'';
   var raceCard=rcRacePlan(plan);
-  var ctrls='<div style="display:flex;gap:8px"><button class="tbtn add" onclick="rcDebrief()">'+icon('spark',15,2.2)+' How\u2019s my training?</button><button class="tbtn" style="background:var(--surface-3);color:var(--ink)" onclick="rcEditPlan()">Talk to coach</button></div>';
+  var ctrls='<div style="display:flex;gap:8px"><button class="tbtn add" onclick="rcDebrief()">'+icon('spark',15,2.2)+' How\u2019s my training?</button><button class="tbtn" style="background:var(--surface-3);color:var(--ink)" onclick="rcEditPlan()">Talk to coach</button></div>'+'<button class="reqbtn" style="margin-top:8px" onclick="rcAdjust()">Adjust plan or start over</button>';
   return '<div class="stack">'+head+projBanner+(today||'')+insightCard+gImport+calLink+predCard+paceCard+raceCard+pbCard+fitnessCard+loadCard+weekCard+prog+block+logCard+ctrls+'</div>';
 }
 function progressCard(p,logs){
@@ -2558,6 +2629,7 @@ async function gatherUserContext(){
   var lines=[],today=new Date();
   lines.push('Name: '+(currentUser?currentUser.name:'the user'));
   lines.push('Today: '+today.toDateString());
+  lines.push('Freshness rule: only treat mood, sleep or energy as current if its entry is dated today (sleep logged today = last night). Do NOT describe older daily logs as if they are today.');
   try{var lc=await getLifeContext();if(lc&&(lc.summary||lc.routine)){lines.push('Typical week & commitments: '+(lc.summary||'')+(lc.routine?(' | '+JSON.stringify(lc.routine)):''));}}catch(e){}
   try{var _t2=new Date();_t2.setDate(_t2.getDate()+14);var _sh=await getShifts(localDay(),_t2.getFullYear()+'-'+('0'+(_t2.getMonth()+1)).slice(-2)+'-'+('0'+_t2.getDate()).slice(-2));if(_sh.length){lines.push('Upcoming shifts (work around these): '+_sh.map(function(s){var dd=new Date(s.day+'T00:00:00');return dd.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'})+(s.label?' '+s.label:'')+(s.start?' '+s.start+(s.end?'-'+s.end:''):'');}).join('; '));}}catch(e){}
   try{var _td=localDay();var _ts=await getShifts(_td,_td);if(_ts.length)lines.push('TODAY\u2019S SHIFTS (plan around these): '+_ts.map(function(s){return (s.label||'Shift')+(s.start?' '+s.start+(s.end?'-'+s.end:''):'');}).join('; '));}catch(e){}
@@ -2569,8 +2641,8 @@ async function gatherUserContext(){
   try{var nw=await getNetWorth();var bb=await getFinBalance();var iv2=await getInvestments();var ca=bb!=null?Number(bb):0;var it2=iv2.reduce(function(s,x){return s+x.v;},0);var as=nw.assets.reduce(function(s,x){return s+x.a;},0)+ca+it2;var li=nw.liabilities.reduce(function(s,x){return s+x.a;},0);if(as||li)lines.push('Net worth: A$'+(as-li).toLocaleString()+' (assets A$'+as.toLocaleString()+', owed A$'+li.toLocaleString()+')');}catch(e){}
   try{var bud=await getBudget();if(bud&&bud.length)lines.push('Budgets: '+bud.map(function(x){return x.n+' A$'+x.spent+'/'+x.limit;}).join('; '));}catch(e){}
   try{var fg=await getFinGoals();if(fg&&fg.length)lines.push('Savings goals: '+fg.map(function(x){return x.n+' A$'+x.saved+'/'+x.target;}).join('; '));}catch(e){}
-  try{var ml=await getTrackerLogs('mood',7);if(ml.length){var ma=(ml.reduce(function(s,x){return s+x.value;},0)/ml.length).toFixed(1);lines.push('Mood (last '+ml.length+' days /10): avg '+ma+', latest '+ml[0].value+(ml[0].note?' ('+ml[0].note+')':''));}}catch(e){}
-  try{var sl=await getTrackerLogs('sleep',7);if(sl.length){var sa=Math.round(sl.reduce(function(s,x){return s+x.value;},0)/sl.length);lines.push('Sleep (last '+sl.length+' days): avg '+sa+', latest '+sl[0].value);}}catch(e){}
+  try{var ml=await getTrackerLogs('mood',7);if(ml.length){var ma=(ml.reduce(function(s,x){return s+x.value;},0)/ml.length).toFixed(1);var mcur=ml[0].day===localDay();lines.push('Mood: avg '+ma+'/10 over last '+ml.length+' day(s)'+(mcur?(' - TODAY '+ml[0].value+'/10'+(ml[0].note?' ('+ml[0].note+')':'')):(' - no entry today (last logged '+ml[0].day+')'))+'.');}}catch(e){}
+  try{var sl=await getTrackerLogs('sleep',7);if(sl.length){var sa=Math.round(sl.reduce(function(s,x){return s+x.value;},0)/sl.length);var scur=sl[0].day===localDay();lines.push('Sleep: avg '+sa+' over last '+sl.length+' day(s)'+(scur?(' - LAST NIGHT '+sl[0].value):(' - not logged today (last on '+sl[0].day+')'))+'.');}}catch(e){}
   try{var en=enabledTabs();if(en.length)lines.push('Sections they use: '+en.join(', '));}catch(e){}
   var listTabs=[['work','Tasks'],['reminders','Reminders'],['goals','Goals'],['habits','Habits'],['notes','Notes'],['shopping','Shopping list'],['projects','Projects'],['subs','Subscriptions'],['health','Health log'],['workouts','Workouts'],['books','Books'],['movies','Movies'],['wishlist','Wishlist'],['study','Study'],['pets','Pets'],['gifts','Gifts']];
   for(var k=0;k<listTabs.length;k++){try{var it=await loadItems(listTabs[k][0]);if(it&&it.length)lines.push(listTabs[k][1]+' ('+it.length+'): '+it.slice(0,8).map(function(x){return x.t;}).join('; '));}catch(e){}}
