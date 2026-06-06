@@ -834,7 +834,8 @@ function enterApp(isNew){
   var firstEver=!lsGet('forge.welcomed');
   var proceed=function(){ if(isNew||!hasChosenTabs()){ startTutorial(); } };
   if(firstEver||isNew){ lsSet('forge.welcomed','1'); showWelcome(proceed); }  // new account or new device → warm welcome
-  else { proceed(); }            // returning visit → straight to home
+  else { proceed(); }
+  try{rcStravaBoot();}catch(e){}            // returning visit → straight to home
 }
 
 // ============================================================
@@ -1607,7 +1608,7 @@ function rcSetupHTML(){
   var inner='<div class="rc-anim">'+((map[rcScreen]||rcScrGoal)())+'</div>';
   if(rcScreen==='preview')return '<div class="stack">'+rcStyles()+inner+'</div>';
   var alt='<div style="display:flex;justify-content:center;margin-top:2px"><button onclick="rcTypeInstead()" style="background:none;border:none;color:var(--sub);font-size:13px;font-family:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Prefer to just talk? Tell me in your own words</button></div>';
-  return '<div class="stack">'+rcStyles()+rcShellHead()+inner+rcDots()+alt+'</div>';
+  return '<div class="stack">'+rcStyles()+rcShellHead()+inner+rcDots()+stravaCard()+alt+'</div>';
 }
 function rcQCard(q,sub,body){return '<div class="card"><div class="serif" style="font-size:20px;font-weight:700;letter-spacing:-.02em">'+esc(q)+'</div>'+(sub?'<div class="rs" style="margin-top:4px">'+esc(sub)+'</div>':'')+body+'</div>';}
 
@@ -1991,7 +1992,7 @@ function runPlanView(p,logs){
   var ld=rcLoad(logs);var loadCard=(ld.acute>0||ld.chronic>0)?'<div class="card"><div class="ctitle">Training load</div><div style="display:flex;gap:7px;margin-top:4px"><div style="flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:9px;text-align:center"><div class="rt" style="font-size:16px">'+ld.acute.toFixed(0)+'</div><div class="rs" style="font-size:11px">km this week</div></div><div style="flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:9px;text-align:center"><div class="rt" style="font-size:16px">'+ld.chronic.toFixed(0)+'</div><div class="rs" style="font-size:11px">4-wk avg</div></div><div style="flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:9px;text-align:center"><div class="rt" style="font-size:16px;color:'+ld.color+'">'+(ld.ratio?ld.ratio.toFixed(2):'\u2013')+'</div><div class="rs" style="font-size:11px">load ratio</div></div></div><div style="display:flex;align-items:center;gap:7px;margin-top:10px"><span style="width:8px;height:8px;border-radius:50%;background:'+ld.color+';flex:none"></span><div class="rs" style="color:var(--ink);font-weight:600">'+esc(ld.status)+'</div></div></div>':'';
   var raceCard=rcRacePlan(plan);
   var ctrls='<div style="display:flex;gap:8px"><button class="tbtn add" onclick="rcDebrief()">'+icon('spark',15,2.2)+' How\u2019s my training?</button><button class="tbtn" style="background:var(--surface-3);color:var(--ink)" onclick="rcEditPlan()">Talk to coach</button></div>'+'<button class="reqbtn" style="margin-top:8px" onclick="rcAdjust()">Adjust plan or start over</button>';
-  return '<div class="stack">'+head+projBanner+(today||'')+insightCard+gImport+calLink+predCard+paceCard+raceCard+pbCard+fitnessCard+loadCard+weekCard+prog+block+logCard+ctrls+'</div>';
+  return '<div class="stack">'+head+projBanner+(today||'')+insightCard+stravaCard()+gImport+calLink+predCard+paceCard+raceCard+pbCard+fitnessCard+loadCard+weekCard+prog+block+logCard+ctrls+'</div>';
 }
 function progressCard(p,logs){
   var plan=p.plan||{};var weeks=plan.weeks||[];
@@ -2609,6 +2610,17 @@ function editCarField(f,label){openForm(label,'Date as YYYY-MM-DD, or any text.'
 // snapshot of the user's data so it can reason across every area.
 // ============================================================
 var AI_URL=SUPA_URL+'/functions/v1/hyper-function';
+var STRAVA_FN=SUPA_URL+'/functions/v1/strava';
+var stravaConnected=false, stravaChecked=false, stravaSyncedSession=false, stravaBusy=false;
+async function stravaCall(body){try{var r=await fetch(STRAVA_FN,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify(body)});return await r.json();}catch(e){return {ok:false,error:String(e)};}}
+function stravaRedirectURI(){return location.origin+location.pathname;}
+async function rcStravaConnect(){if(!currentUser){toast('Sign in first');return;}toast('Opening Strava...');var r=await stravaCall({action:'authorize_url',user_id:currentUser.id,redirect_uri:stravaRedirectURI()});if(r&&r.url){location.href=r.url;}else{toast('Could not start Strava connect'+(r&&r.error?(' - '+r.error):''));}}
+async function rcStravaBoot(){try{var code=(window.__stravaCode||null);if(!code){var q=new URLSearchParams(location.search);var scope=q.get('scope')||'';if(q.get('code')&&scope.indexOf('activity')>=0){code=q.get('code');}}if(code&&currentUser){window.__stravaCode=null;history.replaceState({},'',stravaRedirectURI());stravaChecked=true;toast('Connecting Strava...');var r=await stravaCall({action:'connect',user_id:currentUser.id,code:code});if(r&&r.ok){stravaConnected=true;stravaSyncedSession=true;await rcReconcileRuns();toast('Strava connected - imported '+(r.added||0)+' run'+((r.added===1)?'':'s'));}else{toast('Strava connect failed'+(r&&r.error?(' - '+r.error):''));}try{await refreshScreen();}catch(e){}return;}}catch(e){}rcStravaStatus();}
+async function rcStravaStatus(){if(!currentUser||stravaChecked)return;stravaChecked=true;var r=await stravaCall({action:'status',user_id:currentUser.id});stravaConnected=!!(r&&r.connected);if(stravaConnected&&!stravaSyncedSession){stravaSyncedSession=true;var s=await stravaCall({action:'sync',user_id:currentUser.id});if(s&&s.ok)await rcReconcileRuns();}try{if(activeTab==='runcoach')await refreshScreen();}catch(e){}}
+async function rcStravaSync(silent){if(!currentUser){toast('Sign in first');return;}if(stravaBusy)return;stravaBusy=true;if(!silent)toast('Syncing Strava...');var r=await stravaCall({action:'sync',user_id:currentUser.id});stravaBusy=false;if(r&&r.ok){stravaConnected=true;await rcReconcileRuns();if(!silent)toast('Synced - '+(r.added||0)+' new run'+((r.added===1)?'':'s'));try{await refreshScreen();}catch(e){}}else{if(!silent)toast('Sync failed'+(r&&r.error?(' - '+r.error):''));}}
+async function rcStravaDisconnect(){if(!currentUser)return;await stravaCall({action:'disconnect',user_id:currentUser.id});stravaConnected=false;stravaSyncedSession=false;toast('Strava disconnected');try{await refreshScreen();}catch(e){}}
+async function rcReconcileRuns(){try{var p=await getRunPlan();if(!p||!p.plan||!p.plan.detail||!p.plan.detail.days)return;var logs=await getRunLogs(120);var byDay={};logs.forEach(function(l){if(l.day&&!byDay[l.day])byDay[l.day]=l;});var changed=false;p.plan.log=p.plan.log||{};p.plan.detail.days.forEach(function(d){if(!d.date||(d.type||'').toLowerCase()==='rest')return;var run=byDay[d.date];if(run){var k=dayKeyOf(p.plan,d.day);if(!p.plan.log[k]||!p.plan.log[k].done){p.plan.log[k]={done:true,auto:true,km:run.km,min:run.min,src:run.source||'strava'};changed=true;}}});var eng=rcEngineFromLogs(logs);if(eng){p.plan.engine=eng;changed=true;}if(changed){await setRunPlan(p);brainStale();}}catch(e){}}
+function stravaCard(){if(stravaConnected){return '<div class="card" style="display:flex;align-items:center;gap:12px"><span style="width:38px;height:38px;border-radius:11px;background:#FC4C02;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;font-size:18px">S</span><div style="flex:1"><div class="rt">Strava connected</div><div class="rs">Runs import automatically and tick off your sessions.</div></div><button class="tbtn add" style="width:auto;padding:9px 14px" onclick="rcStravaSync(false)">Sync</button></div>';}return '<div class="card" style="display:flex;align-items:center;gap:12px"><span style="width:38px;height:38px;border-radius:11px;background:#FC4C02;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;font-size:18px">S</span><div style="flex:1"><div class="rt">Connect Strava</div><div class="rs">Auto-import your runs - paces, PBs and sessions update themselves.</div></div><button class="tbtn add" style="width:auto;padding:9px 14px" onclick="rcStravaConnect()">Connect</button></div>';}
 var AI_DAILY_CAP=40;                                   // soft per-user/day cap (protects cost)
 var aiTyping=false;
 var _ctxCache={t:0,v:''};
@@ -2826,6 +2838,7 @@ document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&['+',
 // BOOT (tasks #13, #16, #18) — intro → PIN/invite, no flash
 // ============================================================
 (function(){
+  try{var __sq=new URLSearchParams(location.search);if(__sq.get('code')&&(__sq.get('scope')||'').indexOf('activity')>=0){window.__stravaCode=__sq.get('code');history.replaceState({},'',location.origin+location.pathname);}}catch(e){}
   applyTheme();
   sizeApp();
   // animate intro letters
