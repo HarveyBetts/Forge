@@ -182,7 +182,7 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 .dot-pin.on{background:#4D6BFF;border-color:#4D6BFF;transform:scale(1.15);box-shadow:0 0 14px rgba(77,107,255,.55);}
 .dots.err{animation:shake .42s;}
 @keyframes shake{0%,100%{transform:translateX(0);}20%,60%{transform:translateX(-9px);}40%,80%{transform:translateX(9px);}}
-.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(13px,4.4vw,22px);width:100%;justify-items:center;}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(13px,4.4vw,22px);width:100%;justify-items:center;margin-bottom:clamp(30px,9vh,60px);}
 .key{aspect-ratio:1;width:clamp(60px,19vw,80px);border-radius:50%;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.10);color:#17181C;font-family:'Hanken Grotesk',sans-serif;font-size:clamp(24px,6.4vw,28px);font-weight:400;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .08s ease,background .12s,border-color .12s;-webkit-user-select:none;user-select:none;}
 .key:active{transform:scale(.92);background:color-mix(in srgb,#4D6BFF 18%,transparent);border-color:rgba(77,107,255,.4);}
 .key.blank{background:transparent;border:none;cursor:default;}
@@ -1460,7 +1460,7 @@ async function rcParseGarmin(text){
 // ===== RUN COACH onboarding — mirrors Runna's flow (Forge look) =====
 function rcStyles(){return '<style>'+
   '.rc-ai{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:16px 16px 16px 5px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:90%}.rc-me{align-self:flex-end;background:var(--accent);color:#fff;border-radius:16px 16px 5px 16px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:85%}.rc-in{flex:1;box-sizing:border-box;padding:13px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;outline:none}'+
-  '.rc-opt{appearance:none;text-align:left;cursor:pointer;font-family:inherit;background:linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:3px;transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .18s,box-shadow .18s;box-shadow:var(--shadow)}'+
+  '.rc-opt{appearance:none;width:100%;box-sizing:border-box;text-align:left;cursor:pointer;font-family:inherit;background:linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:3px;transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .18s,box-shadow .18s;box-shadow:var(--shadow)}'+
   '.rc-opt.wide{flex-direction:row;align-items:center;justify-content:space-between}'+
   '.rc-opt:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 14px 30px -16px color-mix(in srgb,var(--accent) 60%,transparent)}.rc-opt:active{transform:translateY(0) scale(.99)}'+
   '.rc-opt-l{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:16px;letter-spacing:-.02em;color:var(--ink)}.rc-opt-s{font-size:12.5px;color:var(--sub);font-weight:500;line-height:1.35}'+
@@ -1647,7 +1647,9 @@ function rcScrAbility(){
   var grid=opts.map(function(o){return '<button class="rc-opt wide" style="margin-bottom:10px" onclick="rcPickAbility(\''+esc(o[0])+'\',\''+o[2]+'\')"><span><span class="rc-opt-l">'+esc(o[0])+'</span><span class="rc-opt-s" style="display:block">'+esc(o[1])+'</span></span><span style="color:var(--sub);font-weight:800">\u203A</span></button>';}).join('');
   return rcQCard('How would you describe your running?','This sets your weekly mileage so it\u2019s never too much, too soon.','<div style="margin-top:8px">'+grid+'</div>');
 }
+async function rcFitAutofill(){try{var logs=await getRunLogs(200);if(!logs||!logs.length)return;var pbs=rcPBs(logs);rcSetup.times=rcSetup.times||{};var any=false;['5K','10K','Half','Marathon'].forEach(function(d){if(rcSetup.times[d]==null&&pbs.races&&pbs.races[d]){rcSetup.times[d]=Math.round(pbs.races[d].time);any=true;}});if(any){rcSetup.timesAuto=true;rcSetup.fitnessNew=false;}if(any&&rcScreen==='fitness'){try{await refreshScreen();}catch(e){}}}catch(e){}}
 function rcScrFitness(){
+  if(!rcSetup._fitTried){rcSetup._fitTried=true;rcFitAutofill();}
   var dists=[['5K','25:30'],['10K','52:00'],['Half','1:58:00'],['Marathon','4:15:00']];
   var t=rcSetup.times||{};var td=rcSetup._td||{};
   var rows=dists.map(function(p){var d=p[0];var saved=t[d];var val=(saved!=null)?durStr(saved):(td[d]||'');
@@ -1657,8 +1659,9 @@ function rcScrFitness(){
         : '<button class="tbtn add" onclick="rcSaveTime(\''+d+'\')">Save</button>')+
       '</div></div>';}).join('');
   var n=Object.keys(t).length;
+  var autoNote=rcSetup.timesAuto?'<div class="note" style="margin:0 0 12px">'+icon('spark',14,2.2)+' Pulled from your Strava runs - tweak any if you like.</div>':'';
   var cont='<button class="tbtn add" style="margin-top:4px;width:100%;justify-content:center" onclick="rcFitContinue()">Continue'+(n?' with '+n+' time'+(n>1?'s':''):'')+' \u2192</button>'+(n?'':'<div class="rs" style="text-align:center;margin-top:8px">All optional \u2014 I\u2019ll estimate from your level if you skip.</div>');
-  return rcQCard('Got recent times?','Add a time for any distance you\u2019ve run and tap Save \u2014 each one sharpens your paces. Then Continue.',rows+cont);
+  return rcQCard('Got recent times?','Add a time for any distance you\u2019ve run and tap Save \u2014 each one sharpens your paces. Then Continue.',autoNote+rows+cont);
 }
 function rcScrDays(){
   var sel=rcSetup.daysSel||[];
@@ -2884,6 +2887,13 @@ document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&['+',
     intro.classList.add('hide');
     setTimeout(function(){if(intro&&intro.parentNode)intro.parentNode.removeChild(intro);},720);
   },4200); // longer, more premium load (task #16/#18)
+})();
+
+(function(){
+  var vv=window.visualViewport;
+  function intoView(el){if(!el)return;try{el.scrollIntoView({block:'center'});}catch(_){}}
+  document.addEventListener('focusin',function(e){var t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')){setTimeout(function(){intoView(t);},280);}});
+  if(vv){var apply=function(){var kb=Math.max(0,Math.round(window.innerHeight-vv.height-vv.offsetTop));document.documentElement.style.setProperty('--kb',kb+'px');var sh=document.querySelector('.overlay .sheet');if(sh){sh.style.transition='transform .18s ease';sh.style.transform=kb>60?('translateY(-'+kb+'px)'):'';}var bar=document.querySelector('.ai-bar');if(bar){bar.style.transition='transform .18s ease';bar.style.transform=kb>60?('translateY(-'+kb+'px)'):'';}if(kb>60){var ae=document.activeElement;if(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'))intoView(ae);}};vv.addEventListener('resize',apply);vv.addEventListener('scroll',apply);}
 })();
 </script>
 </body>
