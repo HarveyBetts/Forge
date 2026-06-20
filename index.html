@@ -622,7 +622,7 @@ const CATS=[
   {id:'money',label:'Money',sub:'Finances & spending',icon:'wallet',chip:'#3E78FF',tabs:['finances','subs']},
   {id:'food',label:'Food',sub:'Recipes, meals & shopping',icon:'fork',chip:'#FB923C',tabs:['recipes','mealplanner','shopping']},
   {id:'fitness',label:'Fitness',sub:'Workouts & wellbeing',icon:'fitness',chip:'#2F6BFF',tabs:['fitness','workouts','health','sleep','water','meds','mood']},
-  {id:'home',label:'Home & Life',sub:'Car, docs, travel, people',icon:'home',chip:'#A78BFA',tabs:['car','documents','home2','travel','contacts']},
+  {id:'home',label:'Home & Life',sub:'Car, docs, travel, people',icon:'home',chip:'#A78BFA',tabs:['car','documents','home2','upkeep','travel','contacts']},
   {id:'personal',label:'Personal',sub:'Journal, books & more',icon:'book',chip:'#F472B6',tabs:['journal','books','movies','wishlist','gifts','pets']},
 ];
 function catById(cid){cid=String(cid||'').replace(/^cat_/,'');for(var i=0;i<CATS.length;i++)if(CATS[i].id===cid)return CATS[i];return null;}
@@ -1337,78 +1337,219 @@ async function trackerInsight(kind){
 // CALENDAR & SHIFTS — the home of every day's plan: your shifts
 // AND your training sessions (written here by the Run Coach).
 // ============================================================
-var calMonth=null;
+// ============================================================
+// CALENDAR — the spine. Month / Week / Day / Agenda over one
+// blended timeline: shifts + events + upkeep due.
+// ============================================================
+var calView='month', calCursor=null;
 function calPad(n){return (n<10?'0':'')+n;}
-function calShiftMonth(n){var d=calMonth||new Date();calMonth=new Date(d.getFullYear(),d.getMonth()+n,1);refreshScreen();}
-function rcSessionMap(planObj){var m={};((planObj&&planObj.schedule)||[]).forEach(function(s){if(s&&s.date)m[s.date]=s;});return m;}
-function calDow(iso){return new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'short'});}
+function calISO(d){return d.getFullYear()+'-'+calPad(d.getMonth()+1)+'-'+calPad(d.getDate());}
+function calCur(){var d=calCursor?new Date(calCursor):new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+function calToday(){calCursor=new Date();refreshScreen();}
+function calSetView(v){calView=v;refreshScreen();}
+function calNav(n){var d=calCur();if(calView==='month')d=new Date(d.getFullYear(),d.getMonth()+n,1);else if(calView==='week')d.setDate(d.getDate()+7*n);else d.setDate(d.getDate()+n);calCursor=d;refreshScreen();}
+var CAL_COL={work:'#2F6BFF',meeting:'#6366F1',appointment:'#0EA5E9',social:'#EC4899',health:'#16A34A',personal:'#7C5CFF',due:'#F59E0B',home:'#14B8A6',other:'#647084'};
+function calColor(t){return CAL_COL[t]||CAL_COL.other;}
+function calHM(t){if(!t||!/^\d{1,2}:\d{2}/.test(t))return null;var p=t.split(':');return (+p[0])+(+p[1])/60;}
+
+// ---- events data ----
+async function getEvents(fromISO,toISO){if(!currentUser)return[];try{var q=sb.from('events').select('*').eq('user_id',currentUser.id);if(fromISO)q=q.gte('date',fromISO);if(toISO)q=q.lte('date',toISO);var r=await q.order('date');if(r.error)throw r.error;return (r.data||[]).map(function(x){return{id:x.id,date:x.date,title:x.title||'',start:x.start_t||'',end:x.end_t||'',allDay:!!x.all_day,type:x.type||'other',location:x.location||'',note:x.note||''};});}catch(e){return [];}}
+async function saveEvent(o){if(!currentUser)return;var r=await sb.from('events').insert({user_id:currentUser.id,date:o.date,title:o.title,start_t:o.start||null,end_t:o.end||null,all_day:!!o.allDay,type:o.type||'other',location:o.location||null,note:o.note||null});if(r.error)throw r.error;}
+async function deleteEvent(id){var r=await sb.from('events').delete().eq('id',id);if(r.error)throw r.error;}
+
+// ---- aggregate everything in [from,to] ----
+async function calItems(fromISO,toISO){
+  var out=[];
+  try{(await getShifts(fromISO,toISO)).forEach(function(s){out.push({date:s.day,title:s.label||'Shift',start:s.start||'',end:s.end||'',allDay:!s.start,type:'work',kind:'shift',color:calColor('work'),sub:(s.start?(s.start+(s.end?' \u2013 '+s.end:'')):'Shift'),id:'s:'+s.id});});}catch(e){}
+  try{(await getEvents(fromISO,toISO)).forEach(function(e){out.push({date:e.date,title:e.title,start:e.start,end:e.end,allDay:e.allDay||!e.start,type:e.type,kind:'event',color:calColor(e.type),sub:e.location||(e.start?(e.start+(e.end?' \u2013 '+e.end:'')):'All day'),id:'e:'+e.id,rid:e.id});});}catch(e){}
+  try{(await getUpkeep()).forEach(function(a){(a.tasks||[]).forEach(function(t){if(t.next&&t.next>=fromISO&&t.next<=toISO)out.push({date:t.next,title:t.name,start:'',end:'',allDay:true,type:'home',kind:'upkeep',color:calColor('home'),sub:'Upkeep \u00B7 '+a.name,id:'u:'+a.id});});});}catch(e){}
+  return out;
+}
+function calByDay(items){var m={};items.forEach(function(it){(m[it.date]=m[it.date]||[]).push(it);});return m;}
+function calSort(a,b){return (a.allDay?0:1)-(b.allDay?0:1)||(calHM(a.start)||0)-(calHM(b.start)||0);}
+
+// ---- overlap layout (per cluster) ----
+function calLayout(evs){
+  evs=evs.slice().sort(function(a,b){return a.s-b.s||a.e-b.e;});var i=0;
+  while(i<evs.length){var cl=[evs[i]];var mx=evs[i].e;var j=i+1;while(j<evs.length&&evs[j].s<mx-0.001){cl.push(evs[j]);mx=Math.max(mx,evs[j].e);j++;}var lanes=[];cl.forEach(function(ev){var pl=false;for(var k=0;k<lanes.length;k++){if(ev.s>=lanes[k]-0.001){ev.lane=k;lanes[k]=ev.e;pl=true;break;}}if(!pl){ev.lane=lanes.length;lanes.push(ev.e);}});var tot=lanes.length;cl.forEach(function(ev){ev.lanes=tot;});i=j;}
+  return evs;
+}
+
+function calHeader(title){return '<div class="cal-head"><div class="cal-title">'+title+'</div><div class="cal-navbtns"><button class="cal-today" onclick="calToday()">Today</button><button class="cal-nb" onclick="calNav(-1)">'+icon('back',15,2.4)+'</button><button class="cal-nb" onclick="calNav(1)">'+icon('chev',15,2.4)+'</button></div></div>';}
+function calAddFab(){return '<button class="cal-fab" onclick="calAddEvent()" aria-label="Add event">'+icon('plus',24,2.6)+'</button>';}
+
 async function renderCalendar(){
-  var base=calMonth||new Date();var y=base.getFullYear(),m=base.getMonth();
-  var last=new Date(y,m+1,0);
-  var fromISO=y+'-'+calPad(m+1)+'-01',toISO=y+'-'+calPad(m+1)+'-'+calPad(last.getDate());
-  var shifts=await getShifts(fromISO,toISO);
-  var byDay={};shifts.forEach(function(s){(byDay[s.day]=byDay[s.day]||[]).push(s);});
-  var sess={};
-  var firstDow=(new Date(y,m,1).getDay()+6)%7;var todayISO=localDay();
-  var dows=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(d){return '<div style="text-align:center;font-size:10.5px;color:var(--sub);font-weight:700;padding:2px 0">'+d+'</div>';}).join('');
-  var cells='';for(var i=0;i<firstDow;i++)cells+='<div></div>';
-  for(var dd=1;dd<=last.getDate();dd++){var iso=y+'-'+calPad(m+1)+'-'+calPad(dd);var sh=byDay[iso];var se=sess[iso];var isT=iso===todayISO;
-    var dots='';if(se)dots+='<span style="width:5px;height:5px;border-radius:50%;background:'+(isT?'#fff':sessTypeColor(se.type))+'"></span>';if(sh)dots+='<span style="width:5px;height:5px;border-radius:50%;background:'+(isT?'#fff':'#16A34A')+'"></span>';
-    cells+='<div onclick="openDay(\''+iso+'\')" style="aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:'+(isT?'var(--accent)':((sh||se)?'var(--surface-2)':'transparent'))+';color:'+(isT?'#fff':'var(--ink)')+';border:1px solid '+((sh||se)&&!isT?'var(--line)':'transparent')+'"><div style="font-size:13px;font-weight:600">'+dd+'</div>'+(dots?'<div style="display:flex;gap:2px;margin-top:2px">'+dots+'</div>':'')+'</div>';
-  }
-  var inStyle='flex:1;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;outline:none';
-  var add='<div class="card"><div class="ctitle">Add shifts</div><div class="rs" style="margin:-2px 0 8px">Type them \u2014 e.g. \u201Cwork 9-5 Mon to Fri\u201D or \u201Clate shift Saturday\u201D.</div><div style="display:flex;gap:8px"><input id="calNL" placeholder="Type your shifts\u2026" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addShiftsNL();}" style="'+inStyle+'"/><button onclick="addShiftsNL()" style="background:var(--accent);color:#fff;border:none;border-radius:13px;padding:0 18px;font-weight:700;cursor:pointer;font-family:inherit">Add</button></div></div>';
-  var grid='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><button onclick="calShiftMonth(-1)" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:16px;color:var(--ink)">\u2039</button><div class="serif" style="font-size:18px;font-weight:700">'+base.toLocaleDateString(undefined,{month:'long',year:'numeric'})+'</div><button onclick="calShiftMonth(1)" style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:16px;color:var(--ink)">\u203A</button></div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+dows+cells+'</div><div style="display:flex;gap:14px;margin-top:12px;font-size:11.5px;color:var(--sub)"><span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:5px"></span>Session</span><span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#16A34A;margin-right:5px"></span>Shift</span></div></div>';
-  // 7-day agenda
-  var ag='';for(var k=0;k<7;k++){var dt=new Date();dt.setDate(dt.getDate()+k);var iso=dt.getFullYear()+'-'+calPad(dt.getMonth()+1)+'-'+calPad(dt.getDate());var se=sess[iso];var sh=byDay[iso];if(!se&&!sh&&k>0)continue;
-    var label=k===0?'Today':calDow(iso)+' '+dt.getDate();
-    var bits=[];if(se)bits.push('<span style="color:'+sessTypeColor(se.type)+';font-weight:600">'+esc(se.title||se.type)+(se.km?' \u00B7 '+se.km+'km':'')+'</span>');if(sh)bits.push(sh.map(function(s){return esc(s.label||'Shift')+(s.start?' '+s.start:'');}).join(', '));
-    ag+='<div class="row" onclick="openDay(\''+iso+'\')"><div style="width:62px;font-weight:700;font-size:12.5px;color:'+(k===0?'var(--accent)':'var(--sub)')+'">'+label+'</div><div style="flex:1"><div class="rt" style="font-size:13.5px">'+(bits.join(' \u00B7 ')||'\u2014')+'</div></div><span style="color:var(--sub)">\u203A</span></div>';
-  }
-  var agCard='<div class="card"><div class="ctitle">Next 7 days</div>'+(ag||'<div class="rs" style="padding:6px 0">Nothing scheduled. Add shifts above to fill your week.</div>')+'</div>';
-  return '<div class="stack">'+add+grid+agCard+'</div>';
-}
-function shiftRow(s){var d=new Date(s.day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short',year:'numeric'});var t=(s.start||'')+(s.end?' \u2013 '+s.end:'');return '<div class="row"><div style="flex:1"><div class="rt" style="font-size:14px">'+esc(s.label||'Shift')+'</div><div class="rs">'+d+(t?' \u00B7 '+esc(t):'')+'</div></div><button class="del" onclick="rmShift(\''+s.id+'\')">'+icon('x',13)+'</button></div>';}
-async function rmShift(id){await deleteShiftDB(id);await refreshScreen();}
-async function addShiftsNL(){
-  var inp=document.getElementById('calNL');var txt=(inp&&inp.value||'').trim();if(!txt)return;
-  toast('Reading your shifts\u2026');var now=new Date();
-  var sys='Convert the user\u2019s description of their work shifts into structured data. Today is '+now.toLocaleDateString(undefined,{weekday:'long'})+', '+localDay()+'. Output ONLY a fenced json array; each item {"date":"YYYY-MM-DD","label":"short e.g. Work / Early / Late","start":"HH:MM or empty","end":"HH:MM or empty"}. Expand ranges like "Mon to Fri" into each dated day in the current/upcoming week. Resolve relative days from today. Leave times empty if not given.';
+  var seg='<div class="cal-seg">'+['month','week','day','agenda'].map(function(v){return '<button class="'+(calView===v?'on':'')+'" onclick="calSetView(\''+v+'\')">'+v.charAt(0).toUpperCase()+v.slice(1)+'</button>';}).join('')+'</div>';
+  var body;
   try{
-    var ans=await askAI([{role:'user',content:txt}],sys,900);
-    var jm=ans.match(/```(?:json)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;var arr=[];
-    try{arr=JSON.parse(raw.trim());}catch(e){try{arr=JSON.parse((raw.match(/\[[\s\S]*\]/)||[''])[0]);}catch(e2){}}
-    if(!Array.isArray(arr)||!arr.length){toast('Couldn\u2019t read those \u2014 try rephrasing');return;}
-    var n=0;for(var i=0;i<arr.length;i++){var s=arr[i];if(s&&/^\d{4}-\d{2}-\d{2}$/.test(s.date)){await addShift({day:s.date,label:s.label||'Shift',start:s.start||'',end:s.end||''});n++;}}
-    if(inp)inp.value='';await refreshScreen();toast(n+' shift'+(n!==1?'s':'')+' added \u2713');
-  }catch(e){toast('Couldn\u2019t reach AI \u2014 try again');}
+    if(calView==='week')body=await calWeekView();
+    else if(calView==='day')body=await calDayView();
+    else if(calView==='agenda')body=await calAgendaView();
+    else body=await calMonthView();
+  }catch(e){body='<div class="card"><div class="rs">Calendar hiccup \u2014 '+esc(String(e&&e.message||e))+'</div></div>';}
+  return calCSS()+'<div class="stack" style="padding-bottom:90px">'+seg+body+'</div>';
 }
-async function openDay(iso){
-  var shifts=await getShifts(iso,iso);
-  var plan=null;
-  var se=null;
-  var richDay=null;if(plan&&plan.detail&&plan.detail.days){plan.detail.days.forEach(function(x){if(x.date===iso)richDay=x;});}
-  var d=new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
-  var sessHtml='';var isSession=false;
-  if(richDay&&(richDay.type||'').toLowerCase()!=='rest'){isSession=true;var col=sessTypeColor(richDay.type);
-    sessHtml='<div style="background:var(--surface-2);border:1px solid var(--line);border-left:3px solid '+col+';border-radius:12px;padding:13px 14px;margin-bottom:10px"><div class="rs" style="font-size:11px;color:'+col+';font-weight:700;text-transform:uppercase">Training \u00B7 '+esc(richDay.type||'')+'</div><div class="serif" style="font-size:18px;font-weight:700;margin-top:3px">'+esc(richDay.title||richDay.type)+(richDay.km?' \u00B7 '+richDay.km+' km':'')+'</div>'+sessionDetailHTML(plan,richDay)+(richDay.note?'<div class="rs" style="margin-top:8px;line-height:1.45">'+esc(richDay.note)+'</div>':'')+'</div>';
-  }else if(se){isSession=true;var col2=sessTypeColor(se.type);
-    sessHtml='<div style="background:var(--surface-2);border:1px solid var(--line);border-left:3px solid '+col2+';border-radius:12px;padding:13px 14px;margin-bottom:10px"><div class="rs" style="font-size:11px;color:'+col2+';font-weight:700;text-transform:uppercase">Training \u00B7 '+esc(se.type||'')+'</div><div class="serif" style="font-size:18px;font-weight:700;margin-top:3px">'+esc(se.title||se.type)+(se.km?' \u00B7 '+se.km+' km':'')+'</div><div class="rs" style="margin-top:6px">The full breakdown unlocks the week this session comes up.</div></div>';
+
+async function calMonthView(){
+  var c=calCur();var y=c.getFullYear(),m=c.getMonth();
+  var startDow=(new Date(y,m,1).getDay()+6)%7;
+  var daysIn=new Date(y,m+1,0).getDate();
+  var rows=Math.ceil((startDow+daysIn)/7);
+  var gridStart=new Date(y,m,1-startDow);
+  var fromISO=calISO(gridStart),toISO=calISO(new Date(gridStart.getFullYear(),gridStart.getMonth(),gridStart.getDate()+rows*7-1));
+  var byDay=calByDay(await calItems(fromISO,toISO));
+  var todayISO=calISO(new Date());
+  var dows=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(d){return '<div class="cal-dow">'+d+'</div>';}).join('');
+  var cells='';
+  for(var i=0;i<rows*7;i++){
+    var dt=new Date(gridStart.getFullYear(),gridStart.getMonth(),gridStart.getDate()+i);var iso=calISO(dt);
+    var inM=dt.getMonth()===m;var isT=iso===todayISO;
+    var its=(byDay[iso]||[]).slice().sort(calSort);
+    var pills=its.slice(0,3).map(function(it){return '<div class="cal-pill" style="--c:'+it.color+';background:'+it.color+'22">'+esc(it.title)+'</div>';}).join('');
+    var more=its.length>3?'<div class="cal-more">+'+(its.length-3)+'</div>':'';
+    cells+='<div class="cal-mc'+(isT?' today':'')+(inM?'':' off')+'" onclick="calOpenDay(\''+iso+'\')"><div class="cal-mnum">'+dt.getDate()+'</div>'+pills+more+'</div>';
   }
-  var rows=shifts.length?shifts.map(function(s){return '<div class="trow"><div style="flex:1"><div class="rt">'+esc(s.label)+'</div><div class="rs">'+esc((s.start||'')+(s.end?' \u2013 '+s.end:'')||'all day')+'</div></div><button class="tbtn rm" onclick="rmShiftDay(\''+s.id+'\',\''+iso+'\')">Remove</button></div>';}).join(''):(isSession?'':'<p style="color:var(--sub);font-size:14px;margin:6px 2px">Nothing scheduled.</p>');
-  var shiftLbl=shifts.length?'<div class="ctitle" style="margin-top:4px">Shifts</div>':'';
-  var logBtn='';
+  var title=new Date(y,m,1).toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  return calHeader(title)+'<div class="cal-mdows">'+dows+'</div><div class="cal-mgrid">'+cells+'</div>'+calAddFab();
+}
+
+async function calGrid(days,fromISO,toISO,single){
+  var byDay=calByDay(await calItems(fromISO,toISO));
+  var H0=8,H1=20;
+  Object.keys(byDay).forEach(function(k){byDay[k].forEach(function(it){if(!it.allDay&&calHM(it.start)!=null){var s=calHM(it.start),e=calHM(it.end)||s+1;H0=Math.min(H0,Math.floor(s));H1=Math.max(H1,Math.ceil(e));}});});
+  if(H1<=H0)H1=H0+1;
+  var HH=single?56:46;var totalH=(H1-H0+1)*HH;
+  var hours='';for(var h=H0;h<=H1;h++){hours+='<div class="cal-hr" style="height:'+HH+'px"><span>'+calPad(h)+':00</span></div>';}
+  var hlines='';for(var h2=H0;h2<=H1;h2++){hlines+='<div class="cal-hrline" style="top:'+((h2-H0)*HH)+'px"></div>';}
+  var todayISO=calISO(new Date());
+  var anyAD=false;
+  var adcells=days.map(function(dy){var its=(byDay[dy.iso]||[]).filter(function(x){return x.allDay;});if(its.length)anyAD=true;return '<div class="cal-adcell">'+its.map(function(it){return '<div class="cal-adpill" style="--c:'+it.color+';background:'+it.color+'22" onclick="calOpenDay(\''+dy.iso+'\')">'+esc(it.title)+'</div>';}).join('')+'</div>';}).join('');
+  var cols=days.map(function(dy){
+    var timed=(byDay[dy.iso]||[]).filter(function(x){return !x.allDay&&calHM(x.start)!=null;}).map(function(x){var s=calHM(x.start),e=calHM(x.end)||s+0.75;return {s:s,e:Math.max(e,s+0.5),it:x};});
+    calLayout(timed);
+    var blk=timed.map(function(o){var top=(o.s-H0)*HH,h=(o.e-o.s)*HH,w=100/o.lanes,left=o.lane*w,it=o.it;
+      return '<div class="cal-blk" style="top:'+top+'px;height:'+(h-3)+'px;left:calc('+left+'% + 1px);width:calc('+w+'% - 3px);--c:'+it.color+'" onclick="calOpenDay(\''+dy.iso+'\')"><div class="cal-blk-t">'+esc(it.title)+'</div><div class="cal-blk-s">'+esc(it.start+(it.end?' \u2013 '+it.end:''))+'</div></div>';
+    }).join('');
+    return '<div class="cal-col">'+blk+'</div>';
+  }).join('');
+  var now=new Date();var nowH=now.getHours()+now.getMinutes()/60;
+  var showNow=days.some(function(dy){return dy.iso===todayISO;})&&nowH>=H0&&nowH<=H1+1;
+  var nowEl=showNow?'<div class="cal-now" style="top:'+((nowH-H0)*HH)+'px"></div>':'';
+  var hdr='';
+  if(!single){hdr='<div class="cal-tghdr"><div class="cal-gutter"></div><div class="cal-tgdays">'+days.map(function(dy){var t=dy.iso===todayISO;return '<div class="cal-tgdh"><div class="cal-tgdn'+(t?' on':'')+'">'+dy.dn+'</div><div class="cal-tgdd'+(t?' on':'')+'">'+dy.dt.getDate()+'</div></div>';}).join('')+'</div></div>';}
+  var adStrip=anyAD?'<div class="cal-ad"><div class="cal-gutter cal-adlbl">all-day</div><div class="cal-tgdays">'+adcells+'</div></div>':'';
+  var bodyG='<div class="cal-tgbody"><div class="cal-gutter">'+hours+'</div><div class="cal-tggrid" style="height:'+totalH+'px">'+hlines+'<div class="cal-cols">'+cols+'</div>'+nowEl+'</div></div>';
+  return hdr+adStrip+bodyG;
+}
+
+async function calWeekView(){
+  var c=calCur();var dow=(c.getDay()+6)%7;var mon=new Date(c.getFullYear(),c.getMonth(),c.getDate()-dow);
+  var days=[];for(var i=0;i<7;i++){var dt=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+i);days.push({iso:calISO(dt),dt:dt,dn:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]});}
+  var title=mon.getDate()+' \u2013 '+days[6].dt.getDate()+' '+days[6].dt.toLocaleDateString(undefined,{month:'short'});
+  return calHeader(title)+'<div class="cal-card">'+(await calGrid(days,days[0].iso,days[6].iso,false))+'</div>'+calAddFab();
+}
+async function calDayView(){
+  var c=calCur();var iso=calISO(c);
+  var days=[{iso:iso,dt:c,dn:c.toLocaleDateString(undefined,{weekday:'short'})}];
+  var title=c.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+  return calHeader(title)+'<div class="cal-card">'+(await calGrid(days,iso,iso,true))+'</div>'+calAddFab();
+}
+async function calAgendaView(){
+  var c=calCur();var fromISO=calISO(c);var toISO=calISO(new Date(c.getFullYear(),c.getMonth(),c.getDate()+30));
+  var byDay=calByDay(await calItems(fromISO,toISO));
+  var todayISO=calISO(new Date());var tmrISO=calISO(new Date(new Date().getFullYear(),new Date().getMonth(),new Date().getDate()+1));
+  var title=c.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  var html='';
+  for(var i=0;i<31;i++){var dt=new Date(c.getFullYear(),c.getMonth(),c.getDate()+i);var iso=calISO(dt);var its=(byDay[iso]||[]).slice().sort(calSort);if(!its.length)continue;
+    var lbl=iso===todayISO?'Today':iso===tmrISO?'Tomorrow':dt.toLocaleDateString(undefined,{weekday:'long'});
+    var dstr=dt.toLocaleDateString(undefined,{day:'numeric',month:'short'});
+    var rows=its.map(function(it){return '<div class="cal-agrow" onclick="calOpenDay(\''+iso+'\')"><div class="cal-agtime">'+(it.allDay?'all-day':esc(it.start||''))+'</div><div class="cal-agbar" style="background:'+it.color+'"></div><div style="flex:1;min-width:0"><div class="rt">'+esc(it.title)+'</div><div class="rs">'+esc(it.sub||'')+'</div></div></div>';}).join('');
+    html+='<div class="cal-aghead"><span class="cal-aglbl'+(iso===todayISO?' on':'')+'">'+lbl+'</span><span class="cal-agdate">'+dstr+'</span></div><div class="cal-card cal-agcard">'+rows+'</div>';
+  }
+  if(!html)html='<div class="card"><div class="rs" style="padding:8px 0">Nothing scheduled in the next 30 days. Tap + to add an event.</div></div>';
+  return calHeader(title)+html+calAddFab();
+}
+
+async function calOpenDay(iso){
+  var its=(await calItems(iso,iso)).slice().sort(calSort);
+  var d=new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+  var rows=its.length?its.map(function(it){
+    var del=it.kind==='event'?'<button class="cal-del" onclick="calRmEvent(\''+it.rid+'\',\''+iso+'\')">'+icon('x',13)+'</button>':'';
+    var meta=it.allDay?'All day':(it.start+(it.end?' \u2013 '+it.end:''));
+    if(it.kind==='shift')meta+=' \u00B7 Shift';if(it.kind==='upkeep')meta=it.sub;
+    return '<div class="cal-dayrow"><span class="cal-dot" style="background:'+it.color+'"></span><div style="flex:1;min-width:0"><div class="rt">'+esc(it.title)+'</div><div class="rs">'+esc(meta)+'</div></div>'+del+'</div>';
+  }).join(''):'<div class="rs" style="padding:10px 2px">Nothing on this day.</div>';
   var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
-  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()" style="max-height:86vh;overflow-y:auto"><h3>'+d+'</h3>'+sessHtml+shiftLbl+rows+'<input id="dayNL" placeholder="Add a shift, e.g. work 9-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addDayShift(\''+iso+'\');}" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:10px"/><div class="btnrow">'+logBtn+'<button class="btn" onclick="addDayShift(\''+iso+'\')">Add shift</button><button class="btn" onclick="closeOverlay()">Done</button></div>'+'</div>';
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()" style="max-height:80vh;overflow-y:auto"><h3>'+d+'</h3>'+rows+'<button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="calAddEvent(\''+iso+'\')">'+icon('plus',16,2.4)+' Add event</button><button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="closeOverlay()">Done</button></div>';
   document.getElementById('app').appendChild(o);
 }
-async function rmShiftDay(id,iso){await deleteShiftDB(id);closeOverlay();await refreshScreen();openDay(iso);}
-async function addDayShift(iso){
-  var inp=document.getElementById('dayNL');var txt=(inp&&inp.value||'').trim();if(!txt)return;
-  try{var ans=await askAI([{role:'user',content:txt}],'Parse this into one work shift for the date '+iso+'. Output ONLY json {"label":"...","start":"HH:MM or empty","end":"HH:MM or empty"}.',300);var jm=ans.match(/\{[\s\S]*\}/);var o=jm?JSON.parse(jm[0]):null;if(o){await addShift({day:iso,label:o.label||txt,start:o.start||'',end:o.end||''});}else{await addShift({day:iso,label:txt,start:'',end:''});}}
-  catch(e){await addShift({day:iso,label:txt,start:'',end:''});}
-  closeOverlay();await refreshScreen();openDay(iso);
+async function calRmEvent(id,iso){try{await deleteEvent(id);}catch(e){}closeOverlay();await refreshScreen();if(iso)calOpenDay(iso);}
+
+function calAddEvent(iso){
+  iso=iso||calISO(calCur());
+  var dlabel=new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+  openForm('New event',dlabel+' \u2014 add a time like 11:00-12:00, or leave blank for all day.',[{key:'title',label:'What\u2019s on?'},{key:'time',label:'Time e.g. 11:00-12:00 (blank = all day)'},{key:'type',label:'work / meeting / appointment / social / health / personal'}],async function(v){
+    var title=(v.title||'').trim();if(!title)return;
+    var start='',end='',allDay=true;var tm=(v.time||'').trim();
+    var mm=tm.match(/(\d{1,2}:\d{2})\s*(?:[-\u2013]|to)\s*(\d{1,2}:\d{2})/);
+    var ms=tm.match(/(\d{1,2}:\d{2})/);
+    if(mm){start=mm[1];end=mm[2];allDay=false;}else if(ms){start=ms[1];allDay=false;}
+    var type=(v.type||'').trim().toLowerCase();if(!CAL_COL[type])type='other';
+    try{await saveEvent({date:iso,title:title,start:start,end:end,allDay:allDay,type:type});closeOverlay();toast('Added \u2713');await refreshScreen();}catch(e){toast('Couldn\u2019t save \u2014 run the events SQL once');}
+  });
 }
+
+function calCSS(){return '<style>'+
+'.cal-seg{display:flex;background:var(--surface-3);border-radius:13px;padding:3px;gap:2px;margin-bottom:4px}'+
+'.cal-seg button{flex:1;border:none;background:none;font-family:inherit;font-weight:600;font-size:13px;color:var(--sub);padding:8px 0;border-radius:10px;cursor:pointer}'+
+'.cal-seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(15,23,42,.12);font-weight:700}'+
+'.cal-head{display:flex;align-items:center;justify-content:space-between;margin:16px 2px 12px}'+
+'.cal-title{font-family:var(--display,inherit);font-weight:800;font-size:19px;letter-spacing:-.01em;color:var(--ink)}'+
+'.cal-navbtns{display:flex;gap:7px;align-items:center}'+
+'.cal-today{font-weight:700;font-size:12.5px;color:var(--accent);background:var(--accent-soft);border:none;border-radius:9px;padding:7px 12px;cursor:pointer}'+
+'.cal-nb{width:32px;height:32px;border-radius:10px;border:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--sub);cursor:pointer}'+
+'.cal-card{background:var(--surface);border-radius:18px;box-shadow:var(--shadow);border:1px solid var(--line);padding:14px 12px;overflow:hidden}'+
+'.cal-mdows{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:5px}'+
+'.cal-dow{text-align:center;font-size:10px;font-weight:700;color:var(--faint);text-transform:uppercase}'+
+'.cal-mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}'+
+'.cal-mc{min-height:78px;border-radius:10px;padding:5px 4px;cursor:pointer;background:var(--surface);border:1px solid var(--line);overflow:hidden}'+
+'.cal-mc.off{background:transparent;border-color:transparent}.cal-mc.off .cal-mnum{color:var(--faint)}'+
+'.cal-mc.today{background:var(--accent-soft);border-color:rgba(47,107,255,.30)}'+
+'.cal-mnum{font-weight:700;font-size:12.5px;color:var(--ink);text-align:center;margin-bottom:3px}'+
+'.cal-mc.today .cal-mnum{background:var(--accent);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 3px;font-weight:800}'+
+'.cal-pill{color:var(--c);font-size:9.5px;font-weight:700;line-height:1.25;border-radius:4px;padding:1.5px 4px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid var(--c)}'+
+'.cal-more{font-size:9px;color:var(--faint);font-weight:700;margin-top:2px;padding-left:2px}'+
+'.cal-tghdr{display:flex;margin-bottom:7px}.cal-tgdays{flex:1;display:flex}.cal-tgdh{flex:1;text-align:center}'+
+'.cal-gutter{width:42px;flex:none}'+
+'.cal-tgdn{font-size:10.5px;font-weight:700;color:var(--faint);text-transform:uppercase}.cal-tgdn.on{color:var(--accent)}'+
+'.cal-tgdd{font-weight:800;font-size:16px;color:var(--ink);margin-top:2px}.cal-tgdd.on{background:var(--accent);color:#fff;width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:2px auto 0}'+
+'.cal-ad{display:flex;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:7px;margin-bottom:5px}'+
+'.cal-adlbl{font-size:9px;font-weight:700;color:var(--faint);text-transform:uppercase;padding-top:3px;text-align:right;padding-right:6px}'+
+'.cal-adcell{flex:1;padding:0 2px;min-width:0}'+
+'.cal-adpill{color:var(--c);font-size:10px;font-weight:700;border-radius:5px;padding:3px 6px;border-left:2px solid var(--c);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}'+
+'.cal-tgbody{display:flex}'+
+'.cal-hr{position:relative}.cal-hr span{position:absolute;top:-7px;right:8px;font-size:10.5px;color:var(--faint);font-weight:600}'+
+'.cal-tggrid{position:relative;flex:1}'+
+'.cal-hrline{position:absolute;left:0;right:0;border-top:1px solid var(--hair)}'+
+'.cal-cols{position:absolute;inset:0;display:flex}'+
+'.cal-col{flex:1;position:relative;border-left:1px solid var(--hair)}'+
+'.cal-blk{position:absolute;background:var(--c);border-radius:7px;padding:4px 7px;color:#fff;overflow:hidden;box-shadow:0 5px 12px -7px var(--c);cursor:pointer}'+
+'.cal-blk-t{font-size:11.5px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+
+'.cal-blk-s{font-size:9.5px;opacity:.9;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+
+'.cal-now{position:absolute;left:0;right:0;height:2px;background:#EF4444;z-index:6}.cal-now:before{content:"";position:absolute;left:-4px;top:-4px;width:9px;height:9px;border-radius:50%;background:#EF4444}'+
+'.cal-aghead{display:flex;align-items:baseline;gap:9px;margin:18px 2px 5px}'+
+'.cal-aglbl{font-weight:800;font-size:15px;color:var(--ink)}.cal-aglbl.on{color:var(--accent)}'+
+'.cal-agdate{font-size:12.5px;color:var(--faint);font-weight:600}'+
+'.cal-agcard{padding:2px 14px}'+
+'.cal-agrow{display:flex;gap:12px;align-items:flex-start;padding:11px 0;cursor:pointer}.cal-agrow+.cal-agrow{border-top:1px solid var(--line)}'+
+'.cal-agtime{width:50px;flex:none;font-size:12px;font-weight:600;color:var(--sub);font-variant-numeric:tabular-nums;padding-top:1px}'+
+'.cal-agbar{width:3px;align-self:stretch;border-radius:3px;flex:none}'+
+'.cal-dayrow{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}'+
+'.cal-dot{width:9px;height:9px;border-radius:50%;flex:none}'+
+'.cal-del{margin-left:auto;background:none;border:none;color:var(--faint);padding:5px;cursor:pointer;flex:none}'+
+'.cal-fab{position:fixed;right:18px;bottom:78px;width:54px;height:54px;border-radius:50%;background:var(--accent);color:#fff;border:none;box-shadow:0 12px 26px -10px rgba(47,107,255,.6);display:flex;align-items:center;justify-content:center;z-index:40;cursor:pointer}'+
+'</style>';}
+
 
 // ============================================================
 // FITNESS COACH — a planning brain driven by your Garmin data.
