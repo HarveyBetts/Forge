@@ -177,8 +177,8 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(13px,4.4vw,22px);width:100%;justify-items:center;margin-bottom:clamp(30px,9vh,60px);}
 .key{aspect-ratio:1;width:clamp(60px,19vw,80px);border-radius:50%;background:#FFFFFF;border:1px solid var(--line);box-shadow:0 4px 14px -8px rgba(15,23,42,.16);color:var(--ink);font-family:'Inter',sans-serif;font-size:clamp(24px,6.4vw,28px);font-weight:400;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .08s ease,background .12s,border-color .12s;-webkit-user-select:none;user-select:none;}
 .key:active{transform:scale(.92);background:var(--accent-soft);border-color:rgba(47,107,255,.40);}
-.key.blank{background:transparent;border:none;cursor:default;}
-.key.fn{font-size:clamp(12px,3.4vw,14px);letter-spacing:.02em;color:var(--sub);background:transparent;border:none;font-weight:600;}
+.key.blank{background:transparent;border:none;box-shadow:none;cursor:default;}
+.key.fn{font-size:clamp(12px,3.4vw,14px);letter-spacing:.02em;color:var(--sub);background:transparent;border:none;box-shadow:none;font-weight:600;}
 .pin-alt{position:absolute;bottom:calc(30px + env(safe-area-inset-bottom,0px));left:0;right:0;margin:0 auto;font-size:14px;color:var(--accent);letter-spacing:.01em;background:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;z-index:4;}
 .pin-back{position:absolute;top:calc(20px + env(safe-area-inset-top,0px));left:20px;width:40px;height:40px;border-radius:50%;background:rgba(15,23,42,.05);border:none;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:4;}
 /* ============ SIGNUP ============ */
@@ -674,7 +674,7 @@ function subscribeTabs(){
 function addTab(id){var a=enabledTabs();if(a.indexOf(id)<0){a.push(id);setEnabledTabs(a);}refreshScreen();toast('Added ✓');}
 function removeTab(id){setEnabledTabs(enabledTabs().filter(function(x){return x!==id;}));refreshScreen();toast('Removed');}
 const ADDABLE={work:'task',reminders:'reminder',goals:'habit',notes:'note',documents:'document',shopping:'item',subs:'subscription',workouts:'workout',recipes:'recipe',mood:'note',sleep:'entry',water:'log',meds:'medication',projects:'project',journal:'entry',books:'book',movies:'title',study:'topic',wishlist:'wish',gifts:'gift',pets:'pet',home2:'job',habits:'habit',fitness:'workout',health:'entry'};
-function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'},futureme:{label:'Future Me',sub:'Who you\'re becoming'},understudy:{label:'Chronos',sub:'Plans your time, you approve'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
+function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'},futureme:{label:'Future Me',sub:'Who you\'re becoming'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
 
 // ============================================================
 // AUTH SCREENS (PIN + signup) — rendered into #stage-overlay layers
@@ -1035,7 +1035,7 @@ function homeHTML(){
   var greet=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
   var fname=currentUser?currentUser.name.split(' ')[0]:'';
   var dateStr=d.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
-  var hero='<div class="home-hero" onclick="go(\'understudy\')"><div class="home-hero-eye">'+icon('spark',13,2.4)+esc(dateStr)+'</div><div class="serif home-hero-greet">'+greet+(fname?', '+esc(fname):'')+'</div><div class="home-hero-sub" id="briefLine">Here\u2019s your day at a glance</div></div>';
+  var hero='<div class="home-hero"><div class="home-hero-eye">'+icon('spark',13,2.4)+esc(dateStr)+'</div><div class="serif home-hero-greet">'+greet+(fname?', '+esc(fname):'')+'</div><div class="home-hero-sub" id="briefLine">Here\u2019s your day at a glance</div></div>';
   function lbl(t){return '<div class="home-lbl">'+t+'</div>';}
   function lifecard(id,ic,name,sub,em){return '<div class="lifecard'+(em?' on':'')+'" onclick="go(\''+id+'\')"><div class="lifecard-chip'+(em?' accent':'')+'">'+icon(ic,20,2.2)+'</div><div class="lifecard-name serif">'+name+'</div><div class="lifecard-sub">'+sub+'</div><span class="lifecard-go">'+icon('chev',15,2.4)+'</span></div>';}
   var life='';
@@ -1254,7 +1254,6 @@ async function renderTab(tab){
   if(tab==='upkeep')return renderUpkeep();
   if(tab==='ai')return renderAI();
   if(tab==='futureme')return renderFutureMe();
-  if(tab==='understudy')return renderUnderstudy();
   if(tab==='calendar')return renderCalendar();
   if(TRACKERS[tab])return renderTracker(tab);
   if(tab==='fitness')return renderFitness();
@@ -1349,7 +1348,7 @@ async function renderCalendar(){
   var fromISO=y+'-'+calPad(m+1)+'-01',toISO=y+'-'+calPad(m+1)+'-'+calPad(last.getDate());
   var shifts=await getShifts(fromISO,toISO);
   var byDay={};shifts.forEach(function(s){(byDay[s.day]=byDay[s.day]||[]).push(s);});
-  var rp=await getRunPlan();var planObj=rp&&rp.plan;var sess=rcSessionMap(planObj);
+  var sess={};
   var firstDow=(new Date(y,m,1).getDay()+6)%7;var todayISO=localDay();
   var dows=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(d){return '<div style="text-align:center;font-size:10.5px;color:var(--sub);font-weight:700;padding:2px 0">'+d+'</div>';}).join('');
   var cells='';for(var i=0;i<firstDow;i++)cells+='<div></div>';
@@ -1366,7 +1365,7 @@ async function renderCalendar(){
     var bits=[];if(se)bits.push('<span style="color:'+sessTypeColor(se.type)+';font-weight:600">'+esc(se.title||se.type)+(se.km?' \u00B7 '+se.km+'km':'')+'</span>');if(sh)bits.push(sh.map(function(s){return esc(s.label||'Shift')+(s.start?' '+s.start:'');}).join(', '));
     ag+='<div class="row" onclick="openDay(\''+iso+'\')"><div style="width:62px;font-weight:700;font-size:12.5px;color:'+(k===0?'var(--accent)':'var(--sub)')+'">'+label+'</div><div style="flex:1"><div class="rt" style="font-size:13.5px">'+(bits.join(' \u00B7 ')||'\u2014')+'</div></div><span style="color:var(--sub)">\u203A</span></div>';
   }
-  var agCard='<div class="card"><div class="ctitle">Next 7 days</div>'+(ag||'<div class="rs" style="padding:6px 0">Nothing scheduled. Add shifts above \u2014 your Ignis training sessions show here automatically.</div>')+'</div>';
+  var agCard='<div class="card"><div class="ctitle">Next 7 days</div>'+(ag||'<div class="rs" style="padding:6px 0">Nothing scheduled. Add shifts above to fill your week.</div>')+'</div>';
   return '<div class="stack">'+add+grid+agCard+'</div>';
 }
 function shiftRow(s){var d=new Date(s.day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short',year:'numeric'});var t=(s.start||'')+(s.end?' \u2013 '+s.end:'');return '<div class="row"><div style="flex:1"><div class="rt" style="font-size:14px">'+esc(s.label||'Shift')+'</div><div class="rs">'+d+(t?' \u00B7 '+esc(t):'')+'</div></div><button class="del" onclick="rmShift(\''+s.id+'\')">'+icon('x',13)+'</button></div>';}
@@ -1386,8 +1385,8 @@ async function addShiftsNL(){
 }
 async function openDay(iso){
   var shifts=await getShifts(iso,iso);
-  var rp=await getRunPlan();var plan=rp&&rp.plan;
-  var se=plan?rcSessionMap(plan)[iso]:null;
+  var plan=null;
+  var se=null;
   var richDay=null;if(plan&&plan.detail&&plan.detail.days){plan.detail.days.forEach(function(x){if(x.date===iso)richDay=x;});}
   var d=new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
   var sessHtml='';var isSession=false;
@@ -1399,9 +1398,8 @@ async function openDay(iso){
   var rows=shifts.length?shifts.map(function(s){return '<div class="trow"><div style="flex:1"><div class="rt">'+esc(s.label)+'</div><div class="rs">'+esc((s.start||'')+(s.end?' \u2013 '+s.end:'')||'all day')+'</div></div><button class="tbtn rm" onclick="rmShiftDay(\''+s.id+'\',\''+iso+'\')">Remove</button></div>';}).join(''):(isSession?'':'<p style="color:var(--sub);font-size:14px;margin:6px 2px">Nothing scheduled.</p>');
   var shiftLbl=shifts.length?'<div class="ctitle" style="margin-top:4px">Shifts</div>':'';
   var logBtn='';
-  var coachLink=isSession?'<button class="reqbtn" style="margin-top:8px" onclick="closeOverlay();window.open(\'https://harveybetts.github.io/Ignis/\',\'_blank\')">Open in Ignis</button>':'';
   var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
-  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()" style="max-height:86vh;overflow-y:auto"><h3>'+d+'</h3>'+sessHtml+shiftLbl+rows+'<input id="dayNL" placeholder="Add a shift, e.g. work 9-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addDayShift(\''+iso+'\');}" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:10px"/><div class="btnrow">'+logBtn+'<button class="btn" onclick="addDayShift(\''+iso+'\')">Add shift</button><button class="btn" onclick="closeOverlay()">Done</button></div>'+coachLink+'</div>';
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()" style="max-height:86vh;overflow-y:auto"><h3>'+d+'</h3>'+sessHtml+shiftLbl+rows+'<input id="dayNL" placeholder="Add a shift, e.g. work 9-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addDayShift(\''+iso+'\');}" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;margin-top:10px"/><div class="btnrow">'+logBtn+'<button class="btn" onclick="addDayShift(\''+iso+'\')">Add shift</button><button class="btn" onclick="closeOverlay()">Done</button></div>'+'</div>';
   document.getElementById('app').appendChild(o);
 }
 async function rmShiftDay(id,iso){await deleteShiftDB(id);closeOverlay();await refreshScreen();openDay(iso);}
@@ -1429,107 +1427,18 @@ function sessionDetailHTML(plan,s){
   return s.note?'<div style="font-size:13.5px;color:var(--sub);margin-top:6px;line-height:1.5">'+esc(s.note)+'</div>':'';
 }
 function sessTypeColor(t){t=(t||'').toLowerCase();return t==='long'?'#7C5CFF':(t==='tempo'||t==='threshold')?'#DC2626':(t==='intervals'||t==='fartlek'||t==='hills')?'#D97706':t==='rest'?'#A2A6AE':(t==='strength'||t==='cross')?'#16A34A':(t==='recovery')?'#A2A6AE':'#2F6BFF';}
-// ---- Shared run-data helpers (read-only; full coach lives in Ignis) ----
+// ---- Shared run-data helpers ----
 function pad2(n){n=Math.round(n);return (n<10?'0':'')+n;}
 function paceStr(sec){if(!sec||sec<0)return '';return Math.floor(sec/60)+':'+pad2(sec%60);}
 function paceFor(plan,key){var p=plan&&plan.engine&&plan.engine.paces;if(!p||p[key]==null)return '';return paceStr(p[key])+'/km';}
 function rcIsRun(l){return !l||!l.activity||l.activity==='run';}
 function rcDedupeRuns(logs){if(!logs||!logs.length)return logs||[];var seen={},out=[];for(var i=0;i<logs.length;i++){var l=logs[i];var km=Math.round((l.km||0)*10)/10;var mn=Math.round(l.min||0);var key=(l.day||'')+'|'+km+'|'+mn;if(seen[key])continue;seen[key]=1;out.push(l);}return out;}
 // ============================================================
-// UNDERSTUDY — proposes actions toward Future Me; you approve in a batch.
 // ============================================================
-var lcChat=[],lcBusy=false,lcEditing=false;
-function teachChronos(){lcEditing=true;lcChat=[{role:'assistant',content:'Tell me about your typical week so I can plan everything realistically \u2014 when you work (e.g. 9-5 Monday), any gym or regular commitments, roughly how you sleep, and when you\u2019ve got energy vs when you\u2019re wiped.'}];refreshScreen();}
-function lcCancel(){lcEditing=false;lcChat=[];refreshScreen();}
-function lcMsgsHTML(){return lcChat.map(function(m){return m.role==='assistant'?'<div class="rc-ai">'+aiFmt(m.content)+'</div>':'<div class="rc-me">'+esc(m.content)+'</div>';}).join('');}
-function lcRenderMsgs(){var c=document.getElementById('lcMsgs');if(!c)return;c.innerHTML=lcMsgsHTML();c.scrollTop=c.scrollHeight;}
-function lcThinking(b){var t=document.getElementById('lcThinking');if(t)t.style.display=b?'block':'none';}
-function lcChatHTML(){
-  return '<div class="card"><style>.rc-ai{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:16px 16px 16px 5px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:90%;overflow-wrap:anywhere;word-break:break-word}.rc-me{align-self:flex-end;background:var(--accent);color:#fff;border-radius:16px 16px 5px 16px;padding:12px 15px;font-size:14.5px;line-height:1.5;max-width:85%;overflow-wrap:anywhere;word-break:break-word}.rc-in{flex:1;box-sizing:border-box;padding:13px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:15px;outline:none}</style>'+
-    '<div class="ctitle">Teach Chronos your week</div><div id="lcMsgs" style="display:flex;flex-direction:column;gap:10px;max-height:44vh;overflow-y:auto;margin-top:6px">'+lcMsgsHTML()+'</div>'+
-    '<div id="lcThinking" class="rs" style="display:none;margin:10px 2px 0">Saving what I learned\u2026</div>'+
-    '<div style="display:flex;gap:8px;margin-top:14px"><input id="lcInput" class="rc-in" placeholder="Tell me about your week\u2026" onkeydown="if(event.key===\'Enter\'){event.preventDefault();lcSend();}"/><button onclick="lcSend()" style="background:var(--accent);color:#fff;border:none;border-radius:14px;padding:0 18px;font-weight:700;cursor:pointer;font-family:inherit">Send</button></div>'+
-    '<button class="reqbtn" style="margin-top:10px" onclick="lcCancel()">Done</button></div>';
-}
-async function lcSend(){
-  if(lcBusy)return;var inp=document.getElementById('lcInput');var txt=(inp&&inp.value||'').trim();if(!txt)return;
-  lcChat.push({role:'user',content:txt});if(inp)inp.value='';lcBusy=true;lcRenderMsgs();lcThinking(true);
-  try{
-    var first=currentUser?currentUser.name.split(' ')[0]:'mate';
-    var sys='You are Chronos, '+first+'\u2019s assistant, learning their typical week so everything in their app can plan realistically. Ask brief, natural follow-ups ONLY if needed (work/shift hours, regular commitments, sleep, energy patterns). When you have a clear enough picture, reply with ONLY a fenced json object: ```json\n{"summary":"one natural sentence capturing their week, sleep and energy","routine":{"days":[{"day":"Mon","items":["work 9-5","gym 6pm"]},{"day":"Tue","items":[]}],"sleep":"~7h, up at 6","energy":"best in the morning, drained after late shifts"}}\n```';
-    var start=0;for(var i=0;i<lcChat.length;i++){if(lcChat[i].role==='user'){start=i;break;}}
-    var ans=await askAI(lcChat.slice(start).slice(-8),sys,900);
-    var jm=ans.match(/```json([\s\S]*?)```/i);var obj=null;if(jm){try{obj=JSON.parse(jm[1].trim());}catch(e){}}
-    if(obj&&obj.summary){await setLifeContext(obj.routine||{},obj.summary);lcChat=[];lcBusy=false;lcEditing=false;await refreshScreen();toast('Chronos has your week \u2713');return;}
-    lcChat.push({role:'assistant',content:ans});lcBusy=false;lcThinking(false);lcRenderMsgs();
-  }catch(e){lcBusy=false;lcThinking(false);lcChat.push({role:'assistant',content:'Trouble saving that \u2014 try once more.'});lcRenderMsgs();}
-}
 // ============================================================
 // THE BRAIN — one intelligence that reads everything in Forge and
-// drives every section. Chronos is its front door. Each tab will
 // plug into brainThink() instead of making its own shallow call.
 // ============================================================
-var brainBusy=false;
-async function brainThink(task,opts){
-  opts=opts||{};
-  var first=currentUser?currentUser.name.split(' ')[0]:'the user';
-  var ctx=await gatherUserContext();
-  var persona=opts.persona||('You are the intelligence behind '+first+'\u2019s life app, Forge. You can see everything about them below and you reason across ALL of it together \u2014 calendar, work shifts, sleep, training, money, goals and who they want to become (Future Me). Be specific, personal and decisive. Never generic, never a list of platitudes.');
-  var sys=persona+'\n\n'+(opts.contract||'')+'\n\nEVERYTHING YOU KNOW ABOUT '+first.toUpperCase()+':\n'+ctx;
-  var ans=await askAI([{role:'user',content:task}],sys,opts.maxTokens||1200);
-  if(opts.json){
-    var jm=ans.match(/```(?:json|forge)?\s*([\s\S]*?)```/i);var raw=jm?jm[1]:ans;
-    try{return JSON.parse(raw.trim());}catch(e){try{return JSON.parse((raw.match(/[\[{][\s\S]*[\]}]/)||[''])[0]);}catch(e2){return null;}}
-  }
-  return ans;
-}
-function brainStale(){chronosToday=null;}
-
-// ---- Chronos: the command center, powered by the brain ----
-var chronosToday=null; // {date, data}
-async function renderUnderstudy(){
-  var lc=await getLifeContext();
-  var weekSection;
-  if(typeof lcEditing!=='undefined'&&lcEditing){weekSection=lcChatHTML();}
-  else if(lc&&lc.summary){weekSection='<div class="card"><div class="ctitle">What Chronos knows about your week</div><div class="rs" style="line-height:1.5;margin-top:2px">'+esc(lc.summary)+'</div><button class="tbtn add" style="margin-top:10px" onclick="teachChronos()">Update</button></div>';}
-  else {weekSection='<div class="card" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:var(--accent)">'+icon('clock',16,2.2)+'</div><div style="flex:1"><div class="rt">Teach Chronos your week</div><div class="rs">So it plans around your real life</div></div><button class="tbtn add" onclick="teachChronos()">Start</button></div>';}
-  var head='<div class="card dark"><div style="display:flex;align-items:center;gap:11px"><div class="chip sm" style="--tc:#fff;background:rgba(255,255,255,.18)">'+icon('spark',16,2.2)+'</div><div><div class="rt" style="color:#fff">Chronos</div><div style="font-size:12.5px;opacity:.85;line-height:1.4">Your command center \u2014 it reads everything and tells you what to do.</div></div></div></div>';
-  var body;
-  if(chronosToday&&chronosToday.date===localDay()&&chronosToday.data){body=chronosRender(chronosToday.data);}
-  else{body='<div class="card" id="chGen" style="display:flex;align-items:center;gap:12px"><div class="chip sm" style="--tc:var(--accent)">'+icon('spark',16,2.2)+'</div><div style="flex:1"><div class="rt">Plan my day</div><div class="rs">Chronos looks at everything and lays out your day</div></div><button class="tbtn add" onclick="chronosPlanDay()">Plan</button></div>';}
-  return '<div class="stack">'+head+weekSection+body+'</div>';
-}
-function chronosRender(d){
-  var brief=d.briefing?'<div class="card"><div class="ctitle">Today</div><div style="font-size:15px;line-height:1.55;margin-top:2px">'+aiFmt(d.briefing)+'</div></div>':'';
-  var flags=(d.flags&&d.flags.length)?'<div class="card" style="border-left:3px solid var(--warn)"><div class="ctitle" style="color:var(--warn)">Heads up</div>'+d.flags.map(function(f){return '<div class="rs" style="line-height:1.5;margin-top:4px">\u2022 '+esc(f)+'</div>';}).join('')+'</div>':'';
-  var kc={focus:'#2F6BFF',move:'#16A34A',rest:'#7C5CFF',admin:'#6C707A',social:'#D97706',food:'#E0623A',money:'#16A34A'};
-  var items=(d.day&&d.day.length)?'<div class="card"><div class="ctitle">Your day, in order</div>'+d.day.map(function(it,i){
-    var c=kc[(it.kind||'').toLowerCase()]||'var(--accent)';
-    var act=(it.action&&it.action.type)?(it._added?'<div class="rs" style="margin-top:7px;color:var(--ok);font-weight:600">'+icon('check',13,2.6)+' Added</div>':'<button class="tbtn add" style="margin-top:8px" onclick="chronosDo('+i+')">Add to my app</button>'):'';
-    return '<div style="display:flex;gap:11px;padding:11px 0;border-top:1px solid var(--line)"><span style="width:7px;height:7px;border-radius:50%;background:'+c+';margin-top:6px;flex:none"></span><div style="flex:1"><div class="rt" style="font-size:14.5px">'+esc(it.title||'')+(it.when?' <span class="rs" style="font-weight:500">\u00B7 '+esc(it.when)+'</span>':'')+'</div>'+(it.why?'<div class="rs" style="line-height:1.45;margin-top:2px">'+esc(it.why)+'</div>':'')+act+'</div></div>';
-  }).join('')+'</div>':'';
-  var re='<button class="reqbtn" onclick="chronosPlanDay()">'+icon('spark',16)+' Re-plan my day</button>';
-  return brief+flags+items+re;
-}
-async function chronosPlanDay(){
-  if(brainBusy)return;brainBusy=true;
-  var host=document.getElementById('chGen');if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Chronos is reading everything and planning your day\u2026</div>';
-  try{
-    var first=currentUser?currentUser.name.split(' ')[0]:'their';
-    var contract='Plan '+first+'\u2019s day RIGHT NOW. Reason across their work shifts, training plan, sleep, energy, goals and Future Me \u2014 together, not separately. Adapt to reality: if they slept badly or worked overtime, protect recovery and move or shrink hard sessions; fit training and lifts around their shifts and commitments; surface real conflicts. Respond with ONLY a fenced json object:\n```json\n{"briefing":"2-3 warm, direct sentences on what today looks like and the ONE thing that matters most","day":[{"title":"short imperative","when":"e.g. 6:00 PM / after work / now","why":"one line tying it to their schedule, energy or goals","kind":"focus|move|rest|admin|social|food|money","action":{"type":"add_task","title":"...","note":"..."}}],"flags":["any conflict or caution worth flagging, or omit"]}\n```\nThe "action" field is OPTIONAL \u2014 include only when there is a concrete thing to add to their app. Allowed action types: add_task{title,note?}, add_reminder{title,note?}, add_goal{title}, add_note{title}, add_shopping{items:[..]}, set_dinner{day,meal}, add_countdown{name,date:"YYYY-MM-DD"}. Order the day sensibly around their shifts. 5-8 items.';
-    var data=await brainThink('Plan my day.',{json:true,contract:contract,maxTokens:1500});
-    if(!data||!data.day){brainBusy=false;if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Couldn\u2019t plan just now \u2014 try again.</div>';return;}
-    chronosToday={date:localDay(),data:data};brainBusy=false;await refreshScreen();
-  }catch(e){brainBusy=false;if(host)host.innerHTML='<div class="rs" style="padding:4px 0">Chronos couldn\u2019t reach the AI right now \u2014 try again.</div>';}
-}
-async function chronosDo(i){
-  if(!chronosToday||!chronosToday.data||!chronosToday.data.day)return;
-  var it=chronosToday.data.day[i];if(!it||!it.action||!it.action.type)return;
-  var done=await runAIActions([it.action]);
-  it._added=true;chronosToday.data.day[i]=it;
-  toast(done&&done.length?done[0]:'Added \u2713');await refreshScreen();
-}
-
 async function renderGenericList(tab){
   var items=await loadItems(tab);var t=catalogById(tab);var accent=(t&&t.chip)||'#94A3B8';
   var rows=items.map(function(it){return '<div class="row"><span class="dot" style="background:'+accent+'"></span><div style="flex:1"><div class="rt">'+esc(it.t)+'</div>'+(it.s?'<div class="rs">'+esc(it.s)+'</div>':'')+'</div><button class="del" onclick="delItem(\''+it.id+'\',\''+tab+'\')">'+icon('x',15)+'</button></div>';}).join('');
@@ -1538,21 +1447,14 @@ async function renderGenericList(tab){
 }
 
 async function renderFitness(){
-  var rp=await getRunPlan();var plan=rp&&rp.plan;
-  var logs=rcDedupeRuns(await getRunLogs(30));var runs=logs.filter(rcIsRun);
-  var todayISO=localDay();var sess=plan?rcSessionMap(plan)[todayISO]:null;
-  var hero;
-  if(sess&&(sess.type||'').toLowerCase()!=='rest'){var col=sessTypeColor(sess.type);
-    hero='<div class="card" style="border-left:3px solid '+col+'"><div class="ctitle" style="color:'+col+'">Today \u00B7 from your Ignis plan</div><div class="serif" style="font-size:21px;font-weight:700">'+esc(sess.title||sess.type)+(sess.km?' \u00B7 '+sess.km+' km':'')+'</div>'+sessionDetailHTML(plan,sess)+'</div>';}
-  else if(plan){hero='<div class="card"><div class="ctitle">Today</div><div class="rt">Rest day \u2014 nothing planned.</div><div class="rs" style="margin-top:3px">Your training plan lives in Ignis.</div></div>';}
-  else{hero='<div class="card"><div class="ctitle">Training</div><div class="rt">No training plan yet</div><div class="rs" style="margin-top:3px">Build one in Ignis \u2014 it reads your shifts from Forge and plans around your real life.</div></div>';}
+  var runs=[];try{runs=rcDedupeRuns(await getRunLogs(30)).filter(rcIsRun);}catch(e){runs=[];}
   var cut=Date.now()-7*86400000;var wk=runs.filter(function(l){return new Date(l.day+'T00:00:00').getTime()>=cut;});
   var km=0;wk.forEach(function(l){km+=l.km||0;});
-  var stats='<div class="two"><div class="card stat"><div class="k">'+icon('trend',14)+' This week</div><div class="v">'+(Math.round(km*10)/10)+' km</div><div class="d">'+wk.length+' run'+(wk.length!==1?'s':'')+'</div></div><div class="card stat"><div class="k">'+icon('flame',14)+' Last run</div><div class="v">'+(runs[0]?runs[0].km+' km':'\u2014')+'</div><div class="d">'+(runs[0]?new Date(runs[0].day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'}):'log via Ignis')+'</div></div></div>';
-  var rows=runs.slice(0,6).map(function(l){var pace=(l.min&&l.km)?paceStr(Math.round(l.min*60/l.km))+'/km':'';return '<div class="row"><span class="dot" style="background:var(--accent)"></span><div style="flex:1"><div class="rt">'+l.km+' km'+(pace?' \u00B7 '+pace:'')+'</div><div class="rs">'+new Date(l.day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'})+(l.source==='strava'?' \u00B7 Strava':'')+'</div></div></div>';}).join('');
-  var recent='<div class="card"><div class="ctitle">Recent runs</div>'+(rows||'<div class="row"><div class="rs">Runs you log in Ignis (or import from Strava) show up here automatically.</div></div>')+'</div>';
-  var open='<button class="btn btn-primary" style="width:100%" onclick="window.open(\'https://harveybetts.github.io/Ignis/\',\'_blank\')">Open Ignis</button>';
-  return '<div class="stack">'+hero+stats+recent+open+'</div>';
+  var note='<div class="card"><div class="ctitle">Training</div><div class="rt">Being rebuilt</div><div class="rs" style="margin-top:3px;line-height:1.5">A proper training tab is on the way. Your logged runs stay here in the meantime.</div></div>';
+  var stats='<div class="two"><div class="card stat"><div class="k">'+icon('trend',14)+' This week</div><div class="v">'+(Math.round(km*10)/10)+' km</div><div class="s">'+wk.length+' run'+(wk.length!==1?'s':'')+'</div></div><div class="card stat"><div class="k">'+icon('clock',14)+' Logged</div><div class="v">'+runs.length+'</div><div class="s">recent runs</div></div></div>';
+  var rows=runs.slice(0,8).map(function(l){var pace=(l.min&&l.km)?paceStr(Math.round(l.min*60/l.km))+'/km':'';return '<div class="row"><span class="dot" style="background:#2F6BFF"></span><div style="flex:1"><div class="rt">'+(l.km||0)+' km</div><div class="rs">'+(new Date(l.day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'}))+(pace?' \u00B7 '+pace:'')+'</div></div></div>';}).join('');
+  var recent='<div class="card"><div class="ctitle">Recent runs</div>'+(rows||'<div class="row"><div class="rs">No runs logged yet.</div></div>')+'</div>';
+  return '<div class="stack">'+note+stats+recent+'</div>';
 }
 async function renderHealth(){
   var items=await loadItems('health');
@@ -1569,12 +1471,11 @@ function catScreenHTML(cid){
     return '<div class="tile" onclick="go(\''+t+'\',false,\'cat_'+c.id+'\')"><div class="chip">'+icon(ct.icon||t,21,2.2)+'</div><div><div class="t">'+esc(ct.label)+'</div><div class="s">'+esc(ct.sub)+'</div></div></div>';
   }).join('');
   var calTile=c.id==='time'?'<div class="tile" onclick="go(\'calendar\',false,\'cat_time\')"><div class="chip">'+icon('calendar',21,2.2)+'</div><div><div class="t">Calendar</div><div class="s">Shifts & schedule</div></div></div>':'';
-  var igTile=c.id==='fitness'?'<div class="tile" onclick="window.open(\'https://harveybetts.github.io/Ignis/\',\'_blank\')"><div class="chip">'+icon('trend',21,2.2)+'</div><div><div class="t">Ignis</div><div class="s">Your AI running coach</div></div></div>':'';
   var hasMore=c.tabs.some(function(t){return en.indexOf(t)<0&&catalogById(t);});
   var addBtn=hasMore?'<button class="cat-add" onclick="addToCatSheet(\''+c.id+'\')">'+icon('plus',18,2.4)+'<span>Add to '+esc(c.label)+'</span></button>':'';
   var empty=onTabs.length?'':'<div class="cat-empty">Nothing here yet — add something below.</div>';
   var aiBtn='<button class="cat-add cat-ai" onclick="openAICat(\''+c.id+'\')">'+icon('spark',18,2.2)+'<span>Ask Forge AI about '+esc(c.label)+'</span></button>';
-  return '<div class="home-grid">'+igTile+calTile+tiles+'</div>'+empty+addBtn+aiBtn;
+  return '<div class="home-grid">'+calTile+tiles+'</div>'+empty+addBtn+aiBtn;
 }
 // In-context picker for adding tabs to a category (replaces the old ghost tiles)
 function addToCatSheet(cid){
@@ -1735,7 +1636,6 @@ function editInv(id,cur){openForm('Update value','',[{key:'v',label:'Current val
 async function delInv(id){await deleteInvestmentDB(id);await refreshScreen();}
 
 // ============================================================
-// FUTURE ME — the north star Chronos (and the AI) steer toward
 // ============================================================
 var FUTURE_DIMS=[
  {k:'health',label:'Health & body',q:'In 5 years, how do you want your body and energy to feel?'},
