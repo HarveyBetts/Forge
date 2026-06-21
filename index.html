@@ -59,6 +59,8 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.3;}}
 #stage{position:relative;z-index:1;flex:1;overflow:hidden;}
 .screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:10px 18px calc(92px + env(safe-area-inset-bottom,0px));background:var(--bg);will-change:transform;touch-action:pan-y;overscroll-behavior:contain;}
+.screen.retap{animation:scRetap .44s cubic-bezier(.16,1,.3,1);}
+@keyframes scRetap{0%{opacity:.5;transform:scale(.986);}100%{opacity:1;transform:none;}}
 .screen::-webkit-scrollbar{width:0;}
 .screen.is-home{background:var(--mesh),var(--bg);}
 .screen.enter-right{transform:translateX(100%);}
@@ -400,6 +402,14 @@ const ICON_SRC='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3G
 // ICONS
 // ============================================================
 const P={
+  padlock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  shield:'<path d="M12 3l7 3v5c0 4.6-3.1 7.7-7 9-3.9-1.3-7-4.4-7-9V6l7-3z"/>',
+  eye:'<path d="M2 12s3.6-6.2 10-6.2S22 12 22 12s-3.6 6.2-10 6.2S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/>',
+  eyeoff:'<path d="M2 12s3.6-6.2 10-6.2c1.2 0 2.3.2 3.3.5M21 13.5A16 16 0 0 1 22 12M9.6 9.6a2.6 2.6 0 0 0 3.4 3.8"/><path d="M4 4l16 16"/>',
+  copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+  trash:'<path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6.5 7l1 13a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1l1-13"/>',
+  dice:'<rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.3" fill="currentColor" stroke="none"/>',
+  checklist:'<path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 6l1 1 2-2.2M3.5 12l1 1 2-2.2M3.5 18l1 1 2-2.2"/>',
   work:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="3" y1="12" x2="21" y2="12"/>',
   calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="3" x2="8" y2="6"/><line x1="16" y1="3" x2="16" y2="6"/>',
   fitness:'<rect x="2" y="9" width="3" height="6" rx="1"/><rect x="19" y="9" width="3" height="6" rx="1"/><rect x="5.5" y="10.5" width="2.5" height="3"/><rect x="16" y="10.5" width="2.5" height="3"/><line x1="8" y1="12" x2="16" y2="12"/>',
@@ -618,17 +628,18 @@ const EXTRA_TABS=[
   {id:'pets',label:'Pets',sub:'Care & vet visits',bg:'#E1EADF',chip:'#2F6BFF',icon:'paw',list:true},
   {id:'home2',label:'Home',sub:'Maintenance',bg:'#E8E5DE',chip:'#94A3B8',icon:'home',list:true},
   {id:'habits',label:'Habits',sub:'Build & break',bg:'#DCEAEA',chip:'#3E78FF',icon:'flame',list:true},
+  {id:'passwords',label:'Passwords',sub:'Secure vault',bg:'#E1ECF4',chip:'#0EA5E9',icon:'padlock'},
 ];
 function CATALOG(){return TABS.concat(EXTRA_TABS);}
 function catalogById(id){var a=CATALOG();for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
 // ---- CATEGORIES (group the tabs into a few calm areas) ----
 const CATS=[
-  {id:'time',label:'Time',sub:'Tasks, plans & reminders',icon:'clock',chip:'#60A5FA',tabs:['work','reminders','goals','notes','projects','calendar','countdown','habits','study']},
-  {id:'money',label:'Money',sub:'Finances & spending',icon:'wallet',chip:'#3E78FF',tabs:['finances','subs']},
+  {id:'time',label:'Time',sub:'Tasks, plans & reminders',icon:'clock',chip:'#3E78FF',tabs:['work','reminders','goals','notes','projects','calendar','countdown','habits','study']},
+  {id:'money',label:'Money',sub:'Finances & spending',icon:'wallet',chip:'#10B981',tabs:['finances','subs']},
   {id:'food',label:'Food',sub:'Recipes, meals & shopping',icon:'fork',chip:'#FB923C',tabs:['recipes','mealplanner','shopping']},
-  {id:'fitness',label:'Fitness',sub:'Workouts & wellbeing',icon:'fitness',chip:'#2F6BFF',tabs:['fitness','workouts','health','sleep','water','meds','mood']},
-  {id:'home',label:'Home & Life',sub:'Car, docs, travel, people',icon:'home',chip:'#A78BFA',tabs:['car','documents','home2','upkeep','travel','contacts']},
-  {id:'personal',label:'Personal',sub:'Journal, books & more',icon:'book',chip:'#F472B6',tabs:['journal','books','movies','wishlist','gifts','pets']},
+  {id:'fitness',label:'Fitness',sub:'Workouts & wellbeing',icon:'fitness',chip:'#F43F5E',tabs:['fitness','workouts','health','sleep','water','meds','mood']},
+  {id:'home',label:'Home & Life',sub:'Car, docs, travel, people',icon:'home',chip:'#8B5CF6',tabs:['car','documents','home2','upkeep','passwords','travel','contacts']},
+  {id:'personal',label:'Personal',sub:'Journal, books & more',icon:'book',chip:'#EC4899',tabs:['journal','books','movies','wishlist','gifts','pets']},
 ];
 function catById(cid){cid=String(cid||'').replace(/^cat_/,'');for(var i=0;i<CATS.length;i++)if(CATS[i].id===cid)return CATS[i];return null;}
 function catOf(tabId){for(var i=0;i<CATS.length;i++)if(CATS[i].tabs.indexOf(tabId)>=0)return CATS[i];return null;}
@@ -778,8 +789,12 @@ function showPinUnlock(){
 async function forgotPassword(){
   var em=document.getElementById('alEmail');var email=(em&&em.value||'').trim();
   if(!email){toast('Type your email above, then tap Forgot password');return;}
+  var ck='forge.reset.'+email.toLowerCase();var last=+(lsGet(ck)||0),now=Date.now();
+  if(now-last<60000){toast('Already sent \u2014 check inbox & spam. You can resend in '+Math.ceil((60000-(now-last))/1000)+'s');return;}
+  lsSet(ck,String(now));
+  var fb=document.getElementById('alForgot');if(fb){fb.disabled=true;setTimeout(function(){if(fb)fb.disabled=false;},60000);}
   try{var r=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(r.error)throw r.error;toast('Reset link sent to '+email);}
-  catch(e){toast(authMsg(e));}
+  catch(e){try{lsDel(ck);}catch(_){}if(fb)fb.disabled=false;toast(authMsg(e));}
 }
 function showResetPassword(){
   mountAuth(authCard('Set a new password','Choose a new password for your account.',
@@ -1042,9 +1057,9 @@ function homeHTML(){
   var dateStr=d.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
   var hero='<div class="home-hero"><div class="home-hero-eye">'+icon('spark',13,2.4)+esc(dateStr)+'</div><div class="serif home-hero-greet">'+greet+(fname?', '+esc(fname):'')+'</div><div class="home-hero-sub" id="briefLine">Here\u2019s your day at a glance</div></div>';
   function lbl(t){return '<div class="home-lbl">'+t+'</div>';}
-  function lifecard(id,ic,name,sub,em){return '<div class="lifecard'+(em?' on':'')+'" onclick="go(\''+id+'\')"><div class="lifecard-chip'+(em?' accent':'')+'">'+icon(ic,20,2.2)+'</div><div class="lifecard-name serif">'+name+'</div><div class="lifecard-sub">'+sub+'</div><span class="lifecard-go">'+icon('chev',15,2.4)+'</span></div>';}
+  function lifecard(id,ic,name,sub,em,col){var cs=col?(' style="background:'+col+'1A;color:'+col+';border-color:'+col+'55"'):'';return '<div class="lifecard'+(em?' on':'')+'" onclick="go(\''+id+'\')"><div class="lifecard-chip'+(em?' accent':'')+'"'+cs+'>'+icon(ic,20,2.2)+'</div><div class="lifecard-name serif">'+name+'</div><div class="lifecard-sub">'+sub+'</div><span class="lifecard-go">'+icon('chev',15,2.4)+'</span></div>';}
   var life='';
-  for(var i=0;i<CATS.length;i++){var c=CATS[i];life+=lifecard('cat_'+c.id,c.icon,esc(c.label),esc(c.sub));}
+  for(var i=0;i<CATS.length;i++){var c=CATS[i];life+=lifecard('cat_'+c.id,c.icon,esc(c.label),esc(c.sub),false,c.chip);}
   var ai=lifecard('ai','spark','Forge AI','Ask about your world',true);
   var owner=isOwner()?lifecard('owner','grid','Dashboard','Owner overview'):'';
   return '<div class="home-grid hgv" id="homeGrid">'+hero
@@ -1079,7 +1094,7 @@ function updateNav(tab){
   var bs=nav.querySelectorAll('.navi');for(var i=0;i<bs.length;i++){bs[i].classList.toggle('on',bs[i].getAttribute('data-nav')===key);}
 }
 function go(tab,instant,parent){
-  if(tab===activeTab&&current&&!instant)return;
+  if(tab===activeTab&&current&&!instant){var _e=current.el;if(_e){_e.classList.remove('retap');void _e.offsetWidth;_e.classList.add('retap');try{_e.scrollTo({top:0,behavior:'smooth'});}catch(x){_e.scrollTop=0;}}return;}
   backTarget=parent||null;
   var forward=(tab!==null);
   var stage=document.getElementById('stage');
@@ -1257,6 +1272,7 @@ async function renderTab(tab){
   if(tab==='mealplanner')return renderMealPlanner();
   if(tab==='car')return renderCar();
   if(tab==='upkeep')return renderUpkeep();
+  if(tab==='passwords')return renderPasswords();
   if(tab==='ai')return renderAI();
   if(tab==='futureme')return renderFutureMe();
   if(tab==='calendar')return renderCalendar();
@@ -1338,6 +1354,140 @@ async function trackerInsight(kind){
     if(host)host.innerHTML='<div><div class="rt" style="margin-bottom:6px">Forge AI on your '+esc(cfg.label.toLowerCase())+'</div><div class="rs" style="line-height:1.5">'+aiFmt(ans)+'</div></div>';
   }catch(e){if(host)host.innerHTML='<div class="rs">Couldn\u2019t reach Forge AI right now \u2014 try again in a moment.</div>';}
 }
+// ============================================================
+// PASSWORDS — a real encrypted vault. AES-GCM + PBKDF2 (Web
+// Crypto). The server only ever sees ciphertext; the master
+// password never leaves the device and is never stored.
+// ============================================================
+var pwKey=null;            // in-memory CryptoKey when unlocked (null = locked)
+var pwReveal={};           // entry id -> revealed bool (for the open sheet)
+var PW_VERIFY='forge-vault-v1';
+
+function pwBufToB64(buf){var b=new Uint8Array(buf),s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s);}
+function pwB64ToBuf(b64){var s=atob(b64),b=new Uint8Array(s.length);for(var i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b.buffer;}
+async function pwDeriveKey(master,saltBuf){
+  var base=await crypto.subtle.importKey('raw',new TextEncoder().encode(master),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:saltBuf,iterations:160000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function pwEnc(key,plain){var iv=crypto.getRandomValues(new Uint8Array(12));var ct=await crypto.subtle.encrypt({name:'AES-GCM',iv:iv},key,new TextEncoder().encode(plain));return {iv:pwBufToB64(iv),cipher:pwBufToB64(ct)};}
+async function pwDec(key,ivB64,cipherB64){var pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(pwB64ToBuf(ivB64))},key,pwB64ToBuf(cipherB64));return new TextDecoder().decode(pt);}
+
+// ---- vault meta (salt + verifier) ----
+async function pwGetVault(){if(!currentUser)return null;try{var r=await sb.from('vault').select('*').eq('user_id',currentUser.id).maybeSingle();if(r.error)throw r.error;return r.data||null;}catch(e){return null;}}
+async function pwCreateVault(master){
+  var saltB=crypto.getRandomValues(new Uint8Array(16));
+  var key=await pwDeriveKey(master,saltB.buffer);
+  var v=await pwEnc(key,PW_VERIFY);
+  var r=await sb.from('vault').insert({user_id:currentUser.id,salt:pwBufToB64(saltB.buffer),v_iv:v.iv,v_cipher:v.cipher});
+  if(r.error)throw r.error;
+  pwKey=key;
+}
+async function pwUnlock(master,row){
+  var key=await pwDeriveKey(master,pwB64ToBuf(row.salt));
+  var ok=false;try{ok=(await pwDec(key,row.v_iv,row.v_cipher))===PW_VERIFY;}catch(e){ok=false;}
+  if(!ok)throw new Error('wrong');
+  pwKey=key;
+}
+function pwLock(){pwKey=null;pwReveal={};refreshScreen();}
+
+// ---- entries ----
+async function pwList(){if(!currentUser)return[];try{var r=await sb.from('passwords').select('id,label,url,iv,cipher,created_at').eq('user_id',currentUser.id).order('label');if(r.error)throw r.error;return r.data||[];}catch(e){return [];}}
+async function pwSave(o){var blob=JSON.stringify({u:o.username||'',p:o.password||'',n:o.notes||''});var c=await pwEnc(pwKey,blob);var r=await sb.from('passwords').insert({user_id:currentUser.id,label:o.label,url:o.url||'',iv:c.iv,cipher:c.cipher});if(r.error)throw r.error;}
+async function pwDelete(id){var r=await sb.from('passwords').delete().eq('id',id);if(r.error)throw r.error;}
+function pwGenerate(len){len=len||18;var U='ABCDEFGHJKLMNPQRSTUVWXYZ',L='abcdefghijkmnpqrstuvwxyz',D='23456789',S='!@#$%^&*-_=+';var all=U+L+D+S;var a=crypto.getRandomValues(new Uint32Array(len));var out=[U[a[0]%U.length],L[a[1]%L.length],D[a[2]%D.length],S[a[3]%S.length]];for(var i=4;i<len;i++)out.push(all[a[i]%all.length]);for(var j=out.length-1;j>0;j--){var k=a[j]%(j+1);var t=out[j];out[j]=out[k];out[k]=t;}return out.join('');}
+
+async function renderPasswords(){
+  if(!currentUser)return '<div class="card"><div class="rs">Sign in to use the vault.</div></div>';
+  // UNLOCKED
+  if(pwKey){
+    var entries=await pwList();
+    var rows=entries.length?entries.map(function(e){
+      var letter=(e.label||'?').trim().charAt(0).toUpperCase();
+      return '<div class="pw-row" onclick="pwOpen(\''+e.id+'\')"><div class="pw-ico">'+esc(letter)+'</div><div class="pw-main"><div class="pw-label">'+esc(e.label)+'</div>'+(e.url?'<div class="pw-sub">'+esc(e.url)+'</div>':'')+'</div><div class="pw-dots">\u2022\u2022\u2022\u2022\u2022\u2022</div>'+icon('chev',16,2.4)+'</div>';
+    }).join(''):'<div class="rs" style="padding:14px 2px;text-align:center">No saved logins yet. Tap + to add one.</div>';
+    return pwCSS()+'<div class="stack" style="padding-bottom:90px"><div class="pw-bar"><div class="pw-bar-l">'+icon('shield',16,2.2)+' <span>Vault unlocked</span></div><button class="pw-lock" onclick="pwLock()">'+icon('padlock',14,2.4)+' Lock</button></div><div class="cal-card" style="padding:6px 14px">'+rows+'</div><button class="pw-fab" onclick="pwAddSheet()" aria-label="Add login">'+icon('plus',24,2.6)+'</button></div>';
+  }
+  // LOCKED — decide create vs unlock
+  var vault=await pwGetVault();
+  if(vault){
+    return pwCSS()+'<div class="stack"><div class="pw-hero"><div class="pw-hero-ico">'+icon('padlock',30,2.2)+'</div><div class="pw-hero-t">Vault locked</div><div class="pw-hero-s">Enter your master password to unlock your saved logins.</div><input class="pw-field" id="pwMaster" type="password" placeholder="Master password" autocomplete="off" onkeydown="if(event.key===\'Enter\')pwDoUnlock()"/><button class="btn btn-primary pw-go" onclick="pwDoUnlock()">Unlock</button><div class="pw-note">'+icon('shield',13,2.2)+' Everything is encrypted on your device. We can\u2019t see your passwords \u2014 and if you forget the master password, they can\u2019t be recovered.</div></div></div>';
+  }
+  return pwCSS()+'<div class="stack"><div class="pw-hero"><div class="pw-hero-ico">'+icon('shield',30,2.2)+'</div><div class="pw-hero-t">Create your vault</div><div class="pw-hero-s">Pick a master password. It encrypts everything and is never stored \u2014 so choose something strong you won\u2019t forget.</div><input class="pw-field" id="pwNew1" type="password" placeholder="Master password (10+ characters)" autocomplete="off"/><input class="pw-field" id="pwNew2" type="password" placeholder="Confirm master password" autocomplete="off" onkeydown="if(event.key===\'Enter\')pwDoCreate()"/><button class="btn btn-primary pw-go" onclick="pwDoCreate()">Create vault</button><div class="pw-note">'+icon('shield',13,2.2)+' Encrypted with AES-256 on your device. If you lose this password there is no reset \u2014 that\u2019s what keeps it private.</div></div></div>';
+}
+
+async function pwDoUnlock(){
+  var m=(document.getElementById('pwMaster')||{}).value||'';if(!m){toast('Enter your master password');return;}
+  var vault=await pwGetVault();if(!vault){refreshScreen();return;}
+  try{await pwUnlock(m,vault);toast('Unlocked \u2713');await refreshScreen();}catch(e){toast('Wrong master password');}
+}
+async function pwDoCreate(){
+  var a=(document.getElementById('pwNew1')||{}).value||'',b=(document.getElementById('pwNew2')||{}).value||'';
+  if(a.length<10){toast('Use at least 10 characters');return;}
+  if(a!==b){toast('Passwords don\u2019t match');return;}
+  try{await pwCreateVault(a);toast('Vault created \u2713');await refreshScreen();}catch(e){toast('Couldn\u2019t create \u2014 run the vault SQL once');}
+}
+
+async function pwOpen(id){
+  var entries=await pwList();var e=null;for(var i=0;i<entries.length;i++)if(entries[i].id===id)e=entries[i];if(!e)return;
+  var data={u:'',p:'',n:''};try{data=JSON.parse(await pwDec(pwKey,e.iv,e.cipher));}catch(_){}
+  var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
+  var field=function(lbl,val,mask){var id2='f'+Math.random().toString(36).slice(2,7);return '<div class="pw-f"><div class="pw-f-l">'+lbl+'</div><div class="pw-f-r"><span class="pw-f-v'+(mask?' mono':'')+'" id="'+id2+'" data-real="'+esc(val)+'" data-mask="'+(mask?'1':'0')+'">'+(mask?'\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022':esc(val||'\u2014'))+'</span>'+(mask?'<button class="pw-mini" onclick="pwToggle(\''+id2+'\',this)">'+icon('eye',15,2.2)+'</button>':'')+(val?'<button class="pw-mini" onclick="pwCopy('+JSON.stringify(val).replace(/"/g,'&quot;')+',this)">'+icon('copy',15,2.2)+'</button>':'')+'</div></div>';};
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()"><h3>'+esc(e.label)+'</h3>'+(e.url?'<div class="pw-url">'+esc(e.url)+'</div>':'')+pwCSS()+field('Username',data.u,false)+field('Password',data.p,true)+(data.n?field('Notes',data.n,false):'')+'<button class="btn btn-ghost pw-del" onclick="pwDoDelete(\''+e.id+'\')">'+icon('trash',15,2.2)+' Delete login</button><button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="closeOverlay()">Done</button></div>';
+  document.getElementById('app').appendChild(o);
+}
+function pwToggle(id,btn){var el=document.getElementById(id);if(!el)return;var real=el.getAttribute('data-real');if(el.getAttribute('data-mask')==='1'){el.textContent=real;el.setAttribute('data-mask','0');btn.innerHTML=icon('eyeoff',15,2.2);}else{el.textContent='\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';el.setAttribute('data-mask','1');btn.innerHTML=icon('eye',15,2.2);}}
+function pwCopy(val,btn){try{navigator.clipboard.writeText(val);var o=btn.innerHTML;btn.innerHTML=icon('check',15,2.6);setTimeout(function(){btn.innerHTML=o;},1100);}catch(e){toast('Copy failed');}}
+async function pwDoDelete(id){try{await pwDelete(id);}catch(e){}closeOverlay();await refreshScreen();toast('Deleted');}
+
+function pwAddSheet(){
+  var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()">'+pwCSS()+'<h3>Add login</h3>'+
+    '<input class="pw-field" id="paLabel" placeholder="Name (e.g. Gmail)" autocapitalize="words"/>'+
+    '<input class="pw-field" id="paUrl" placeholder="Website (optional)" autocapitalize="off"/>'+
+    '<input class="pw-field" id="paUser" placeholder="Username or email" autocapitalize="off"/>'+
+    '<div class="pw-genrow"><input class="pw-field" id="paPass" placeholder="Password" autocapitalize="off" style="margin:0;flex:1"/><button class="pw-gen" onclick="pwFillGen()" title="Generate">'+icon('dice',17,2.2)+'</button></div>'+
+    '<input class="pw-field" id="paNotes" placeholder="Notes (optional)"/>'+
+    '<div class="btnrow"><button class="btn btn-ghost" onclick="closeOverlay()">Cancel</button><button class="btn btn-primary" onclick="pwDoAdd()">Save</button></div></div>';
+  document.getElementById('app').appendChild(o);
+  setTimeout(function(){var l=document.getElementById('paLabel');if(l)l.focus();},120);
+}
+function pwFillGen(){var f=document.getElementById('paPass');if(f){f.type='text';f.value=pwGenerate(18);}}
+async function pwDoAdd(){
+  var label=(document.getElementById('paLabel').value||'').trim();if(!label){toast('Give it a name');return;}
+  var o={label:label,url:(document.getElementById('paUrl').value||'').trim(),username:(document.getElementById('paUser').value||'').trim(),password:document.getElementById('paPass').value||'',notes:(document.getElementById('paNotes').value||'').trim()};
+  try{await pwSave(o);closeOverlay();toast('Saved \u2713');await refreshScreen();}catch(e){toast('Couldn\u2019t save \u2014 run the vault SQL once');}
+}
+
+function pwCSS(){return '<style>'+
+'.pw-hero{text-align:center;max-width:340px;margin:30px auto 0;display:flex;flex-direction:column;align-items:center}'+
+'.pw-hero-ico{width:68px;height:68px;border-radius:20px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:inset 0 0 0 1px rgba(47,107,255,.25)}'+
+'.pw-hero-t{font-family:var(--display,inherit);font-weight:800;font-size:22px;color:var(--ink);letter-spacing:-.01em}'+
+'.pw-hero-s{font-size:13.5px;color:var(--sub);line-height:1.55;margin:8px 0 20px}'+
+'.pw-field{width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--line);border-radius:13px;padding:13px 15px;font-size:15px;font-family:inherit;color:var(--ink);margin-bottom:11px;outline:none;transition:border-color .15s}'+
+'.pw-field:focus{border-color:var(--accent)}'+
+'.pw-go{width:100%;margin-top:2px}'+
+'.pw-note{font-size:11.5px;color:var(--faint);line-height:1.5;margin-top:18px;display:flex;gap:7px;align-items:flex-start;text-align:left;background:var(--surface-2);padding:12px 14px;border-radius:12px}'+
+'.pw-note svg{flex:none;margin-top:1px;color:var(--sub)}'+
+'.pw-bar{display:flex;align-items:center;justify-content:space-between;margin:6px 2px 12px}'+
+'.pw-bar-l{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:var(--ok)}'+
+'.pw-lock{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--sub);background:var(--surface-3);border:none;border-radius:10px;padding:8px 12px;cursor:pointer;transition:transform .1s}.pw-lock:active{transform:scale(.94)}'+
+'.pw-row{display:flex;align-items:center;gap:13px;padding:13px 2px;cursor:pointer;border-bottom:1px solid var(--line)}.pw-row:last-child{border-bottom:none}.pw-row:active{opacity:.6}'+
+'.pw-ico{width:40px;height:40px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--display,inherit);font-weight:800;font-size:17px;flex:none}'+
+'.pw-main{flex:1;min-width:0}.pw-label{font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pw-sub{font-size:12px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}'+
+'.pw-dots{color:var(--faint);letter-spacing:1px;font-size:13px}'+
+'.pw-row svg{color:var(--faint);flex:none}'+
+'.pw-url{font-size:12.5px;color:var(--accent);font-weight:600;margin:-6px 0 14px}'+
+'.pw-f{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}'+
+'.pw-f-l{font-size:12px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;flex:none}'+
+'.pw-f-r{display:flex;align-items:center;gap:4px;min-width:0;flex:1;justify-content:flex-end}'+
+'.pw-f-v{font-size:15px;color:var(--ink);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pw-f-v.mono{font-family:var(--mono,monospace);letter-spacing:.5px}'+
+'.pw-mini{background:none;border:none;color:var(--sub);padding:6px;cursor:pointer;border-radius:8px;flex:none;transition:background .15s}.pw-mini:active{background:var(--surface-3)}'+
+'.pw-del{width:100%;margin-top:16px;color:var(--danger);display:inline-flex;align-items:center;justify-content:center;gap:7px}'+
+'.pw-genrow{display:flex;gap:9px;align-items:stretch;margin-bottom:11px}'+
+'.pw-gen{flex:none;width:48px;border-radius:13px;border:1px solid var(--line);background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s}.pw-gen:active{transform:scale(.92)}'+
+'.pw-fab{position:fixed;right:18px;bottom:78px;width:54px;height:54px;border-radius:50%;background:var(--accent);color:#fff;border:none;box-shadow:0 12px 26px -10px rgba(47,107,255,.6);display:flex;align-items:center;justify-content:center;z-index:40;cursor:pointer;transition:transform .12s}.pw-fab:active{transform:scale(.9)}'+
+'</style>';}
+
 // ============================================================
 // CALENDAR — the spine. Year / Month / Week / Day / Agenda.
 // Apple-style: pinch to zoom scales, tap a day to dive in,
