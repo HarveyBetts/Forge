@@ -25,8 +25,13 @@
 <script>
 function px(n){return Math.round(n)+'px'}
 function read(){
+  var ua=navigator.userAgent||'';
+  var isIOS=/iPad|iPhone|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   var standalone=window.navigator.standalone===true||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches);
-  if(standalone&&screen&&screen.height){var ih=window.innerHeight||0,sh=screen.height;if(sh>=ih&&sh-ih<160)document.documentElement.style.setProperty('--ah',sh+'px');}
+  var overrideActive=false;
+  var appEl=document.getElementById('app');
+  if(isIOS&&standalone&&screen&&screen.height){var ih=window.innerHeight||0,sh=screen.height;if(sh>=ih&&sh-ih<160){document.documentElement.style.setProperty('--ah',sh+'px');if(appEl)appEl.style.height=sh+'px';overrideActive=true;}}
+  if(!overrideActive){document.documentElement.style.removeProperty('--ah');if(appEl)appEl.style.removeProperty('height');}
   var cs=getComputedStyle(document.documentElement);
   var vv=window.visualViewport||{};
   var safeTop=cs.getPropertyValue('--sat')||'';
@@ -36,9 +41,12 @@ function read(){
   var sab=getComputedStyle(probe).height;probe.remove();
   document.getElementById('pad').innerHTML=
     '<b>standalone:</b> '+(window.navigator.standalone===true)+'<br>'+
+    '<b>detected iOS:</b> '+isIOS+'<br>'+
+    '<b>screen.height override:</b> '+(overrideActive?'ACTIVE':'off (using 100dvh)')+'<br>'+
     '<b>innerHeight:</b> '+px(window.innerHeight)+'<br>'+
     '<b>100dvh (#full):</b> '+px(document.getElementById('full').offsetHeight)+'<br>'+
     '<b>screen.height:</b> '+px(screen.height)+'<br>'+
+    '<b>--app-h applied:</b> '+(getComputedStyle(document.getElementById('app')).height)+'<br>'+
     '<b>visualViewport.h:</b> '+px(vv.height||0)+'<br>'+
     '<b>safe-bottom inset:</b> '+sab+'<br><br>'+
     'If GREEN fills the whole phone and BLUE touches the home bar with no RED showing — the fix works.<br><br>'+
