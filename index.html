@@ -382,7 +382,21 @@ svg{display:block;}
 .lifecard-chip.accent{background:var(--accent-soft);border-color:rgba(47,107,255,.35);color:var(--accent);}
 .lifecard-name{font-size:16.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink);margin-top:15px;}
 .lifecard-sub{font-size:12px;color:var(--sub);margin-top:3px;line-height:1.35;}
-.lifecard-go{position:absolute;top:15px;right:13px;color:var(--faint);opacity:.55;}
+.lifecard-go{position:absolute;top:15px;right:13px;color:var(--faint);opacity:.55;transition:transform .22s cubic-bezier(.2,.8,.2,1),opacity .22s,color .22s;}
+/* Desktop hover — real pointers only, so touch devices don't get stuck states */
+@media(hover:hover) and (pointer:fine){
+  .lifecard{transition:transform .24s cubic-bezier(.2,.8,.2,1),border-color .24s,box-shadow .24s;}
+  .lifecard:hover{transform:translateY(-4px);box-shadow:0 22px 44px -22px rgba(15,23,42,.30),0 4px 12px -6px rgba(15,23,42,.12);border-color:rgba(47,107,255,.32);}
+  .lifecard:hover .lifecard-go{transform:translateX(3px);opacity:1;color:var(--accent);}
+  .lifecard:hover .lifecard-chip{transform:scale(1.04);}
+  .lifecard-chip{transition:transform .24s cubic-bezier(.2,.8,.2,1);}
+  .lifecard:active{transform:translateY(-1px) scale(.99);}
+  .home-hero:hover{transform:translateY(-2px);box-shadow:0 26px 52px -26px rgba(15,23,42,.32),var(--shadow-lg);}
+}
+/* App Store-style shared-element zoom overlay */
+.zoomclone{position:fixed;z-index:60;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;will-change:transform,border-radius;transform-origin:top left;pointer-events:none;}
+.zoomclone.go{box-shadow:0 40px 90px -30px rgba(15,23,42,.35);}
+.zoomfade{position:fixed;inset:0;z-index:59;background:var(--bg);opacity:0;pointer-events:none;}
 </style>
 </head>
 <body>
@@ -1097,7 +1111,7 @@ function homeHTML(){
   var dateStr=d.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
   var hero='<div class="home-hero"><div class="home-hero-eye">'+icon('spark',13,2.4)+esc(dateStr)+'</div><div class="serif home-hero-greet">'+greet+(fname?', '+esc(fname):'')+'</div><div class="home-hero-sub" id="briefLine">Here\u2019s your day at a glance</div></div>';
   function lbl(t){return '<div class="home-lbl">'+t+'</div>';}
-  function lifecard(id,ic,name,sub,em,col){var cs=col?(' style="background:'+col+'1A;color:'+col+';border-color:'+col+'55"'):'';return '<div class="lifecard'+(em?' on':'')+'" onclick="go(\''+id+'\')"><div class="lifecard-chip'+(em?' accent':'')+'"'+cs+'>'+icon(ic,20,2.2)+'</div><div class="lifecard-name serif">'+name+'</div><div class="lifecard-sub">'+sub+'</div><span class="lifecard-go">'+icon('chev',15,2.4)+'</span></div>';}
+  function lifecard(id,ic,name,sub,em,col){var cs=col?(' style="background:'+col+'1A;color:'+col+';border-color:'+col+'55"'):'';return '<div class="lifecard'+(em?' on':'')+'" onclick="zoomTo(this,\''+id+'\')"><div class="lifecard-chip'+(em?' accent':'')+'"'+cs+'>'+icon(ic,20,2.2)+'</div><div class="lifecard-name serif">'+name+'</div><div class="lifecard-sub">'+sub+'</div><span class="lifecard-go">'+icon('chev',15,2.4)+'</span></div>';}
   var life='';
   for(var i=0;i<CATS.length;i++){var c=CATS[i];life+=lifecard('cat_'+c.id,c.icon,esc(c.label),esc(c.sub),false,c.chip);}
   var ai=lifecard('ai','spark','Forge AI','Ask about your world',true);
@@ -1136,6 +1150,7 @@ function updateNav(tab){
 function go(tab,instant,parent){
   if(tab===activeTab&&current&&!instant){var _e=current.el;if(_e){_e.classList.remove('retap');void _e.offsetWidth;_e.classList.add('retap');try{_e.scrollTo({top:0,behavior:'smooth'});}catch(x){_e.scrollTop=0;}}return;}
   if(tab==='calendar'&&typeof calInvalidate==='function'){calInvalidate();}
+  if(!instant)_zoomFrom=null;   // a normal nav invalidates any pending zoom-back origin
   backTarget=parent||null;
   var forward=(tab!==null);
   var stage=document.getElementById('stage');
@@ -1154,7 +1169,124 @@ function go(tab,instant,parent){
   }
   activeTab=tab;if(!document.getElementById('bottomNav'))mountNav();updateNav(tab);current={tab:tab,el:newEl};newEl.scrollTop=0;
 }
-function back(){if(backTarget){go(backTarget);}else if(activeTab!==null){go(null);}}
+function back(){
+  // Reverse the App Store zoom when returning to the home grid from a zoomed tab.
+  if(_zoomFrom!==null && (backTarget===null||backTarget===undefined) && activeTab===_zoomFrom){
+    if(zoomBack(_zoomFrom))return;
+  }
+  if(backTarget){go(backTarget);}else if(activeTab!==null){go(null);}
+}
+
+function zoomBack(fromTab){
+  try{
+    if(_zoomBusy)return false;
+    var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    var appEl=document.getElementById('app');
+    var pageEl=current?current.el:null;
+    if(reduce||!appEl||!pageEl)return false;
+    var ar=appEl.getBoundingClientRect();
+    // Build the home screen underneath (hidden) so we can find the destination card.
+    var home=buildScreen(null);home.classList.add('show');home.style.zIndex='0';
+    var stage=document.getElementById('stage');stage.insertBefore(home,stage.firstChild);
+    layoutHome(home);
+    var card=home.querySelector('.lifecard[onclick*="\''+fromTab+'\'"]');
+    if(!card){if(home.parentNode)home.parentNode.removeChild(home);return false;}
+    var r=card.getBoundingClientRect();
+    if(!r.width||!r.height){if(home.parentNode)home.parentNode.removeChild(home);return false;}
+    _zoomBusy=true;
+    // Snapshot the current full-screen page into a clone that will shrink into the card.
+    var clone=document.createElement('div');clone.className='zoomclone go';
+    clone.style.left=ar.left+'px';clone.style.top=ar.top+'px';
+    clone.style.width=ar.width+'px';clone.style.height=ar.height+'px';clone.style.borderRadius='0px';
+    var hd=pageEl.querySelector('header, .cal-head');
+    clone.innerHTML='<div style="padding:0;height:100%;overflow:hidden">'+pageEl.innerHTML+'</div>';
+    appEl.appendChild(clone);
+    // Drop the real page now; home shows through under the clone.
+    activeTab=null;current={tab:null,el:home};backTarget=null;
+    renderHeader(null);manageFab(null);updateNav(null);
+    if(pageEl&&pageEl.parentNode)pageEl.parentNode.removeChild(pageEl);
+    card.style.visibility='hidden';
+    var endRad=parseFloat(getComputedStyle(card).borderRadius)||18;
+    var dx=r.left-ar.left, dy=r.top-ar.top;
+    var sx=r.width/ar.width, sy=r.height/ar.height, DUR=440;
+    requestAnimationFrame(function(){requestAnimationFrame(function(){
+      clone.style.transition='transform '+DUR+'ms cubic-bezier(.32,.72,0,1),border-radius '+DUR+'ms cubic-bezier(.32,.72,0,1),opacity '+DUR+'ms ease';
+      clone.style.transform='translate('+dx+'px,'+dy+'px) scale('+sx+','+sy+')';
+      clone.style.borderRadius=(endRad/Math.max(sx,sy))+'px';
+      clone.style.opacity='0';
+    });});
+    var fin=function(){
+      if(clone.parentNode)clone.parentNode.removeChild(clone);
+      if(card)card.style.visibility='';
+      _zoomFrom=null;_zoomBusy=false;
+    };
+    clone.addEventListener('transitionend',function h(e){if(e.propertyName==='transform'){clone.removeEventListener('transitionend',h);fin();}});
+    setTimeout(function(){if(_zoomBusy)fin();},DUR+120);
+    return true;
+  }catch(err){_zoomBusy=false;_zoomFrom=null;return false;}
+}
+
+// App Store-style shared-element zoom: expand the tapped card to fill the screen,
+// render the destination underneath, then hand off. Falls back to plain go() if
+// anything is unavailable (reduced motion, missing rect, etc.).
+var _zoomBusy=false, _zoomFrom=null;
+function zoomTo(cardEl,tab){
+  try{
+    if(_zoomBusy){return;}
+    var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    var appEl=document.getElementById('app');
+    if(reduce||!cardEl||!appEl){go(tab);return;}
+    var r=cardEl.getBoundingClientRect();
+    var ar=appEl.getBoundingClientRect();
+    if(!r.width||!r.height){go(tab);return;}
+    _zoomBusy=true;
+    _zoomFrom=tab;   // remember origin so back() can reverse the zoom into this card
+    // start radius matches the card; end radius 0 (full-bleed page)
+    var startRad=parseFloat(getComputedStyle(cardEl).borderRadius)||18;
+    // clone = a snapshot of the card pinned exactly over the real one
+    var clone=document.createElement('div');
+    clone.className='zoomclone';
+    clone.style.left=r.left+'px';clone.style.top=r.top+'px';
+    clone.style.width=r.width+'px';clone.style.height=r.height+'px';
+    clone.style.borderRadius=startRad+'px';
+    clone.innerHTML=cardEl.innerHTML;
+    // a fading veil so the home grid behind dims as the card takes over
+    var fade=document.createElement('div');fade.className='zoomfade';
+    appEl.appendChild(fade);appEl.appendChild(clone);
+    cardEl.style.visibility='hidden';
+    // target = fill the whole app box
+    var dx=ar.left-r.left, dy=ar.top-r.top;
+    var sx=ar.width/r.width, sy=ar.height/r.height;
+    var DUR=460;
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        clone.classList.add('go');
+        clone.style.transition='transform '+DUR+'ms cubic-bezier(.32,.72,0,1),border-radius '+DUR+'ms cubic-bezier(.32,.72,0,1)';
+        clone.style.transform='translate('+dx+'px,'+dy+'px) scale('+sx+','+sy+')';
+        clone.style.borderRadius=(startRad/Math.max(sx,sy))+'px';
+        fade.style.transition='opacity '+(DUR*0.7)+'ms ease';
+        fade.style.opacity='1';
+      });
+    });
+    var finish=function(){
+      // render the destination instantly underneath the full-screen clone…
+      go(tab,true);
+      // …then fade the clone away to reveal it
+      requestAnimationFrame(function(){
+        clone.style.transition='opacity .2s ease';clone.style.opacity='0';
+        fade.style.transition='opacity .2s ease';fade.style.opacity='0';
+        setTimeout(function(){
+          if(clone.parentNode)clone.parentNode.removeChild(clone);
+          if(fade.parentNode)fade.parentNode.removeChild(fade);
+          if(cardEl)cardEl.style.visibility='';
+          _zoomBusy=false;
+        },210);
+      });
+    };
+    clone.addEventListener('transitionend',function h(e){if(e.propertyName==='transform'){clone.removeEventListener('transitionend',h);finish();}});
+    setTimeout(function(){if(_zoomBusy&&clone.parentNode){finish();}},DUR+120);
+  }catch(err){_zoomBusy=false;try{go(tab);}catch(_){}}
+}
 
 function manageFab(tab){
   var old=document.querySelector('.fab');if(old)old.remove();
