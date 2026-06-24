@@ -1,0 +1,48 @@
+<!doctype html><html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Forge viewport diag</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;position:fixed;width:100%;overflow:hidden;font-family:-apple-system,system-ui,sans-serif}
+  /* RED = full screen via 100dvh. If you see red peeking below the green box, dvh is bigger than the app box. */
+  #full{position:fixed;top:0;left:0;right:0;height:100dvh;background:#DC2626}
+  /* GREEN = an app box sized exactly like Forge's #app currently is. */
+  #app{position:fixed;top:0;left:0;right:0;height:100dvh;margin:0 auto;max-width:480px;background:#16A34A;display:flex;flex-direction:column;color:#fff}
+  /* BLUE bar pinned to bottom of the green app box, like the nav. */
+  #nav{position:absolute;left:0;right:0;bottom:0;height:calc(62px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:#2563EB;display:flex;align-items:center;justify-content:center;font-weight:700}
+  #pad{flex:1;padding:calc(16px + env(safe-area-inset-top,0px)) 18px 0;font-size:13px;line-height:1.8}
+  #pad b{color:#FDE68A}
+  .row{font-variant-numeric:tabular-nums}
+</style></head><body>
+<div id="full"></div>
+<div id="app">
+  <div id="pad" class="row" id="out">loading…</div>
+  <div id="nav">NAV — should touch the home bar</div>
+</div>
+<script>
+function px(n){return Math.round(n)+'px'}
+function read(){
+  var cs=getComputedStyle(document.documentElement);
+  var vv=window.visualViewport||{};
+  var safeTop=cs.getPropertyValue('--sat')||'';
+  var probe=document.createElement('div');
+  probe.style.cssText='position:fixed;top:0;height:env(safe-area-inset-bottom);visibility:hidden';
+  document.body.appendChild(probe);
+  var sab=getComputedStyle(probe).height;probe.remove();
+  document.getElementById('pad').innerHTML=
+    '<b>standalone:</b> '+(window.navigator.standalone===true)+'<br>'+
+    '<b>innerHeight:</b> '+px(window.innerHeight)+'<br>'+
+    '<b>100dvh (#full):</b> '+px(document.getElementById('full').offsetHeight)+'<br>'+
+    '<b>screen.height:</b> '+px(screen.height)+'<br>'+
+    '<b>visualViewport.h:</b> '+px(vv.height||0)+'<br>'+
+    '<b>safe-bottom inset:</b> '+sab+'<br><br>'+
+    'If GREEN fills the whole phone and BLUE touches the home bar with no RED showing — the fix works.<br><br>'+
+    'If you see RED below BLUE — dvh is taller than the box (different bug).<br>'+
+    'If BLUE floats with a gap under it — the box is shorter than the screen.';
+}
+read();window.addEventListener('resize',read);
+if(window.visualViewport)window.visualViewport.addEventListener('resize',read);
+</script></body></html>
