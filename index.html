@@ -409,20 +409,30 @@ svg{display:block;}
 <script>
 // --- viewport height lock (runs immediately, independent of app init) ---
 (function(){
-  // Keep --vh updated for any layout that reads it; height of #app itself is now
-  // handled purely in CSS (100vh = full glass on iOS, in Safari AND standalone).
-  function applyAppHeight(){
+  var ua=navigator.userAgent||'';
+  var isIOS=/iPad|iPhone|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  // The ONLY value that matches the real glass on this device is screen.height (693),
+  // proven by the on-device diagnostic. innerHeight/dvh/lvh all report the short
+  // viewport (560) and leave a bar. So on iOS we hard-set the pixel height of the
+  // full-screen layers directly — no CSS units, no conditions that can misfire.
+  function fit(){
     var ih=window.innerHeight||document.documentElement.clientHeight||0;
     if(ih)document.documentElement.style.setProperty('--vh',ih+'px');
+    if(!isIOS)return;                       // non-iOS: CSS 100lvh/dvh is correct, leave alone
+    var sh=(window.screen&&window.screen.height)||0;
+    var h=(sh>=ih&&sh>0)?sh:ih;             // use the glass height; fall back to ih if odd
+    var a=document.getElementById('app'); if(a)a.style.height=h+'px';
+    var i=document.getElementById('intro'); if(i)i.style.height=h+'px';
   }
-  var _vh=applyAppHeight;
-  _vh();
-  // #app may not exist at parse time; re-apply once the DOM is ready and after load,
-  // because navigator.standalone / screen.height can settle slightly late on iOS.
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_vh);
-  window.addEventListener('load',function(){_vh();setTimeout(_vh,300);});
-  window.addEventListener('resize',_vh);
-  window.addEventListener('orientationchange',function(){setTimeout(_vh,150);setTimeout(_vh,450);});
+  fit();
+  // Run again across the load cycle — iOS settles screen/viewport metrics late, and
+  // #app/#intro may not exist at first paint.
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fit);
+  window.addEventListener('load',function(){fit();setTimeout(fit,100);setTimeout(fit,400);setTimeout(fit,1000);});
+  window.addEventListener('resize',fit);
+  window.addEventListener('orientationchange',function(){setTimeout(fit,150);setTimeout(fit,450);});
+  // Expose so other code (post-splash, auth) can re-assert the height.
+  window.__forgeFit=fit;
 })();
 // ============================================================
 // CONFIG
@@ -2804,11 +2814,8 @@ function showInvite(){
 // SIZING / ZOOM LOCK (tasks #3, #4, #14)
 // ============================================================
 function sizeApp(){
-  var ih=window.innerHeight||document.documentElement.clientHeight||0;
-  if(ih)document.documentElement.style.setProperty('--vh',ih+'px');
-  // #app height is handled purely in CSS (100lvh = full glass on iOS). Clear any
-  // stale inline height a previous version may have set so CSS stays authoritative.
-  var appEl=document.getElementById('app');if(appEl&&appEl.style.height)appEl.style.removeProperty('height');
+  // Re-assert the hard-set glass height (iOS) and refresh home layout.
+  if(window.__forgeFit)window.__forgeFit();
   var home=document.querySelector('.screen.is-home');if(home)layoutHome(home);
 }
 window.addEventListener('resize',sizeApp);
