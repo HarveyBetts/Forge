@@ -9,8 +9,8 @@
   html,body{height:100%;position:fixed;width:100%;overflow:hidden;font-family:-apple-system,system-ui,sans-serif}
   /* RED = full screen via 100dvh. If you see red peeking below the green box, dvh is bigger than the app box. */
   #full{position:fixed;top:0;left:0;right:0;height:100dvh;background:#DC2626}
-  /* GREEN = an app box sized exactly like Forge's #app currently is. */
-  #app{position:fixed;top:0;left:0;right:0;height:100dvh;margin:0 auto;max-width:480px;background:#16A34A;display:flex;flex-direction:column;color:#fff}
+  /* GREEN = app box sized from screen.height (the real fix). */
+  #app{position:fixed;top:0;left:0;right:0;height:693px;height:var(--ah,100dvh);margin:0 auto;max-width:480px;background:#16A34A;display:flex;flex-direction:column;color:#fff}
   /* BLUE bar pinned to bottom of the green app box, like the nav. */
   #nav{position:absolute;left:0;right:0;bottom:0;height:calc(62px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:#2563EB;display:flex;align-items:center;justify-content:center;font-weight:700}
   #pad{flex:1;padding:calc(16px + env(safe-area-inset-top,0px)) 18px 0;font-size:13px;line-height:1.8}
@@ -25,6 +25,8 @@
 <script>
 function px(n){return Math.round(n)+'px'}
 function read(){
+  var standalone=window.navigator.standalone===true||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches);
+  if(standalone&&screen&&screen.height){var ih=window.innerHeight||0,sh=screen.height;if(sh>=ih&&sh-ih<160)document.documentElement.style.setProperty('--ah',sh+'px');}
   var cs=getComputedStyle(document.documentElement);
   var vv=window.visualViewport||{};
   var safeTop=cs.getPropertyValue('--sat')||'';
