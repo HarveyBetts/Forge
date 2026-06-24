@@ -39,7 +39,7 @@ html{background:#05070F;}
 body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:#05070F;display:flex;justify-content:center;-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;letter-spacing:-0.01em;}
 input,textarea{-webkit-user-select:text;user-select:text;font-size:16px;font-family:inherit;}
 .serif{font-family:'Sora','Inter',sans-serif;letter-spacing:-0.025em;}
-#app{width:100%;max-width:480px;position:fixed;top:0;left:0;right:0;margin:0 auto;height:100vh;height:100dvh;background:var(--mesh);display:flex;flex-direction:column;overflow:hidden;isolation:isolate;}
+#app{width:100%;max-width:480px;position:fixed;top:0;left:0;right:0;margin:0 auto;height:100vh;height:100dvh;height:var(--app-h,100dvh);background:var(--mesh);display:flex;flex-direction:column;overflow:hidden;isolation:isolate;}
 @media(min-width:520px) and (max-width:899px){#app{box-shadow:0 0 80px rgba(0,0,0,.5);}}
 header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0px)) 20px 13px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--line);flex-shrink:0;background:var(--bg);}
 .logo{width:42px;height:42px;border-radius:13px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--accent);font-family:'Sora',serif;font-weight:700;font-size:24px;line-height:1;border:1px solid var(--hair);box-shadow:var(--shadow);flex-shrink:0;cursor:pointer;overflow:hidden;transition:transform .18s;}
@@ -404,7 +404,28 @@ svg{display:block;}
 
 <script>
 // --- viewport height lock (runs immediately, independent of app init) ---
-(function(){function _vh(){var h=window.innerHeight||document.documentElement.clientHeight||0;if(h){document.documentElement.style.setProperty('--vh',h+'px');document.documentElement.style.setProperty('--app-h',h+'px');}}_vh();window.addEventListener('resize',_vh);window.addEventListener('orientationchange',function(){setTimeout(_vh,150);setTimeout(_vh,450);});if(window.visualViewport){window.visualViewport.addEventListener('resize',_vh);}})();
+(function(){
+  function isStandalone(){return window.navigator.standalone===true||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches);}
+  function _vh(){
+    var ih=window.innerHeight||document.documentElement.clientHeight||0;
+    if(ih)document.documentElement.style.setProperty('--vh',ih+'px');
+    // On an installed iOS PWA, 100dvh and innerHeight both report the SHORT
+    // safe viewport (e.g. 654) while the real glass is screen.height (e.g. 693).
+    // position:fixed paints to the full glass, so the app box must be screen.height
+    // or the bottom nav floats above the home bar. Only do this in standalone;
+    // in a browser tab screen.height is wrong (toolbars), so fall back to innerHeight.
+    var full=ih;
+    if(isStandalone()&&screen&&screen.height){
+      var sh=screen.height;
+      // sanity: only trust it if it's within a sane band above innerHeight
+      if(sh>=ih&&sh-ih<160)full=sh;
+    }
+    if(full)document.documentElement.style.setProperty('--app-h',full+'px');
+  }
+  _vh();
+  window.addEventListener('resize',_vh);
+  window.addEventListener('orientationchange',function(){setTimeout(_vh,150);setTimeout(_vh,450);});
+})();
 // ============================================================
 // CONFIG
 // ============================================================
@@ -2645,7 +2666,15 @@ function showInvite(){
 // ============================================================
 // SIZING / ZOOM LOCK (tasks #3, #4, #14)
 // ============================================================
-function sizeApp(){var ih=window.innerHeight||document.documentElement.clientHeight||0;if(ih){document.documentElement.style.setProperty('--vh',ih+'px');document.documentElement.style.setProperty('--app-h',ih+'px');}var home=document.querySelector('.screen.is-home');if(home)layoutHome(home);}
+function sizeApp(){
+  var ih=window.innerHeight||document.documentElement.clientHeight||0;
+  if(ih)document.documentElement.style.setProperty('--vh',ih+'px');
+  var standalone=window.navigator.standalone===true||(window.matchMedia&&window.matchMedia('(display-mode:standalone)').matches);
+  var full=ih;
+  if(standalone&&screen&&screen.height){var sh=screen.height;if(sh>=ih&&sh-ih<160)full=sh;}
+  if(full)document.documentElement.style.setProperty('--app-h',full+'px');
+  var home=document.querySelector('.screen.is-home');if(home)layoutHome(home);
+}
 window.addEventListener('resize',sizeApp);
 // Re-pull cloud tabs whenever the app regains focus, so devices stay identical
 document.addEventListener('visibilitychange',function(){
