@@ -176,6 +176,53 @@ header{position:relative;z-index:3;padding:calc(16px + env(safe-area-inset-top,0
 .bud-quick{display:flex;gap:8px;margin:12px 0;}
 .bud-quick input{flex:1;border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:12px 14px;font-size:15px;font-family:inherit;color:var(--ink);outline:none;}
 .bud-quick button{padding:0 18px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;}
+/* ---------- Budget onboarding wizard ---------- */
+.bwz{position:fixed;inset:0;z-index:115;background:var(--bg);display:flex;flex-direction:column;animation:bwzIn .3s ease;}
+@keyframes bwzIn{from{opacity:0}to{opacity:1}}
+.bwz-top{padding:calc(16px + env(safe-area-inset-top)) 20px 12px;display:flex;align-items:center;gap:14px;}
+.bwz-back{width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink);flex-shrink:0;}
+.bwz-back:active{transform:scale(.92);}
+.bwz-prog{flex:1;height:6px;border-radius:6px;background:var(--surface-3);overflow:hidden;}
+.bwz-prog>div{height:100%;background:var(--accent);border-radius:6px;transition:width .35s cubic-bezier(.4,0,.2,1);}
+.bwz-step{font-size:12px;font-weight:600;color:var(--sub);flex-shrink:0;}
+.bwz-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 22px 0;display:flex;flex-direction:column;}
+.bwz-kick{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
+.bwz-q{font-family:'Sora',sans-serif;font-weight:800;font-size:25px;line-height:1.22;letter-spacing:-.02em;color:var(--ink);}
+.bwz-help{font-size:14.5px;color:var(--sub);line-height:1.5;margin-top:10px;}
+.bwz-opts{margin-top:24px;display:flex;flex-direction:column;gap:10px;}
+.bwz-opt{display:flex;align-items:center;gap:13px;padding:16px;border:1.5px solid var(--line);border-radius:15px;background:var(--surface);cursor:pointer;transition:transform .12s,border-color .15s,background .15s;text-align:left;font-family:inherit;}
+.bwz-opt:active{transform:scale(.99);}
+.bwz-opt.on{border-color:var(--accent);background:var(--accent)0E;}
+.bwz-opt-ic{font-size:24px;flex-shrink:0;width:30px;text-align:center;}
+.bwz-opt-tx{flex:1;}
+.bwz-opt-t{font-weight:700;font-size:15.5px;color:var(--ink);}
+.bwz-opt-s{font-size:12.5px;color:var(--sub);margin-top:2px;line-height:1.35;}
+.bwz-opt-check{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;}
+.bwz-opt.on .bwz-opt-check{background:var(--accent);border-color:var(--accent);}
+.bwz-input{width:100%;border:1.5px solid var(--line);background:var(--surface);border-radius:15px;padding:18px;font-size:22px;font-weight:700;font-family:'Sora',sans-serif;color:var(--ink);outline:none;margin-top:24px;text-align:center;}
+.bwz-input:focus{border-color:var(--accent);}
+.bwz-inputwrap{position:relative;margin-top:24px;}
+.bwz-inputwrap .bwz-cur{position:absolute;left:18px;top:50%;transform:translateY(-50%);font-size:22px;font-weight:700;font-family:'Sora',sans-serif;color:var(--sub);}
+.bwz-inputwrap .bwz-input{margin-top:0;padding-left:46px;text-align:left;}
+.bwz-foot{padding:14px 22px calc(18px + env(safe-area-inset-bottom));}
+.bwz-next{width:100%;padding:16px;border-radius:14px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:16px;cursor:pointer;font-family:inherit;transition:transform .12s,opacity .15s;}
+.bwz-next:active{transform:scale(.98);}
+.bwz-next:disabled{opacity:.4;cursor:default;}
+.bwz-skip{display:block;margin:12px auto 0;background:none;border:none;color:var(--sub);font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;}
+.bwz-drop{margin-top:24px;border:2px dashed var(--line);border-radius:16px;padding:30px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}
+.bwz-drop:active,.bwz-drop.over{border-color:var(--accent);background:var(--accent)0A;}
+.bwz-drop-ic{font-size:38px;margin-bottom:10px;}
+.bwz-drop-t{font-weight:700;font-size:15px;color:var(--ink);}
+.bwz-drop-s{font-size:13px;color:var(--sub);margin-top:5px;line-height:1.4;}
+.bwz-csv-result{margin-top:16px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px;}
+.bwz-csv-cat{display:flex;justify-content:space-between;align-items:center;padding:7px 2px;font-size:14px;border-bottom:1px solid var(--line);}
+.bwz-csv-cat:last-child{border-bottom:none;}
+.bwz-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px;}
+.bwz-chip{padding:10px 15px;border:1.5px solid var(--line);border-radius:999px;background:var(--surface);font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit;}
+.bwz-chip.on{border-color:var(--accent);background:var(--accent)12;color:var(--accent);}
+.bwz-building{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;}
+.bwz-building-ic{font-size:50px;margin-bottom:18px;animation:bwzPulse 1.4s ease-in-out infinite;}
+@keyframes bwzPulse{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.12);opacity:1}}
 .badge{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);}
 .uav{border-radius:50%;background:var(--grad);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;overflow:hidden;}
 .uav img{width:100%;height:100%;object-fit:cover;}
@@ -782,6 +829,29 @@ function subYearly(s){return s.cycle==='yearly'?(Number(s.cost)||0):(Number(s.co
 function budMonthKey(d){d=d||new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2);}
 function budMonthLabel(m){var p=(m||budMonthKey()).split('-');var dt=new Date(Number(p[0]),Number(p[1])-1,1);return dt.toLocaleDateString(undefined,{month:'long',year:'numeric'});}
 function budShiftMonth(m,delta){var p=(m||budMonthKey()).split('-');var dt=new Date(Number(p[0]),Number(p[1])-1+delta,1);return budMonthKey(dt);}
+// ---- Budget profile (the questionnaire answers) ----
+var _budProfile=undefined; // undefined=unknown, null=none, object=set
+function budProfileKey(){return 'forge.budprofile.'+(currentUser?currentUser.id:'x');}
+async function getBudProfile(force){
+  if(!force&&_budProfile!==undefined)return _budProfile;
+  // local first
+  try{var raw=lsGet(budProfileKey());if(raw){_budProfile=JSON.parse(raw);}}catch(e){}
+  try{
+    var r=await sb.from('budget_profile').select('data').eq('user_id',currentUser.id).maybeSingle();
+    if(r.data&&r.data.data){_budProfile=(typeof r.data.data==='string')?JSON.parse(r.data.data):r.data.data;lsSet(budProfileKey(),JSON.stringify(_budProfile));}
+    else if(_budProfile===undefined)_budProfile=null;
+  }catch(e){if(_budProfile===undefined)_budProfile=null;}
+  return _budProfile;
+}
+async function saveBudProfile(p){
+  _budProfile=p;lsSet(budProfileKey(),JSON.stringify(p));
+  try{await sb.from('budget_profile').upsert({user_id:currentUser.id,data:p,updated_at:new Date().toISOString()},{onConflict:'user_id'});}catch(e){}
+  _brainCache.t=0;
+}
+async function resetBudProfile(){
+  _budProfile=null;try{lsDel(budProfileKey());}catch(e){}
+  try{await sb.from('budget_profile').delete().eq('user_id',currentUser.id);}catch(e){}
+}
 var _budCache={cats:null,assign:{},txns:{},income:{}};
 function _budInvalidate(){_budCache={cats:null,assign:{},txns:{},income:{}};_brainCache.t=0;}
 async function budGetCats(force){
@@ -2614,7 +2684,336 @@ function addNW(k){openForm('Add '+(k==='asset'?'asset':'liability'),'',[{key:'n'
 async function delNW(id){await deleteNetWorth(id);await refreshScreen();}
 var _budMonth=null;
 function budCurMonth(){return _budMonth||budMonthKey();}
+// ============================================================
+// BUDGET ONBOARDING WIZARD (5 stages, one question per screen)
+// ============================================================
+var _bwz=null; // {answers:{}, idx:0}
+// Question schema. types: single, multi, number, chips, csv, intro, building
+var BWZ_QUESTIONS=[
+  {id:'intro',type:'intro',stage:'Welcome',q:'Let\u2019s build a budget that actually fits you',help:'A few quick questions so Forge understands your money, your goals and how you like to think about spending. Takes about 2 minutes — and you can change anything later.'},
+  // --- Stage 1: Basics ---
+  {id:'cycle',type:'single',stage:'The basics',q:'How do you like to think about your money?',help:'This sets the rhythm of your whole budget.',opts:[
+    {v:'weekly',ic:'📅',t:'Weekly',s:'I think week to week'},
+    {v:'fortnightly',ic:'🗓️',t:'Fortnightly',s:'Every two weeks'},
+    {v:'monthly',ic:'📆',t:'Monthly',s:'Month by month'}]},
+  {id:'income_freq',type:'single',stage:'The basics',q:'How often are you paid?',help:'',opts:[
+    {v:'weekly',ic:'💵',t:'Weekly'},
+    {v:'fortnightly',ic:'💵',t:'Fortnightly'},
+    {v:'monthly',ic:'💵',t:'Monthly'},
+    {v:'irregular',ic:'🎲',t:'It varies',s:'Freelance, shifts, commission'}]},
+  {id:'income',type:'number',stage:'The basics',q:'What\u2019s your take-home pay?',help:'After tax, per your pay cycle. A rough figure is fine — you can refine it later.',placeholder:'0'},
+  {id:'income_stable',type:'single',stage:'The basics',q:'How steady is that income?',help:'',opts:[
+    {v:'stable',ic:'🟢',t:'Very steady',s:'Same most pay cycles'},
+    {v:'mostly',ic:'🟡',t:'Mostly steady',s:'Small variations'},
+    {v:'variable',ic:'🔴',t:'Quite variable',s:'Changes a lot'}]},
+  // --- Stage 2: Situation ---
+  {id:'living',type:'single',stage:'Your situation',q:'What\u2019s your living situation?',help:'This shapes your biggest fixed costs.',opts:[
+    {v:'rent',ic:'🔑',t:'Renting'},
+    {v:'mortgage',ic:'🏠',t:'Mortgage / own'},
+    {v:'family',ic:'👨‍👩‍👧',t:'With family',s:'Low or no rent'},
+    {v:'shared',ic:'🛋️',t:'Shared / flatshare'}]},
+  {id:'housing_cost',type:'number',stage:'Your situation',q:'How much do you pay for housing?',help:'Rent or mortgage, per your pay cycle. Put 0 if none.',placeholder:'0'},
+  {id:'dependents',type:'single',stage:'Your situation',q:'Anyone depending on you financially?',help:'',opts:[
+    {v:'just_me',ic:'🙋',t:'Just me'},
+    {v:'partner',ic:'❤️',t:'Me & a partner'},
+    {v:'kids',ic:'👶',t:'Kids / family',s:'Dependents to provide for'}]},
+  {id:'shared_money',type:'single',stage:'Your situation',q:'Do you share finances with anyone?',help:'',opts:[
+    {v:'no',ic:'👤',t:'No, just mine'},
+    {v:'partial',ic:'🤝',t:'Some shared costs'},
+    {v:'full',ic:'💑',t:'Fully joint'}]},
+  // --- Stage 3: Money personality ---
+  {id:'goal_primary',type:'single',stage:'What matters',q:'What\u2019s your main money goal right now?',help:'Forge will shape your budget around this.',opts:[
+    {v:'save',ic:'💰',t:'Save more',s:'Build up savings'},
+    {v:'debt',ic:'💳',t:'Pay off debt',s:'Credit cards, loans'},
+    {v:'control',ic:'🎯',t:'Stop overspending',s:'Get a grip on it'},
+    {v:'organise',ic:'📊',t:'Just get organised',s:'See where it goes'}]},
+  {id:'awareness',type:'single',stage:'What matters',q:'Do you know where your money goes?',help:'Be honest — there\u2019s no wrong answer.',opts:[
+    {v:'clear',ic:'🔍',t:'Pretty clearly',s:'I track it'},
+    {v:'rough',ic:'🤔',t:'Roughly',s:'A general sense'},
+    {v:'no_idea',ic:'🤷',t:'Honestly, no idea',s:'It just disappears'}]},
+  {id:'pain',type:'multi',stage:'What matters',q:'Where does money tend to slip away?',help:'Pick any that feel true. This helps Forge watch the right categories.',opts:[
+    {v:'eating_out',ic:'🍔',t:'Eating out & takeaways'},
+    {v:'subscriptions',ic:'📺',t:'Subscriptions'},
+    {v:'shopping',ic:'🛍️',t:'Impulse shopping'},
+    {v:'going_out',ic:'🍻',t:'Nights out'},
+    {v:'groceries',ic:'🛒',t:'Groceries creep'},
+    {v:'transport',ic:'⛽',t:'Transport / fuel'}]},
+  {id:'style',type:'single',stage:'What matters',q:'How tightly do you want to budget?',help:'',opts:[
+    {v:'strict',ic:'🪖',t:'Strict',s:'Account for every pound'},
+    {v:'balanced',ic:'⚖️',t:'Balanced',s:'Structure with breathing room'},
+    {v:'relaxed',ic:'🌊',t:'Relaxed',s:'Just the big stuff'}]},
+  // --- Stage 4: Real numbers ---
+  {id:'csv',type:'csv',stage:'Your real spending',q:'Want Forge to learn from last month?',help:'Drop a bank statement export (CSV) and Forge will read your transactions and show you exactly where your money went — then build categories from the real picture. Totally optional.'},
+  {id:'fixed_costs',type:'chips',stage:'Your real spending',q:'Which of these do you pay regularly?',help:'Tap all that apply — Forge will make sure each gets a category.',chips:['Rent/Mortgage','Electricity','Gas','Water','Council tax','Internet','Phone','Car payment','Car insurance','Fuel','Public transport','Groceries','Gym','Health insurance','Childcare','Streaming','Loan repayment','Credit card']},
+  // --- Stage 5: Goals ---
+  {id:'save_target',type:'single',stage:'Your goals',q:'How much would you like to save each cycle?',help:'A target to aim for. Forge will try to make room for it.',opts:[
+    {v:'tight',ic:'🌱',t:'Whatever I can',s:'Start small'},
+    {v:'ten',ic:'📈',t:'Around 10%',s:'A steady habit'},
+    {v:'twenty',ic:'🚀',t:'20% or more',s:'Aggressive saving'},
+    {v:'none',ic:'⏸️',t:'Not right now',s:'Just covering costs'}]},
+  {id:'saving_for',type:'multi',stage:'Your goals',q:'What are you saving toward?',help:'Pick any — these can become savings categories.',opts:[
+    {v:'emergency',ic:'🛡️',t:'Emergency fund'},
+    {v:'holiday',ic:'✈️',t:'A holiday / trip'},
+    {v:'house',ic:'🏡',t:'House deposit'},
+    {v:'car',ic:'🚗',t:'A car'},
+    {v:'debt_free',ic:'🎉',t:'Being debt-free'},
+    {v:'future',ic:'🌟',t:'Future / investing'}]},
+  {id:'building',type:'building',stage:'Almost there',q:'Building your budget…'}
+];
+function startBudgetWizard(){
+  _bwz={answers:{},idx:0};
+  var el=document.createElement('div');el.className='bwz';el.id='bwzRoot';
+  document.getElementById('app').appendChild(el);
+  if(window.__forgeFit)window.__forgeFit();
+  renderBwz();
+}
+function closeBudgetWizard(){var e=document.getElementById('bwzRoot');if(e)e.remove();}
+function bwzCur(){return BWZ_QUESTIONS[_bwz.idx];}
+function bwzCanAdvance(){
+  var q=bwzCur();var a=_bwz.answers[q.id];
+  if(q.type==='intro'||q.type==='csv'||q.type==='building')return true;
+  if(q.type==='multi'||q.type==='chips')return true; // optional multi
+  if(q.type==='number')return a!==undefined&&a!==''&&!isNaN(Number(a));
+  return a!==undefined&&a!==null&&a!=='';
+}
+function bwzNext(){
+  if(_bwz.idx>=BWZ_QUESTIONS.length-1)return;
+  _bwz.idx++;
+  var q=bwzCur();
+  if(q.type==='building'){renderBwz();bwzBuild();return;}
+  renderBwz();
+}
+function bwzBack(){if(_bwz.idx<=0){closeBudgetWizard();return;}_bwz.idx--;renderBwz();}
+function bwzPick(v){var q=bwzCur();_bwz.answers[q.id]=v;renderBwz();setTimeout(bwzNext,180);}
+function bwzToggleMulti(v){var q=bwzCur();var a=_bwz.answers[q.id]||[];var i=a.indexOf(v);if(i>=0)a.splice(i,1);else a.push(v);_bwz.answers[q.id]=a;renderBwz();}
+function bwzSetNum(val){_bwz.answers[bwzCur().id]=val;var btn=document.getElementById('bwzNextBtn');if(btn)btn.disabled=!bwzCanAdvance();}
+function renderBwz(){
+  var root=document.getElementById('bwzRoot');if(!root)return;
+  var q=bwzCur();var total=BWZ_QUESTIONS.length-1;var prog=Math.round((_bwz.idx/total)*100);
+  var top='<div class="bwz-top"><button class="bwz-back" onclick="bwzBack()">'+icon('back',18,2.4)+'</button><div class="bwz-prog"><div style="width:'+prog+'%"></div></div><div class="bwz-step">'+Math.min(_bwz.idx+1,total)+'/'+total+'</div></div>';
+  var body=bwzBody(q);
+  var foot=bwzFoot(q);
+  root.innerHTML=top+'<div class="bwz-body">'+body+'</div>'+foot;
+  if(q.type==='number'){setTimeout(function(){var i=document.getElementById('bwzNum');if(i)i.focus();},120);}
+}
+function bwzBody(q){
+  var head='<div class="bwz-kick">'+esc(q.stage)+'</div><div class="bwz-q">'+esc(q.q)+'</div>'+(q.help?'<div class="bwz-help">'+esc(q.help)+'</div>':'');
+  if(q.type==='intro'){return head+'<div style="flex:1"></div>';}
+  if(q.type==='building'){return '<div class="bwz-building"><div class="bwz-building-ic" id="bwzBuildIc">🧮</div><div class="bwz-q" id="bwzBuildMsg">Building your budget…</div><div class="bwz-help" id="bwzBuildSub">Forge is designing categories around your answers.</div></div>';}
+  if(q.type==='single'){
+    var a=_bwz.answers[q.id];
+    return head+'<div class="bwz-opts">'+q.opts.map(function(o){return '<button class="bwz-opt'+(a===o.v?' on':'')+'" onclick="bwzPick(\''+o.v+'\')"><span class="bwz-opt-ic">'+o.ic+'</span><span class="bwz-opt-tx"><span class="bwz-opt-t">'+esc(o.t)+'</span>'+(o.s?'<span class="bwz-opt-s">'+esc(o.s)+'</span>':'')+'</span><span class="bwz-opt-check">'+(a===o.v?icon('check',13,3):'')+'</span></button>';}).join('')+'</div>';
+  }
+  if(q.type==='multi'){
+    var sel=_bwz.answers[q.id]||[];
+    return head+'<div class="bwz-opts">'+q.opts.map(function(o){var on=sel.indexOf(o.v)>=0;return '<button class="bwz-opt'+(on?' on':'')+'" onclick="bwzToggleMulti(\''+o.v+'\')"><span class="bwz-opt-ic">'+o.ic+'</span><span class="bwz-opt-tx"><span class="bwz-opt-t">'+esc(o.t)+'</span>'+(o.s?'<span class="bwz-opt-s">'+esc(o.s)+'</span>':'')+'</span><span class="bwz-opt-check">'+(on?icon('check',13,3):'')+'</span></button>';}).join('')+'</div>';
+  }
+  if(q.type==='number'){
+    var val=_bwz.answers[q.id]||'';
+    return head+'<div class="bwz-inputwrap"><span class="bwz-cur">'+curSym()+'</span><input class="bwz-input" id="bwzNum" inputmode="decimal" value="'+esc(val)+'" placeholder="'+(q.placeholder||'0')+'" oninput="bwzSetNum(this.value)"/></div>';
+  }
+  if(q.type==='chips'){
+    var sel2=_bwz.answers[q.id]||[];
+    return head+'<div class="bwz-chips">'+q.chips.map(function(c){var on=sel2.indexOf(c)>=0;return '<button class="bwz-chip'+(on?' on':'')+'" onclick="bwzToggleChip(\''+esc(c).replace(/'/g,"\\'")+'\')">'+esc(c)+'</button>';}).join('')+'</div>';
+  }
+  if(q.type==='csv'){
+    var res=_bwz.answers.csv_result;
+    var drop='<div class="bwz-drop" id="bwzDrop" onclick="bwzPickFile()"><div class="bwz-drop-ic">📄</div><div class="bwz-drop-t">Drop or choose a CSV</div><div class="bwz-drop-s">A bank or card statement export. Forge reads it on your device — nothing is uploaded anywhere except to categorise it.</div><input type="file" id="bwzFile" accept=".csv,text/csv" style="display:none" onchange="bwzHandleFile(event)"/></div>';
+    var resHtml='';
+    if(res&&res.cats){
+      resHtml='<div class="bwz-csv-result"><div style="font-weight:700;font-size:14px;margin-bottom:8px">Found '+res.count+' transactions · '+money(res.total)+' spent</div>'+
+        Object.keys(res.cats).sort(function(a,b){return res.cats[b]-res.cats[a];}).slice(0,8).map(function(k){return '<div class="bwz-csv-cat"><span>'+esc(k)+'</span><span style="font-weight:600">'+money(res.cats[k])+'</span></div>';}).join('')+'</div>';
+    }
+    return head+drop+resHtml;
+  }
+  return head;
+}
+function bwzFoot(q){
+  if(q.type==='intro')return '<div class="bwz-foot"><button class="bwz-next" onclick="bwzNext()">Get started</button></div>';
+  if(q.type==='building')return '';
+  if(q.type==='single')return '<div class="bwz-foot"><button class="bwz-skip" onclick="bwzNext()">Skip</button></div>';
+  var label=(q.type==='multi'||q.type==='chips'||q.type==='csv')?'Continue':'Continue';
+  var canSkip=(q.type==='multi'||q.type==='chips'||q.type==='csv');
+  return '<div class="bwz-foot"><button class="bwz-next" id="bwzNextBtn" '+(bwzCanAdvance()?'':'disabled')+' onclick="bwzNext()">'+label+'</button>'+(canSkip?'<button class="bwz-skip" onclick="bwzNext()">Skip this</button>':'')+'</div>';
+}
+function bwzToggleChip(c){var q=bwzCur();var a=_bwz.answers[q.id]||[];var i=a.indexOf(c);if(i>=0)a.splice(i,1);else a.push(c);_bwz.answers[q.id]=a;renderBwz();}
+// ---- CSV import ----
+function bwzPickFile(){var f=document.getElementById('bwzFile');if(f)f.click();}
+function bwzHandleFile(ev){
+  var file=ev.target.files&&ev.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){try{var parsed=bwzParseCSV(e.target.result);_bwz.answers.csv_result=parsed;_bwz.answers.csv_raw=parsed.sample;renderBwz();toast('Read '+parsed.count+' transactions ✓');}catch(err){toast('Could not read that CSV — try another export');}};
+  reader.readAsText(file);
+}
+function bwzParseCSV(text){
+  var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
+  if(!lines.length)throw new Error('empty');
+  // detect delimiter
+  var delim=(lines[0].indexOf(';')>lines[0].indexOf(','))?';':',';
+  function splitLine(l){var out=[],cur='',q=false;for(var i=0;i<l.length;i++){var ch=l[i];if(ch==='"'){q=!q;}else if(ch===delim&&!q){out.push(cur);cur='';}else cur+=ch;}out.push(cur);return out.map(function(s){return s.trim().replace(/^"|"$/g,'');});}
+  // Parse a money string handling both 1,234.56 (en) and 1.234,56 (eu) and -30,00
+  function num(s){if(s==null)return 0;s=String(s).replace(/[^0-9.,\-]/g,'');if(!s)return 0;
+    var lastC=s.lastIndexOf(','),lastD=s.lastIndexOf('.');
+    if(lastC>lastD){s=s.replace(/\./g,'').replace(',','.');}    // european: comma is decimal
+    else{s=s.replace(/,/g,'');}                                  // english: comma is thousands
+    var n=parseFloat(s);return isNaN(n)?0:n;}
+  var header=splitLine(lines[0]).map(function(h){return h.toLowerCase();});
+  var amtIdx=-1,descIdx=-1,dateIdx=-1,debitIdx=-1,creditIdx=-1;
+  header.forEach(function(h,i){
+    if(amtIdx<0&&/amount|value|amt/.test(h))amtIdx=i;
+    if(debitIdx<0&&/debit|paid out|money out|withdrawal/.test(h))debitIdx=i;
+    if(creditIdx<0&&/credit|paid in|money in|deposit/.test(h))creditIdx=i;
+    if(descIdx<0&&/desc|narrative|detail|reference|payee|merchant|name|transaction/.test(h))descIdx=i;
+    if(dateIdx<0&&/date/.test(h))dateIdx=i;
+  });
+  if(descIdx<0)descIdx=header.length>1?1:0;
+  var cats={};var total=0,count=0,sample=[];
+  for(var r=1;r<lines.length;r++){
+    var cols=splitLine(lines[r]);if(cols.length<2)continue;
+    var amt=0;
+    if(debitIdx>=0&&cols[debitIdx]){amt=Math.abs(num(cols[debitIdx]));}
+    else if(amtIdx>=0&&cols[amtIdx]){var raw=num(cols[amtIdx]);amt=raw<0?Math.abs(raw):0;} // signed: spending = negative
+    if(!amt)continue;
+    var desc=(cols[descIdx]||'').toString();
+    var cat=bwzCategorise(desc);
+    cats[cat]=(cats[cat]||0)+amt;total+=amt;count++;
+    if(sample.length<40)sample.push({d:desc.slice(0,40),a:amt,c:cat});
+  }
+  // if nothing classed as spending (maybe all positive amounts), retry treating all as spend
+  if(count===0&&amtIdx>=0){
+    for(var r2=1;r2<lines.length;r2++){var cols2=splitLine(lines[r2]);if(cols2.length<2)continue;var amt2=Math.abs(num(cols2[amtIdx]));if(!amt2)continue;var desc2=(cols2[descIdx]||'').toString();var cat2=bwzCategorise(desc2);cats[cat2]=(cats[cat2]||0)+amt2;total+=amt2;count++;if(sample.length<40)sample.push({d:desc2.slice(0,40),a:amt2,c:cat2});}
+  }
+  return {count:count,total:total,cats:cats,sample:sample};
+}
+function bwzCategorise(desc){
+  var d=desc.toLowerCase();
+  var rules=[
+    ['Groceries',/tesco|sainsbury|asda|aldi|lidl|morrison|waitrose|co-?op|grocery|supermarket|woolworths|coles|whole ?foods|trader joe/],
+    ['Subscriptions',/netflix|spotify|disney|prime video|youtube|apple\.com|icloud|hulu|hbo|paramount|audible|patreon|substack|adobe|microsoft 365/],
+    ['Eating out',/mcdonald|kfc|burger|pizza|nando|greggs|costa|starbucks|cafe|coffee|restaurant|deliveroo|uber ?eats|just ?eat|takeaway|domino|subway|pret/],
+    ['Transport',/uber|lyft|taxi|fuel|petrol|shell|\bbp\b|esso|texaco|parking|train|railway|\btfl\b|\bbus\b|gas station|metro line|congestion/],
+    ['Shopping',/amazon|ebay|asos|zara|h&m|primark|next retail|argos|boots|superdrug|ikea|target|walmart|best buy/],
+    ['Bills',/electric|british gas|water bill|council|energy|edf|e\.?on|octopus|utility|broadband|internet|virgin media|sky digital|\bbt\b|vodafone|\bo2\b|three mobile|\bee\b/],
+    ['Health',/pharmacy|doctor|dental|gym|fitness|pure ?gym|nuffield|optician|chemist/],
+    ['Going out',/\bpub\b|\bbar\b|brewery|wine|beer|spirits|nightclub|\bclub\b|liquor|bottle shop/],
+    ['Housing',/\brent\b|mortgage|landlord|letting/],
+    ['Cash',/\bcash\b|\batm\b|withdrawal/],
+    ['Insurance',/insurance|aviva|\baxa\b|admiral|direct line/]
+  ];
+  for(var i=0;i<rules.length;i++)if(rules[i][1].test(d))return rules[i][0];
+  return 'Other';
+}
+// ---- Build budget from answers (AI designs, user approves) ----
+async function bwzBuild(){
+  var a=_bwz.answers;
+  // Save the profile immediately so we remember the answers.
+  await saveBudProfile({
+    cycle:a.cycle||'monthly',income_freq:a.income_freq,income:Number(a.income)||0,income_stable:a.income_stable,
+    living:a.living,housing_cost:Number(a.housing_cost)||0,dependents:a.dependents,shared_money:a.shared_money,
+    goal_primary:a.goal_primary,awareness:a.awareness,pain:a.pain||[],style:a.style,
+    fixed_costs:a.fixed_costs||[],save_target:a.save_target,saving_for:a.saving_for||[],
+    csv_summary:a.csv_result?{count:a.csv_result.count,total:a.csv_result.total,cats:a.csv_result.cats}:null,
+    created_at:new Date().toISOString()
+  });
+  // Compose a rich prompt for the AI to design categories + assignments.
+  var cycleWord=a.cycle||'monthly';
+  var lines=[];
+  lines.push('Pay cycle / budget period: '+cycleWord);
+  lines.push('Take-home income per '+ (a.income_freq||cycleWord)+': '+money(Number(a.income)||0)+' '+getCurrency().code);
+  lines.push('Income stability: '+(a.income_stable||'unknown'));
+  lines.push('Living: '+(a.living||'?')+', housing cost '+money(Number(a.housing_cost)||0)+' per pay cycle');
+  lines.push('Dependents: '+(a.dependents||'?')+'; shared finances: '+(a.shared_money||'?'));
+  lines.push('Primary goal: '+(a.goal_primary||'?'));
+  lines.push('Spending awareness: '+(a.awareness||'?')+'; budgeting style wanted: '+(a.style||'balanced'));
+  if(a.pain&&a.pain.length)lines.push('Money tends to slip on: '+a.pain.join(', '));
+  if(a.fixed_costs&&a.fixed_costs.length)lines.push('Regular fixed costs to include as categories: '+a.fixed_costs.join(', '));
+  lines.push('Savings target: '+(a.save_target||'?')+'; saving toward: '+((a.saving_for||[]).join(', ')||'nothing specified'));
+  if(a.csv_result&&a.csv_result.cats){
+    var cs=Object.keys(a.csv_result.cats).map(function(k){return k+' '+money(a.csv_result.cats[k]);}).join(', ');
+    lines.push('REAL last-period spending from their bank CSV ('+a.csv_result.count+' transactions, '+money(a.csv_result.total)+' total): '+cs+'. Use these real amounts to set realistic category targets.');
+  }
+  var incomeAmt=Number(a.income)||0;
+  var prompt='You are an expert budget coach building a ZERO-BASED budget. The budget period is '+cycleWord.toUpperCase()+'. The user should assign all '+money(incomeAmt)+' of their '+cycleWord+' income across categories.\n\nHere is everything about them:\n'+lines.join('\n')+'\n\nDesign a budget that fits THIS person specifically — reflect their goal, their real spending if provided, their fixed costs, and their chosen tightness. Group categories into sections (Bills, Food, Transport, Lifestyle, Savings, Debt, Fun). Set each category\u2019s "assigned" amount so the total assigned is as close as possible to '+money(incomeAmt)+' for the '+cycleWord+' period. If they want to save, include savings categories sized to their target.\n\nReturn ONLY a JSON array, no prose:\n[{"grp":"Bills","name":"Rent","icon":"🏠","assigned":350},...]\nUse single emoji icons. 8-16 categories. Amounts are numbers for the '+cycleWord+' period.';
+  try{
+    var res=await askAIRaw(prompt);
+    var arr=JSON.parse(res.replace(/```json|```/g,'').trim());
+    _bwz.proposed=arr;
+    bwzShowProposal(arr);
+  }catch(e){
+    // Fallback: deterministic budget from fixed costs + CSV
+    var arr2=bwzFallbackBudget(a);
+    _bwz.proposed=arr2;
+    bwzShowProposal(arr2);
+  }
+}
+function bwzFallbackBudget(a){
+  var inc=Number(a.income)||0;var out=[];
+  if(Number(a.housing_cost))out.push({grp:'Bills',name:'Housing',icon:'🏠',assigned:Number(a.housing_cost)});
+  var map={'Electricity':['Bills','⚡'],'Gas':['Bills','🔥'],'Water':['Bills','💧'],'Council tax':['Bills','🏛️'],'Internet':['Bills','📶'],'Phone':['Bills','📱'],'Car payment':['Transport','🚗'],'Car insurance':['Transport','🛡️'],'Fuel':['Transport','⛽'],'Public transport':['Transport','🚆'],'Groceries':['Food','🛒'],'Gym':['Lifestyle','💪'],'Health insurance':['Bills','🏥'],'Childcare':['Bills','👶'],'Streaming':['Lifestyle','📺'],'Loan repayment':['Debt','💳'],'Credit card':['Debt','💳']};
+  (a.fixed_costs||[]).forEach(function(c){if(c==='Rent/Mortgage')return;var m=map[c];if(m)out.push({grp:m[0],name:c,icon:m[1],assigned:0});});
+  if(!out.some(function(x){return x.name==='Groceries';}))out.push({grp:'Food',name:'Groceries',icon:'🛒',assigned:Math.round(inc*0.12)});
+  out.push({grp:'Lifestyle',name:'Eating out',icon:'🍔',assigned:Math.round(inc*0.06)});
+  out.push({grp:'Fun',name:'Fun money',icon:'🎉',assigned:Math.round(inc*0.05)});
+  if(a.save_target!=='none')out.push({grp:'Savings',name:'Savings',icon:'💰',assigned:Math.round(inc*(a.save_target==='twenty'?0.2:a.save_target==='ten'?0.1:0.05))});
+  return out;
+}
+function bwzShowProposal(arr){
+  var root=document.getElementById('bwzRoot');if(!root)return;
+  var sum=arr.reduce(function(s,x){return s+(Number(x.assigned)||0);},0);
+  var inc=Number(_bwz.answers.income)||0;
+  var top='<div class="bwz-top"><button class="bwz-back" onclick="bwzBack()">'+icon('back',18,2.4)+'</button><div class="bwz-prog"><div style="width:100%"></div></div><div class="bwz-step">Review</div></div>';
+  // group for display
+  var groups={};var order=[];arr.forEach(function(x){if(!groups[x.grp]){groups[x.grp]=[];order.push(x.grp);}groups[x.grp].push(x);});
+  var list=order.map(function(g){return '<div class="bud-grp"><div class="bud-grp-head"><span class="bud-grp-name">'+esc(g)+'</span></div>'+groups[g].map(function(x,i){var gi=arr.indexOf(x);return '<div class="bud-cat" style="cursor:default"><div class="bud-cat-top"><div class="bud-cat-ic">'+esc(x.icon||'💸')+'</div><div class="bud-cat-name">'+esc(x.name)+'</div><div class="bud-cat-left"><input value="'+(Number(x.assigned)||0)+'" inputmode="decimal" onchange="bwzEditProposal('+gi+',this.value)" style="width:80px;text-align:right;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-weight:700;font-family:inherit;font-size:14px;background:var(--surface-2);color:var(--ink)"/></div></div></div>';}).join('')+'</div>';}).join('');
+  var diff=inc-sum;
+  var diffMsg=Math.abs(diff)<1?'<span style="color:#10B981">Perfectly balanced 🎉</span>':(diff>0?'<span style="color:#F59E0B">'+money(diff)+' left to assign</span>':'<span style="color:#EF4444">'+money(-diff)+' over your income</span>');
+  var body='<div class="bwz-kick">Your budget</div><div class="bwz-q" style="font-size:22px">Here\u2019s what Forge designed</div><div class="bwz-help">Tweak any amount, then save. You can change everything later too.</div>'+
+    '<div style="margin-top:8px;font-size:13px;font-weight:600;text-align:center;padding:10px;background:var(--surface-2);border-radius:12px">Income '+money(inc)+' · Assigned <b id="bwzPropSum">'+money(sum)+'</b> · '+diffMsg+'</div>'+
+    '<div style="margin-top:14px">'+list+'</div>'+
+    '<button class="bud-add-cat" onclick="bwzAddProposalCat()" style="margin-top:4px">'+icon('plus',16,2.4)+' Add a category</button>';
+  var foot='<div class="bwz-foot"><button class="bwz-next" onclick="bwzApply()">Save my budget</button><button class="bwz-skip" onclick="bwzRegenerate()">↻ Let Forge try again</button></div>';
+  root.innerHTML=top+'<div class="bwz-body">'+body+'</div>'+foot;
+}
+function bwzEditProposal(i,val){if(_bwz.proposed[i]){_bwz.proposed[i].assigned=parseFloat(val)||0;var sum=_bwz.proposed.reduce(function(s,x){return s+(Number(x.assigned)||0);},0);var el=document.getElementById('bwzPropSum');if(el)el.textContent=money(sum);}}
+function bwzAddProposalCat(){
+  openForm('Add category','',[{key:'name',label:'Name'},{key:'grp',label:'Group (Bills/Food/Lifestyle/Savings/Debt/Fun)'},{key:'amt',label:'Assigned ('+curSym()+')',numeric:true}],function(v){
+    if(!v.name)return;_bwz.proposed.push({grp:v.grp||'Other',name:v.name,icon:'💸',assigned:parseFloat(v.amt)||0});closeOverlay();bwzShowProposal(_bwz.proposed);
+  });
+}
+function bwzRegenerate(){_bwz.idx=BWZ_QUESTIONS.length-1;renderBwz();bwzBuild();}
+async function bwzApply(){
+  var arr=_bwz.proposed;if(!arr||!arr.length){toast('Nothing to save');return;}
+  closeBudgetWizard();toast('Creating your budget…');
+  var month=budCurMonth();
+  // clear existing cats to avoid duplicates on re-run
+  try{var existing=await budGetCats(true);for(var k=0;k<existing.length;k++){await budDeleteCat(existing[k].id);}}catch(e){}
+  for(var i=0;i<arr.length;i++){await budAddCat(arr[i].grp||'Other',arr[i].name,arr[i].icon||'💸',false);}
+  var cats=await budGetCats(true);
+  // set income from profile
+  var inc=Number(_bwz.answers.income)||0;
+  if(inc)await budSetIncome(month,inc);
+  for(var j=0;j<arr.length;j++){var match=cats.find(function(c){return c.name===arr[j].name&&!arr[j]._u;});if(match){arr[j]._u=true;await budSetAssign(month,match.id,Number(arr[j].assigned)||0);}}
+  _budInvalidate();
+  go('fin_budget',true,'cat_money');
+  setTimeout(function(){refreshScreen();toast('Budget ready ✓');},60);
+}
 async function renderBudget(){
+  // First run → onboarding questionnaire instead of an empty budget.
+  var profile=await getBudProfile();
+  var cats=await budGetCats();
+  if(!profile&&!cats.length){
+    return '<div class="stack">'+
+      '<div class="card" style="text-align:center;padding:30px 20px">'+
+        '<div style="font-size:46px;margin-bottom:14px">📊</div>'+
+        '<div class="serif" style="font-size:22px;font-weight:700">Let\u2019s build your budget</div>'+
+        '<div class="rs" style="margin-top:10px;line-height:1.5">Forge will ask a few quick questions about your income, your life and your goals — then design a budget that actually fits you. You can even drop a bank statement and it\u2019ll learn from your real spending.</div>'+
+        '<button class="btn btn-primary" style="width:100%;margin-top:20px" onclick="startBudgetWizard()">'+icon('spark',16,2.2)+' Start setup</button>'+
+      '</div>'+
+    '</div>';
+  }
+  return renderBudgetMain();
+}
+async function renderBudgetMain(){
   var month=budCurMonth();
   var d=await budCompute(month);
   var heroClass=d.toAssign>0.5?'pos':(d.toAssign<-0.5?'neg':'zero');
@@ -2628,7 +3027,7 @@ async function renderBudget(){
   var monthNav='<div class="bud-month"><button class="bud-month-nav" onclick="budNavMonth(-1)">'+icon('back',18,2.4)+'</button>'+
     '<div class="bud-month-lbl">'+budMonthLabel(month)+'</div>'+
     '<button class="bud-month-nav" onclick="budNavMonth(1)">'+icon('chev',18,2.4)+'</button></div>';
-  var aiRow='<div class="bud-ai-row"><button class="bud-ai-btn" onclick="budAISetup()">'+icon('spark',15,2.2)+' Build my budget</button><button class="bud-ai-btn" onclick="budAIReview()">'+icon('spark',15,2.2)+' Review spending</button></div>';
+  var aiRow='<div class="bud-ai-row"><button class="bud-ai-btn" onclick="budRedoSetup()">'+icon('spark',15,2.2)+' Redo setup</button><button class="bud-ai-btn" onclick="budAIReview()">'+icon('spark',15,2.2)+' Review spending</button></div>';
   var body='';
   if(!d.groups.length){
     body='<div class="card"><div class="ctitle">No categories yet</div><div class="row"><div class="rs">Add categories grouped into sections like Bills, Lifestyle and Savings — then assign your income across them. Or let Forge AI build a starter budget from your income.</div></div></div>';
@@ -2651,6 +3050,7 @@ async function renderBudget(){
   return '<div class="stack">'+monthNav+hero+aiRow+body+addBtn+'</div>';
 }
 function budNavMonth(delta){_budMonth=budShiftMonth(budCurMonth(),delta);refreshScreen();}
+function budRedoSetup(){if(!confirm('Redo your budget setup? Your current categories will be replaced when you save the new one.'))return;startBudgetWizard();}
 function budEditIncome(){
   var month=budCurMonth();
   openForm('Income for '+budMonthLabel(month),'Your total take-home pay this month.',[{key:'amt',label:'Income ('+curSym()+')',numeric:true}],async function(v){
