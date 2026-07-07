@@ -862,7 +862,7 @@ async function budGetCats(force){
     return _budCache.cats;
   }catch(e){return _budCache.cats||[];}
 }
-async function budAddCat(grp,name,icon,rollover){try{var pos=( _budCache.cats?_budCache.cats.length:0);var r=await sb.from('budget_cats').insert({user_id:currentUser.id,grp:grp,name:name,icon:icon||'💸',position:pos,rollover:!!rollover}).select();if(r.error)throw r.error;}catch(e){}_budInvalidate();}
+async function budAddCat(grp,name,icon,rollover){var pos=(_budCache.cats?_budCache.cats.length:0);var r=await sb.from('budget_cats').insert({user_id:currentUser.id,grp:grp,name:name,icon:icon||'💸',position:pos,rollover:!!rollover}).select();if(r&&r.error){budReportError(r.error);return false;}_budInvalidate();return true;}
 async function budUpdateCat(id,patch){try{await sb.from('budget_cats').update(patch).eq('id',id);}catch(e){}_budInvalidate();}
 async function budDeleteCat(id){try{await sb.from('budget_cats').delete().eq('id',id);await sb.from('budget_assign').delete().eq('cat_id',id);await sb.from('budget_txns').delete().eq('cat_id',id);}catch(e){}_budInvalidate();}
 async function budGetAssign(month){
@@ -873,12 +873,13 @@ async function budGetAssign(month){
   }catch(e){return{};}
 }
 async function budSetAssign(month,catId,amount){
-  try{
-    var existing=await sb.from('budget_assign').select('id').eq('user_id',currentUser.id).eq('month',month).eq('cat_id',catId).maybeSingle();
-    if(existing.data&&existing.data.id)await sb.from('budget_assign').update({assigned:amount}).eq('id',existing.data.id);
-    else await sb.from('budget_assign').insert({user_id:currentUser.id,month:month,cat_id:catId,assigned:amount});
-  }catch(e){}
-  delete _budCache.assign[month];_brainCache.t=0;
+  var existing=await sb.from('budget_assign').select('id').eq('user_id',currentUser.id).eq('month',month).eq('cat_id',catId).maybeSingle();
+  if(existing&&existing.error){budReportError(existing.error);return false;}
+  var r;
+  if(existing.data&&existing.data.id)r=await sb.from('budget_assign').update({assigned:amount}).eq('id',existing.data.id);
+  else r=await sb.from('budget_assign').insert({user_id:currentUser.id,month:month,cat_id:catId,assigned:amount});
+  if(r&&r.error){budReportError(r.error);return false;}
+  delete _budCache.assign[month];_brainCache.t=0;return true;
 }
 async function budGetTxns(month){
   if(!currentUser)return[];
@@ -887,14 +888,16 @@ async function budGetTxns(month){
     var arr=(r.data||[]).map(function(x){return{id:x.id,cat:x.cat_id,amount:Number(x.amount)||0,note:x.note||'',date:x.spent_on};});_budCache.txns[month]=arr;return arr;
   }catch(e){return[];}
 }
-async function budAddTxn(month,catId,amount,note,date){try{await sb.from('budget_txns').insert({user_id:currentUser.id,cat_id:catId,month:month,amount:amount,note:note||null,spent_on:date||localDay()});}catch(e){}delete _budCache.txns[month];_brainCache.t=0;}
+async function budAddTxn(month,catId,amount,note,date){var r=await sb.from('budget_txns').insert({user_id:currentUser.id,cat_id:catId,month:month,amount:amount,note:note||null,spent_on:date||localDay()});if(r&&r.error){budReportError(r.error);return false;}delete _budCache.txns[month];_brainCache.t=0;return true;}
+// Turn a Supabase error into a helpful message. Missing tables are the usual cause.
+function budReportError(err){var m=(err&&err.message)||'';if(/does not exist|relation|schema cache|not find the table/i.test(m)){toast('Budget tables missing — run the budget SQL in Supabase');}else{toast('Couldn\u2019t save: '+(m||'unknown error'));}}
 async function budDeleteTxn(month,id){try{await sb.from('budget_txns').delete().eq('id',id);}catch(e){}delete _budCache.txns[month];_brainCache.t=0;}
 async function budGetIncome(month){
   if(!currentUser)return 0;
   if(_budCache.income[month]!=null)return _budCache.income[month];
   try{var r=await sb.from('budget_income').select('amount').eq('user_id',currentUser.id).eq('month',month).maybeSingle();var v=r.data?Number(r.data.amount)||0:0;_budCache.income[month]=v;return v;}catch(e){return 0;}
 }
-async function budSetIncome(month,amount){try{await sb.from('budget_income').upsert({user_id:currentUser.id,month:month,amount:amount},{onConflict:'user_id,month'});}catch(e){}_budCache.income[month]=amount;_brainCache.t=0;}
+async function budSetIncome(month,amount){var r=await sb.from('budget_income').upsert({user_id:currentUser.id,month:month,amount:amount},{onConflict:'user_id,month'});if(r&&r.error){budReportError(r.error);return false;}_budCache.income[month]=amount;_brainCache.t=0;return true;}
 // Compute the full month rollup: per-category assigned/spent, group totals, ready-to-assign.
 async function budCompute(month){
   var cats=await budGetCats();
@@ -917,13 +920,6 @@ async function budCompute(month){
   return {month:month,income:income,assigned:totalAssigned,spent:totalSpent,toAssign:income-totalAssigned,
     groups:order.map(function(g){return groups[g];}),cats:cats,txns:txns,subMonthly:subMonthlyTotal,subs:subs};
 }
-async function getFutureMe(){if(!currentUser)return null;try{var r=await sb.from('future_me').select('*').eq('user_id',currentUser.id).maybeSingle();if(!r.data)return null;return{answers:r.data.answers?JSON.parse(r.data.answers):{},profile:r.data.profile||'',lastCheckin:r.data.last_checkin};}catch(e){return null;}}
-async function setFutureMe(answers,profile){if(!currentUser)return false;try{var r=await sb.from('future_me').upsert({user_id:currentUser.id,answers:JSON.stringify(answers||{}),profile:profile||'',last_checkin:new Date().toISOString(),updated_at:new Date().toISOString()},{onConflict:'user_id'});if(r&&r.error){toast('Couldn\u2019t save: '+r.error.message);return false;}return true;}catch(e){toast('Couldn\u2019t save Future Me');return false;}}
-async function getFutureGoals(){if(!currentUser)return[];try{var r=await sb.from('future_goals').select('*').eq('user_id',currentUser.id).order('created_at');return (r.data||[]).map(function(x){return{id:x.id,horizon:x.horizon,dim:x.dimension,t:x.title,progress:Number(x.progress)};});}catch(e){return[];}}
-async function addFutureGoalDB(h,dim,title){await sb.from('future_goals').insert({user_id:currentUser.id,horizon:h,dimension:dim,title:title});}
-async function deleteFutureMe(){if(!currentUser)return;try{await sb.from('future_goals').delete().eq('user_id',currentUser.id);await sb.from('future_me').delete().eq('user_id',currentUser.id);}catch(e){}}
-async function updateFutureGoalDB(id,p){await sb.from('future_goals').update({progress:p}).eq('id',id);}
-async function deleteFutureGoalDB(id){await sb.from('future_goals').delete().eq('id',id);}
 async function ownerResetPin(id,hash){var r=await sb.rpc('forge_owner_set_pin',{p_id:id,p_hash:hash});if(r&&r.error)throw r.error;}
 async function markPinReset(id){try{await sb.from('pin_resets').upsert({user_id:id,pending:true},{onConflict:'user_id'});}catch(e){}}
 async function checkPinReset(id){try{var r=await sb.from('pin_resets').select('pending').eq('user_id',id).maybeSingle();return !!(r.data&&r.data.pending);}catch(e){return false;}}
@@ -939,8 +935,6 @@ async function setLifeContext(routine,summary){if(!currentUser)return;try{await 
 async function getShifts(fromISO,toISO){if(!currentUser)return[];try{var q=sb.from('shifts').select('*').eq('user_id',currentUser.id);if(fromISO)q=q.gte('day',fromISO);if(toISO)q=q.lte('day',toISO);var r=await q.order('day');return (r.data||[]).map(function(x){return{id:x.id,day:x.day,label:x.label||'',start:x.start_t||'',end:x.end_t||'',note:x.note||''};});}catch(e){return[];}}
 async function addShift(o){if(!currentUser)return;try{await sb.from('shifts').insert({user_id:currentUser.id,day:o.day,label:o.label||'Shift',start_t:o.start||null,end_t:o.end||null,note:o.note||null});}catch(e){}}
 async function deleteShiftDB(id){try{await sb.from('shifts').delete().eq('id',id);}catch(e){}}
-async function getRunPlan(){if(!currentUser)return null;try{var r=await sb.from('run_plan').select('*').eq('user_id',currentUser.id).maybeSingle();if(!r.data)return null;var d=r.data;return{goal:d.goal,target_date:d.target_date,days_per_week:d.days_per_week,level:d.level,baseline:d.baseline,plan:d.plan?JSON.parse(d.plan):null};}catch(e){return null;}}
-async function getRunLogs(limit){if(!currentUser)return[];try{var r=await sb.from('run_logs').select('*').eq('user_id',currentUser.id).order('day',{ascending:false}).limit(limit||10);return (r.data||[]).map(function(x){return{id:x.id,day:x.day,km:Number(x.distance_km),min:x.duration_min!=null?Number(x.duration_min):null,effort:x.effort||'',notes:x.notes||'',hr:x.avg_hr!=null?Number(x.avg_hr):null,maxhr:x.max_hr!=null?Number(x.max_hr):null,cad:x.cadence!=null?Number(x.cadence):null,elev:x.elevation_m!=null?Number(x.elevation_m):null,cal:x.calories!=null?Number(x.calories):null,rpe:x.rpe!=null?Number(x.rpe):null,source:x.source||'manual',activity:x.activity||null};});}catch(e){return[];}}
 var _cdCache=null;
 async function getCountdowns(force){if(!currentUser)return[];if(!force&&_cdCache)return _cdCache;try{var r=await sb.from('countdowns').select('*').eq('user_id',currentUser.id).order('target_date');_cdCache=(r.data||[]).map(function(x){var m={};try{m=x.meta?(typeof x.meta==='string'?JSON.parse(x.meta):x.meta):{};}catch(e){m={};}return{id:x.id,n:x.name,d:x.target_date,sub:m.sub||'',time:m.time||'',icon:m.icon||'⏳',color:m.color||'#7C8DF7',repeat:m.repeat||'',end:m.end||''};});return _cdCache;}catch(e){return _cdCache||[];}}
 function _cdInvalidate(){_cdCache=null;}
@@ -1116,7 +1110,7 @@ function subscribeTabs(){
 function addTab(id){var a=enabledTabs();if(a.indexOf(id)<0){a.push(id);setEnabledTabs(a);}refreshScreen();toast('Added ✓');}
 function removeTab(id){setEnabledTabs(enabledTabs().filter(function(x){return x!==id;}));refreshScreen();toast('Removed');}
 const ADDABLE={work:'task',reminders:'reminder',goals:'habit',notes:'note',documents:'document',shopping:'item',subs:'subscription',workouts:'workout',recipes:'recipe',mood:'note',sleep:'entry',water:'log',meds:'medication',projects:'project',journal:'entry',books:'book',movies:'title',study:'topic',wishlist:'wish',gifts:'gift',pets:'pet',home2:'job',habits:'habit',fitness:'workout',health:'entry'};
-function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'},futureme:{label:'Future Me',sub:'Who you\'re becoming'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
+function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
 
 // ============================================================
 // AUTH SCREENS (PIN + signup) — rendered into #stage-overlay layers
@@ -1846,7 +1840,6 @@ async function renderTab(tab){
   if(tab==='passwords')return renderPasswords();
   if(tab==='todo')return renderTodo();
   if(tab==='ai')return renderAI();
-  if(tab==='futureme')return renderFutureMe();
   if(tab==='calendar')return renderCalendar();
   if(TRACKERS[tab])return renderTracker(tab);
   if(tab==='fitness')return renderFitness();
@@ -2204,7 +2197,7 @@ function calInitGestures(){
     mode='';decided=false;
   },{passive:true});
 }
-function calShiftDate(d,n){var x=new Date(d);if(calView==='year')x=new Date(x.getFullYear()+n,x.getMonth(),1);else if(calView==='month')x=new Date(x.getFullYear(),x.getMonth()+n,1);else if(calView==='week')x.setDate(x.getDate()+7*n);else x.setDate(x.getDate()+n);return x;}
+function calShiftDate(d,n){var x=d?new Date(d):new Date();if(isNaN(x.getTime()))x=new Date();if(calView==='year')x=new Date(x.getFullYear()+n,x.getMonth(),1);else if(calView==='month')x=new Date(x.getFullYear(),x.getMonth()+n,1);else if(calView==='week')x.setDate(x.getDate()+7*n);else x.setDate(x.getDate()+n);return x;}
 function calViewHTML(){return calView==='year'?calYearView():calView==='week'?calWeekView():calView==='day'?calDayView():calView==='agenda'?calAgendaView():calMonthView();}
 function calBuildTrack(){
   var cb=document.getElementById('calBody');if(!cb||cb._track)return cb;
@@ -2272,6 +2265,7 @@ function calAddFab(){return '<button class="cal-fab" onclick="calAddEvent()" ari
 
 function calStyleInject(){try{if(document.getElementById('forgeCalStyle'))return;var s=document.createElement('style');s.id='forgeCalStyle';s.textContent=calCSS();(document.head||document.documentElement).appendChild(s);}catch(e){}}
 async function renderCalendar(){
+  if(!calCursor)calCursor=new Date();
   calInitGestures();
   await calEnsure();
   calStyleInject();
@@ -2474,33 +2468,6 @@ function calCSS(){return ''+
 
 
 // ============================================================
-// FITNESS COACH — a planning brain driven by your Garmin data.
-// Import your runs → it sets paces, predicts times, builds a
-// periodised plan, and adapts. Conversational, schedule-aware.
-// ============================================================
-function segLine(plan,sg){
-  var pc=sg.paceKey?paceFor(plan,sg.paceKey):'';
-  var amt=sg.measure==='time'?((sg.minutes||0)+' min'):((sg.km||0)+' km');
-  if(sg.reps&&sg.reps>1){var rec=sg.recoveryMin?(', '+(sg.recoveryMin<1?Math.round(sg.recoveryMin*60)+'s':sg.recoveryMin+' min')+' recovery'):'';return sg.reps+' \u00D7 '+amt+(pc?' @ '+pc:'')+rec;}
-  return (sg.label?sg.label+': ':'')+amt+(pc?' @ '+pc:'');
-}
-function sessionDetailHTML(plan,s){
-  if(s.segments&&s.segments.length)return '<div style="margin-top:6px">'+s.segments.map(function(sg,i){return '<div class="rcv-iv"><span class="rcv-ix">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500;color:var(--ink);line-height:1.35">'+esc(segLine(plan,sg))+'</div>'+(sg.note?'<div style="font-size:12px;color:var(--sub);margin-top:2px">'+esc(sg.note)+'</div>':'')+'</div></div>';}).join('')+'</div>';
-  if(s.steps&&s.steps.length)return '<div style="margin-top:6px">'+s.steps.map(function(st,i){return '<div class="rcv-iv"><span class="rcv-ix">'+(i+1)+'</span><div style="flex:1;font-size:14px;font-weight:500;color:var(--ink);line-height:1.35">'+esc(st)+'</div></div>';}).join('')+'</div>';
-  return s.note?'<div style="font-size:13.5px;color:var(--sub);margin-top:6px;line-height:1.5">'+esc(s.note)+'</div>':'';
-}
-function sessTypeColor(t){t=(t||'').toLowerCase();return t==='long'?'#7C5CFF':(t==='tempo'||t==='threshold')?'#DC2626':(t==='intervals'||t==='fartlek'||t==='hills')?'#D97706':t==='rest'?'#A2A6AE':(t==='strength'||t==='cross')?'#16A34A':(t==='recovery')?'#A2A6AE':'#2F6BFF';}
-// ---- Shared run-data helpers ----
-function pad2(n){n=Math.round(n);return (n<10?'0':'')+n;}
-function paceStr(sec){if(!sec||sec<0)return '';return Math.floor(sec/60)+':'+pad2(sec%60);}
-function paceFor(plan,key){var p=plan&&plan.engine&&plan.engine.paces;if(!p||p[key]==null)return '';return paceStr(p[key])+'/km';}
-function rcIsRun(l){return !l||!l.activity||l.activity==='run';}
-function rcDedupeRuns(logs){if(!logs||!logs.length)return logs||[];var seen={},out=[];for(var i=0;i<logs.length;i++){var l=logs[i];var km=Math.round((l.km||0)*10)/10;var mn=Math.round(l.min||0);var key=(l.day||'')+'|'+km+'|'+mn;if(seen[key])continue;seen[key]=1;out.push(l);}return out;}
-// ============================================================
-// ============================================================
-// ============================================================
-// THE BRAIN — one intelligence that reads everything in Forge and
-// plug into brainThink() instead of making its own shallow call.
 // ============================================================
 async function renderGenericList(tab){
   var items=await loadItems(tab);var t=catalogById(tab);var accent=(t&&t.chip)||'#94A3B8';
@@ -2510,14 +2477,7 @@ async function renderGenericList(tab){
 }
 
 async function renderFitness(){
-  var runs=[];try{runs=rcDedupeRuns(await getRunLogs(30)).filter(rcIsRun);}catch(e){runs=[];}
-  var cut=Date.now()-7*86400000;var wk=runs.filter(function(l){return new Date(l.day+'T00:00:00').getTime()>=cut;});
-  var km=0;wk.forEach(function(l){km+=l.km||0;});
-  var note='<div class="card"><div class="ctitle">Training</div><div class="rt">Being rebuilt</div><div class="rs" style="margin-top:3px;line-height:1.5">A proper training tab is on the way. Your logged runs stay here in the meantime.</div></div>';
-  var stats='<div class="two"><div class="card stat"><div class="k">'+icon('trend',14)+' This week</div><div class="v">'+(Math.round(km*10)/10)+' km</div><div class="s">'+wk.length+' run'+(wk.length!==1?'s':'')+'</div></div><div class="card stat"><div class="k">'+icon('clock',14)+' Logged</div><div class="v">'+runs.length+'</div><div class="s">recent runs</div></div></div>';
-  var rows=runs.slice(0,8).map(function(l){var pace=(l.min&&l.km)?paceStr(Math.round(l.min*60/l.km))+'/km':'';return '<div class="row"><span class="dot" style="background:#2F6BFF"></span><div style="flex:1"><div class="rt">'+(l.km||0)+' km</div><div class="rs">'+(new Date(l.day+'T00:00:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'}))+(pace?' \u00B7 '+pace:'')+'</div></div></div>';}).join('');
-  var recent='<div class="card"><div class="ctitle">Recent runs</div>'+(rows||'<div class="row"><div class="rs">No runs logged yet.</div></div>')+'</div>';
-  return '<div class="stack">'+note+stats+recent+'</div>';
+  return '<div class="stack"><div class="card" style="text-align:center;padding:28px 20px"><div style="font-size:42px;margin-bottom:12px">💪</div><div class="serif" style="font-size:20px;font-weight:700">Fitness</div><div class="rs" style="margin-top:8px;line-height:1.5">Log workouts and track how you\u2019re moving. Use the + button to add an activity.</div></div></div>';
 }
 async function renderHealth(){
   var items=await loadItems('health');
@@ -3131,8 +3091,8 @@ async function budQuickAdd(catId){
   var amtEl=document.getElementById('budQuickAmt');var noteEl=document.getElementById('budQuickNote');
   var amt=amtEl?parseFloat(amtEl.value):0;if(!amt||isNaN(amt)){if(amtEl)amtEl.focus();return;}
   var note=noteEl?noteEl.value.trim():'';
-  await budAddTxn(budCurMonth(),catId,amt,note,localDay());
-  budReopenCat(catId);
+  var ok=await budAddTxn(budCurMonth(),catId,amt,note,localDay());
+  if(ok){toast('Added '+money(amt)+' ✓');budReopenCat(catId);}
 }
 async function budDelTxn(id,catId){await budDeleteTxn(budCurMonth(),id);budReopenCat(catId);}
 function budReopenCat(catId){budOpenCat(catId);}
@@ -3269,206 +3229,6 @@ async function delSub(id){await deleteSubDB(id);_brainCache.t=0;await refreshScr
 
 // ============================================================
 // ============================================================
-var FUTURE_DIMS=[
- {k:'health',label:'Health & body',q:'In 5 years, how do you want your body and energy to feel?'},
- {k:'relationships',label:'Relationships',q:'Who do you want close to you, and how do you show up for them?'},
- {k:'career',label:'Career & work',q:'What work makes you proud? Where are you headed?'},
- {k:'finances',label:'Finances',q:'What does financial freedom look like for you?'},
- {k:'skills',label:'Skills & growth',q:'What do you want to become genuinely good at?'},
- {k:'experiences',label:'Experiences',q:'What do you want to have done, seen, or lived?'},
- {k:'character',label:'Character',q:'Who do you want to be as a person?'}
-];
-var futureQuiz=false;
-async function renderFutureMe(){
-  var fm=await getFutureMe();
-  if(!fm||!fm.profile){
-    return '<div class="stack"><div class="card" style="text-align:center;padding:28px 22px"><div class="chip" style="margin:0 auto 14px;width:54px;height:54px;border-radius:16px">'+icon('star',26,2)+'</div><div class="serif" style="font-size:21px;font-weight:700">Meet your Future Me</div><div class="rs" style="margin-top:8px;line-height:1.55">A few honest questions about who you\'re becoming \u2014 across health, relationships, career, money, skills, experiences and character. Forge AI turns it into your living north star, and weighs every suggestion against it.</div><button onclick="startFutureQuiz()" style="margin-top:18px;padding:13px 24px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Start the quiz</button></div></div>';
-  }
-  var goals=await getFutureGoals();
-  var prof='<div class="card dark"><div class="small">Who you\'re becoming</div><div style="font-size:15px;line-height:1.55;margin-top:8px">'+aiFmt(fm.profile)+'</div></div>';
-  var hz=[['1y','1 year'],['5y','5 years'],['10y','10 years'],['life','Lifetime']];
-  var sections=hz.map(function(h){
-    var gs=goals.filter(function(g){return g.horizon===h[0];});
-    var rows=gs.length?gs.map(function(g){var p=Math.max(0,Math.min(100,g.progress));return '<div style="padding:9px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center"><div class="rt" style="font-size:14px">'+esc(g.t)+'</div><button class="del" onclick="delFutureG(\''+g.id+'\')">'+icon('x',13)+'</button></div><div class="bar" style="margin-top:7px"><div style="width:'+p+'%;background:var(--accent)"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span class="rs">'+Math.round(p)+'%</span><button class="tbtn add" onclick="progFutureG(\''+g.id+'\','+g.progress+')">Update</button></div></div>';}).join(''):'<div class="rs" style="padding:6px 0">No goals here yet.</div>';
-    return '<div class="card"><div class="ctitle">'+h[1]+'</div>'+rows+'<button class="reqbtn" style="margin-top:8px" onclick="addFutureG(\''+h[0]+'\')">'+icon('plus',15)+' Add goal</button></div>';
-  }).join('');
-  var ci='';
-  if(fm.lastCheckin){var days=Math.floor((Date.now()-new Date(fm.lastCheckin).getTime())/86400000);var due=days>=90;ci='<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div class="rt">Quarterly check-in</div><div class="rs">'+(due?'It\'s been '+days+' days \u2014 is this still who you want to be?':'Last reviewed '+days+' day'+(days===1?'':'s')+' ago')+'</div></div><button onclick="startFutureQuiz()" style="padding:9px 15px;background:'+(due?'var(--accent)':'var(--surface-3)')+';color:'+(due?'#fff':'var(--ink)')+';border:none;border-radius:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Review</button></div>';}
-  var manage='<div class="card" style="display:flex;gap:8px"><button class="tbtn add" style="flex:1" onclick="startFutureQuiz()">Retake quiz</button><button class="tbtn rm" style="flex:1" onclick="resetFutureMe()">Reset Future Me</button></div>';
-  return '<div class="stack">'+prof+sections+ci+manage+'</div>';
-}
-function resetFutureMe(){if(!confirm('Reset Future Me? This clears your profile and goals so you can start fresh.'))return;(async function(){await deleteFutureMe();await refreshScreen();toast('Future Me reset');})();}
-/* ===== FUTURE ME — interactive "Wrapped"-style quiz ===== */
-var FQ_STEPS=[
-  {type:'intro'},
-  {type:'multi',key:'priorities',q:'What matters most to you right now?',sub:'Pick up to three',max:3,options:['Health & energy','Money & freedom','Relationships','Career & craft','Adventure','Family','Learning','Peace of mind']},
-  {type:'scale',key:'drive',q:'How driven do you feel right now?',lo:'Cruising',hi:'Unstoppable'},
-  {type:'scale',key:'health_now',q:'How happy are you with your health & fitness today?',lo:'Not at all',hi:'Thriving'},
-  {type:'text',key:'health',q:'In 5 years, your body & energy feel like\u2026',ph:'Strong, light, clear-headed\u2026'},
-  {type:'scale',key:'money_importance',q:'How important is financial freedom to you?',lo:'Not really',hi:'Everything'},
-  {type:'choice',key:'money',q:'Money, to you, is mostly for\u2026',options:['Security','Experiences','Building something']},
-  {type:'text',key:'career',q:'The work you\u2019d be proud to be doing:',ph:'Be honest \u2014 even if it scares you'},
-  {type:'scale',key:'career_now',q:'How fulfilled are you by your work right now?',lo:'Drained',hi:'Lit up'},
-  {type:'choice',key:'orientation',q:'Five years from now, you\u2019d rather have\u2026',options:['More freedom','More mastery','More connection']},
-  {type:'scale',key:'relationships_close',q:'How close & supported do you feel by the people around you?',lo:'Distant',hi:'Deeply'},
-  {type:'choice',key:'relationships',q:'The people around you are\u2026',options:['A tight few','A wide circle','Family first']},
-  {type:'scale',key:'adventure',q:'How adventurous do you want the next 5 years to be?',lo:'Steady',hi:'Wild'},
-  {type:'text',key:'experiences',q:'One thing you must do before you\u2019re old:',ph:'A place, a feat, a moment\u2026'},
-  {type:'scale',key:'discipline',q:'How disciplined are you these days?',lo:'All over the place',hi:'Locked in'},
-  {type:'text',key:'skills',q:'A skill you want to genuinely own:',ph:'Something you\u2019d love to be great at'},
-  {type:'scale',key:'risk',q:'How much risk are you willing to take to get there?',lo:'Play it safe',hi:'All in'},
-  {type:'choice',key:'character',q:'You want to be known as someone who\u2019s\u2026',options:['Kind','Disciplined','Bold','Wise','Generous']},
-  {type:'text',key:'legacy',q:'At the end of it all, what do you want people to say about you?',ph:'Your one line\u2026'},
-  {type:'text',key:'extra',q:'Anything else Future You wants you to know?',ph:'Optional \u2014 a line to your future self',optional:true}
-];
-var FQ_LABELS={priorities:'Priorities',drive:'Drive (1-10)',health_now:'Health satisfaction (1-10)',health:'Health & body',money_importance:'Money importance (1-10)',money:'Money is for',career:'Career',career_now:'Work fulfilment (1-10)',orientation:'5-year leaning',relationships_close:'Closeness (1-10)',relationships:'Relationships',adventure:'Adventure appetite (1-10)',experiences:'Must-do experience',discipline:'Discipline (1-10)',skills:'Skill to own',risk:'Risk appetite (1-10)',character:'Character',legacy:'Legacy',extra:'Note to self'};
-
-var fqStep=0,fqAns={},fqLayer=null,fqResult={profile:'',goals:[]};
-
-function startFutureQuiz(){openFutureQuiz();}
-function fqStyleInject(){
-  if(document.getElementById('fqStyle'))return;
-  var st=document.createElement('style');st.id='fqStyle';
-  st.textContent='#fmQuiz{position:fixed;inset:0;z-index:400;background:linear-gradient(160deg,#2F6BFF,#3E78FF 55%,#2257E6);color:#fff;display:flex;flex-direction:column;overflow:hidden}'+
-  '#fmQuiz .fq-top{display:flex;align-items:center;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 16px) 22px 8px}'+
-  '#fmQuiz .fq-x{background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}'+
-  '#fmQuiz .fq-prog{flex:1;height:4px;background:rgba(255,255,255,.22);border-radius:3px;overflow:hidden}'+
-  '#fmQuiz .fq-prog>div{height:100%;background:#fff;border-radius:3px;transition:width .35s cubic-bezier(.2,.8,.2,1)}'+
-  '#fmQuiz .fq-body{flex:1;display:flex;flex-direction:column;justify-content:center;padding:22px 26px;overflow-y:auto}'+
-  '#fmQuiz .fq-card{opacity:0;transform:translateY(14px);transition:opacity .32s ease,transform .32s cubic-bezier(.2,.8,.2,1)}'+
-  '#fmQuiz .fq-card.in{opacity:1;transform:none}'+
-  '#fmQuiz .fq-kick{font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;opacity:.7;margin-bottom:14px}'+
-  '#fmQuiz .fq-q{font-family:"Sora","Inter",sans-serif;font-size:30px;line-height:1.16;font-weight:700;letter-spacing:-.01em}'+
-  '#fmQuiz .fq-sub{opacity:.82;margin-top:11px;font-size:15px;line-height:1.45}'+
-  '#fmQuiz .fq-opts{margin-top:24px;display:flex;flex-direction:column;gap:11px}'+
-  '#fmQuiz .fq-opt{background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.18);color:#fff;border-radius:16px;padding:16px 18px;font-size:16px;font-weight:600;text-align:left;cursor:pointer;font-family:inherit;transition:transform .12s,background .15s,border-color .15s}'+
-  '#fmQuiz .fq-opt:active{transform:scale(.98)}'+
-  '#fmQuiz .fq-opt.sel{background:#fff;color:#2257E6;border-color:#fff}'+
-  '#fmQuiz textarea.fq-text{margin-top:22px;width:100%;box-sizing:border-box;min-height:118px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);border-radius:16px;color:#fff;font-size:17px;line-height:1.45;padding:16px 18px;font-family:inherit;resize:none;outline:none}'+
-  '#fmQuiz textarea.fq-text::placeholder{color:rgba(255,255,255,.55)}'+
-  '#fmQuiz .fq-slider-wrap{margin-top:36px}'+
-  '#fmQuiz .fq-val{font-family:"Sora",sans-serif;font-size:56px;font-weight:700;text-align:center;line-height:1}'+
-  '#fmQuiz input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:4px;background:rgba(255,255,255,.28);margin-top:20px;outline:none}'+
-  '#fmQuiz input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:#fff;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.22)}'+
-  '#fmQuiz .fq-ends{display:flex;justify-content:space-between;font-size:13px;opacity:.7;margin-top:12px}'+
-  '#fmQuiz .fq-foot{padding:14px 26px calc(env(safe-area-inset-bottom,0px) + 22px)}'+
-  '#fmQuiz .fq-next{width:100%;background:#fff;color:#2257E6;border:none;border-radius:16px;padding:16px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;transition:transform .12s,opacity .2s}'+
-  '#fmQuiz .fq-next:active{transform:scale(.98)}'+
-  '#fmQuiz .fq-next.dim{opacity:.4;pointer-events:none}'+
-  '#fmQuiz .fq-build{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px}'+
-  '#fmQuiz .fq-spin{width:46px;height:46px;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:fqspin 1s linear infinite;margin-bottom:24px}'+
-  '@keyframes fqspin{to{transform:rotate(360deg)}}'+
-  '#fmQuiz .fq-reveal-q{font-family:"Sora","Inter",sans-serif;font-size:25px;line-height:1.35;font-weight:700}';
-  document.head.appendChild(st);
-}
-function openFutureQuiz(){
-  fqStyleInject();
-  fqStep=0;fqAns={};
-  if(fqLayer&&fqLayer.parentNode)fqLayer.parentNode.removeChild(fqLayer);
-  fqLayer=document.createElement('div');fqLayer.id='fmQuiz';
-  fqLayer.innerHTML='<div class="fq-top"><button class="fq-x" onclick="closeFutureQuiz()">\u2715</button><div class="fq-prog"><div id="fqBar" style="width:0%"></div></div></div><div class="fq-body" id="fqBody"></div><div class="fq-foot" id="fqFoot"></div>';
-  document.body.appendChild(fqLayer);
-  renderFQ();
-}
-function closeFutureQuiz(){if(fqLayer&&fqLayer.parentNode)fqLayer.parentNode.removeChild(fqLayer);fqLayer=null;}
-function fqProg(){var bar=document.getElementById('fqBar');if(bar)bar.style.width=Math.round((fqStep/FQ_STEPS.length)*100)+'%';}
-function fqCount(){return (fqStep)+' / '+(FQ_STEPS.length-1);}
-function renderFQ(){
-  var s=FQ_STEPS[fqStep];var body=document.getElementById('fqBody'),foot=document.getElementById('fqFoot');
-  if(!s||!body)return;
-  fqProg();
-  var html='',footHtml='';
-  if(s.type==='intro'){
-    html='<div class="fq-card"><div class="fq-kick">Future Me</div><div class="fq-q">Let\u2019s meet the person you\u2019re becoming.</div><div class="fq-sub">A quick, honest few minutes. Forge AI turns your answers into a living portrait of Future You \u2014 and quietly steers everything toward it.</div></div>';
-    footHtml='<button class="fq-next" onclick="fqNext()">Begin \u2192</button>';
-  }else if(s.type==='choice'){
-    var opts=s.options.map(function(o){var sel=fqAns[s.key]===o?' sel':'';return '<button class="fq-opt'+sel+'" onclick="fqChoice(\''+s.key+'\',this)">'+o+'</button>';}).join('');
-    html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><div class="fq-opts">'+opts+'</div></div>';
-    footHtml='<button class="fq-next'+(fqAns[s.key]?'':' dim')+'" id="fqNextBtn" onclick="fqNext()">Continue</button>';
-  }else if(s.type==='multi'){
-    var sel=fqAns[s.key]||[];
-    var opts2=s.options.map(function(o){var on=sel.indexOf(o)>=0?' sel':'';return '<button class="fq-opt'+on+'" onclick="fqToggle(\''+s.key+'\',\''+o.replace(/&/g,'&amp;')+'\','+(s.max||3)+')">'+o+'</button>';}).join('');
-    html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><div class="fq-sub">'+(s.sub||'')+'</div><div class="fq-opts">'+opts2+'</div></div>';
-    footHtml='<button class="fq-next'+(sel.length?'':' dim')+'" id="fqNextBtn" onclick="fqNext()">Continue</button>';
-  }else if(s.type==='slider'){
-    if(fqAns[s.key]==null)fqAns[s.key]=50;var v=fqAns[s.key];
-    html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><div class="fq-slider-wrap"><div class="fq-val" id="fqVal">'+v+'</div><input type="range" min="0" max="100" value="'+v+'" oninput="fqAns[\''+s.key+'\']=+this.value;var e=document.getElementById(\'fqVal\');if(e)e.textContent=this.value"><div class="fq-ends"><span>'+s.lo+'</span><span>'+s.hi+'</span></div></div></div>';
-    footHtml='<button class="fq-next" onclick="fqNext()">Continue</button>';
-  }else if(s.type==='scale'){
-    if(fqAns[s.key]==null)fqAns[s.key]=5;var sv=fqAns[s.key];
-    html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><div class="fq-slider-wrap"><div class="fq-val" id="fqVal">'+sv+'</div><input type="range" min="1" max="10" step="1" value="'+sv+'" oninput="fqAns[\''+s.key+'\']=+this.value;var e=document.getElementById(\'fqVal\');if(e)e.textContent=this.value"><div class="fq-ends"><span>'+(s.lo||'1')+'</span><span>'+(s.hi||'10')+'</span></div></div></div>';
-    footHtml='<button class="fq-next" onclick="fqNext()">Continue</button>';
-  }else if(s.type==='text'){
-    html='<div class="fq-card"><div class="fq-kick">'+fqCount()+'</div><div class="fq-q">'+s.q+'</div><textarea class="fq-text" id="fqText" placeholder="'+(s.ph||'')+'">'+esc(fqAns[s.key]||'')+'</textarea></div>';
-    footHtml='<button class="fq-next" onclick="fqSaveTextNext(\''+s.key+'\','+(s.optional?'true':'false')+')">Continue</button>';
-  }
-  body.innerHTML=html;foot.innerHTML=footHtml;
-  requestAnimationFrame(function(){var c=body.querySelector('.fq-card');if(c)c.classList.add('in');});
-}
-function fqChoice(key,el){
-  fqAns[key]=el.textContent;
-  var sibs=el.parentNode.querySelectorAll('.fq-opt');for(var i=0;i<sibs.length;i++)sibs[i].classList.remove('sel');
-  el.classList.add('sel');
-  var nb=document.getElementById('fqNextBtn');if(nb)nb.classList.remove('dim');
-  setTimeout(fqNext,200);
-}
-function fqToggle(key,val,max){
-  var arr=fqAns[key]||[];var i=arr.indexOf(val);
-  if(i>=0)arr.splice(i,1);else{if(arr.length>=max)return;arr.push(val);}
-  fqAns[key]=arr;renderFQ();
-}
-function fqSaveTextNext(key,optional){
-  var t=document.getElementById('fqText');fqAns[key]=t?t.value.trim():'';fqNext();
-}
-function fqNext(){
-  if(fqStep<FQ_STEPS.length-1){fqStep++;renderFQ();}else{fqBuild();}
-}
-async function fqBuild(){
-  var bar=document.getElementById('fqBar');if(bar)bar.style.width='100%';
-  var body=document.getElementById('fqBody'),foot=document.getElementById('fqFoot');
-  if(foot)foot.innerHTML='';
-  if(body)body.innerHTML='<div class="fq-build"><div class="fq-spin"></div><div class="fq-q" style="font-size:24px">Building your Future Me\u2026</div><div class="fq-sub">Reading between the lines.</div></div>';
-  var first=currentUser?currentUser.name.split(' ')[0]:'you';
-  var content=Object.keys(fqAns).map(function(k){var v=fqAns[k];if(Array.isArray(v))v=v.join(', ');return (FQ_LABELS[k]||k)+': '+v;}).join('\n');
-  var profile='',goals=[];
-  try{
-    var sys='You help '+first+' define who they want to become. Below are their quiz answers. First write a warm, vivid, second-person "Future You" portrait of 4-6 sentences (start with "You are becoming"), capturing the specific person emerging from their answers \u2014 reference concrete things they said. Then append ONE fenced json block of 6 long-term goals drawn from their answers: ```json\n[{"horizon":"1y","dimension":"health","title":"..."}]\n``` horizon must be 1y, 5y, 10y or life. Specific and real, never generic.';
-    var resp=await askAI([{role:'user',content:content}],sys,900);
-    var jm=resp.match(/```json([\s\S]*?)```/i);if(jm){try{goals=JSON.parse(jm[1].trim());}catch(e){}}
-    profile=resp.replace(/```[\s\S]*?```/g,'').trim();
-  }catch(e){
-    profile='You are becoming someone intentional about what matters \u2014 '+((fqAns.priorities||[]).join(', ').toLowerCase()||'your growth')+'. You know the direction; now it\u2019s about showing up for it, week after week.';
-  }
-  fqResult={profile:profile,goals:goals};
-  fqReveal(0);
-}
-function fqReveal(i){
-  var body=document.getElementById('fqBody'),foot=document.getElementById('fqFoot');
-  if(!body)return;
-  if(i===0){
-    body.innerHTML='<div class="fq-card"><div class="fq-kick">Future You</div><div class="fq-reveal-q">'+aiFmt(fqResult.profile)+'</div></div>';
-    foot.innerHTML='<button class="fq-next" onclick="fqReveal(1)">Show my goals \u2192</button>';
-  }else{
-    var hl={'1y':'1yr','5y':'5yr','10y':'10yr','life':'life'};
-    var gh=(fqResult.goals&&fqResult.goals.length)?fqResult.goals.slice(0,6).map(function(g){return '<div class="fq-opt" style="cursor:default">'+esc(String(g.title||''))+'  <span style="opacity:.6;font-weight:600">\u00B7 '+(hl[g.horizon]||g.horizon||'')+'</span></div>';}).join(''):'<div class="fq-sub">We\u2019ll shape your goals together in the app.</div>';
-    body.innerHTML='<div class="fq-card"><div class="fq-kick">Your north star</div><div class="fq-q" style="font-size:24px">The goals pulling you forward</div><div class="fq-opts">'+gh+'</div></div>';
-    foot.innerHTML='<button class="fq-next" onclick="fqFinish()">Enter Forge \u2192</button>';
-  }
-  requestAnimationFrame(function(){var c=body.querySelector('.fq-card');if(c)c.classList.add('in');});
-}
-async function fqFinish(){
-  var foot=document.getElementById('fqFoot');if(foot)foot.innerHTML='<button class="fq-next dim">Saving\u2026</button>';
-  await setFutureMe(fqAns,fqResult.profile);
-  var existing=await getFutureGoals();
-  if((!existing||!existing.length)&&fqResult.goals&&fqResult.goals.length){for(var i=0;i<fqResult.goals.length&&i<8;i++){var g=fqResult.goals[i];if(g&&g.title)await addFutureGoalDB(String(g.horizon||'1y'),String(g.dimension||''),String(g.title));}}
-  closeFutureQuiz();
-  if(current&&current.tab==='futureme')await refreshScreen();else go('futureme');
-  toast('Future Me ready \u2713');
-}
-
-function addFutureG(h){openForm('Add goal','',[{key:'t',label:'Goal'}],async function(v){if(!v.t){toast('Enter a goal');return;}await addFutureGoalDB(h,'',v.t);closeOverlay();await refreshScreen();});}
-function progFutureG(id,cur){openForm('Update progress','0\u2013100%',[{key:'p',label:'Progress %',numeric:true}],async function(v){await updateFutureGoalDB(id,Math.max(0,Math.min(100,parseFloat(v.p)||0)));closeOverlay();await refreshScreen();});}
-async function delFutureG(id){await deleteFutureGoalDB(id);await refreshScreen();}
 
 // ============================================================
 // COUNTDOWN / MEALS / CAR
@@ -3769,13 +3529,10 @@ async function gatherUserContext(){
   try{var lc=await getLifeContext();if(lc&&(lc.summary||lc.routine)){lines.push('Typical week & commitments: '+(lc.summary||'')+(lc.routine?(' | '+JSON.stringify(lc.routine)):''));}}catch(e){}
   try{var _t2=new Date();_t2.setDate(_t2.getDate()+14);var _sh=await getShifts(localDay(),_t2.getFullYear()+'-'+('0'+(_t2.getMonth()+1)).slice(-2)+'-'+('0'+_t2.getDate()).slice(-2));if(_sh.length){lines.push('Upcoming shifts (work around these): '+_sh.map(function(s){var dd=new Date(s.day+'T00:00:00');return dd.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short',year:'numeric'})+(s.label?' '+s.label:'')+(s.start?' '+s.start+(s.end?'-'+s.end:''):'');}).join('; '));}}catch(e){}
   try{var _td=localDay();var _ts=await getShifts(_td,_td);if(_ts.length)lines.push('TODAY\u2019S SHIFTS (plan around these): '+_ts.map(function(s){return (s.label||'Shift')+(s.start?' '+s.start+(s.end?'-'+s.end:''):'');}).join('; '));}catch(e){}
-  try{var _all=rcDedupeRuns(await getRunLogs(30));var _runs=_all.filter(rcIsRun);var _str=_all.filter(function(l){return l.activity==='strength';});var _cut=Date.now()-14*86400000;var _wk=_runs.filter(function(l){return new Date(l.day+'T00:00:00').getTime()>=_cut;}).length;if(_runs.length){lines.push('Runs (deduped, RUNS only, ignore walks/rides): '+_runs.slice(0,8).map(function(l){return l.day+' '+l.km+'km'+(l.min?'/'+Math.round(l.min)+'min':'')+(l.hr?'/'+l.hr+'bpm':'');}).join('; ')+'. That is '+(_wk/2).toFixed(1)+' runs/week over the last fortnight ('+_wk+' runs in 14 days) - report frequency from THIS, never overstate.');}if(_str.length){lines.push('Strength/gym sessions logged via Strava: '+_str.length+' recently.');}}catch(e){}
-  try{var rp=await getRunPlan();if(rp&&rp.plan){var td=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];var ts=null;((rp.plan.detail&&rp.plan.detail.days)||[]).forEach(function(w){if(w.day===td)ts=w;});lines.push('Running goal: '+rp.goal+(ts?(' — today\u2019s session: '+(ts.type||'')+(ts.km?' '+ts.km+'km':'')+(ts.title?' ('+ts.title+')':'')):''));}}catch(e){}
-  try{var fm=await getFutureMe();if(fm&&fm.profile)lines.push('FUTURE ME (their north star \u2014 weigh every suggestion against this; favour what moves them toward it): '+fm.profile);var fgs=await getFutureGoals();if(fgs&&fgs.length)lines.push('Long-term goals: '+fgs.map(function(g){return '['+g.horizon+'] '+g.t+' ('+Math.round(g.progress)+'%)';}).join('; '));}catch(e){}
   try{var b=await getFinBalance();if(b!=null)lines.push('Logged balance: '+money(b));}catch(e){}
   try{var inv=await getInvestments();if(inv&&inv.length){var ivt=inv.reduce(function(s,x){return s+x.v;},0);lines.push('Investments: '+money(ivt)+' across '+inv.length+' ('+inv.map(function(x){return x.n+' '+money(x.v);}).join(', ')+')');}}catch(e){}
   try{var nw=await getNetWorth();var bb=await getFinBalance();var iv2=await getInvestments();var ca=bb!=null?Number(bb):0;var it2=iv2.reduce(function(s,x){return s+x.v;},0);var as=nw.assets.reduce(function(s,x){return s+x.a;},0)+ca+it2;var li=nw.liabilities.reduce(function(s,x){return s+x.a;},0);if(as||li)lines.push('Net worth: '+money(as-li)+' (assets '+money(as)+', owed '+money(li)+')');}catch(e){}
-  try{var bud=await getBudget();if(bud&&bud.length)lines.push('Budgets: '+bud.map(function(x){return x.n+' A$'+x.spent+'/'+x.limit;}).join('; '));}catch(e){}
+  try{var _bm=budCurMonth();var _bd=await budCompute(_bm);if(_bd&&_bd.groups.length){lines.push('Budget ('+budMonthLabel(_bm)+'): income '+money(_bd.income)+', assigned '+money(_bd.assigned)+', spent '+money(_bd.spent)+', '+money(Math.abs(_bd.toAssign))+(_bd.toAssign>=0?' left to assign':' over')+'. Categories: '+_bd.groups.map(function(g){return g.cats.map(function(c){return c.name+' '+money(c.spent)+'/'+money(c.assigned);}).join(', ');}).join(', ')+'.');}}catch(e){}
   try{var fg=await getFinGoals();if(fg&&fg.length)lines.push('Savings goals: '+fg.map(function(x){return x.n+' A$'+x.saved+'/'+x.target;}).join('; '));}catch(e){}
   try{var ml=await getTrackerLogs('mood',7);if(ml.length){var ma=(ml.reduce(function(s,x){return s+x.value;},0)/ml.length).toFixed(1);var mcur=ml[0].day===localDay();lines.push('Mood: avg '+ma+'/10 over last '+ml.length+' day(s)'+(mcur?(' - TODAY '+ml[0].value+'/10'+(ml[0].note?' ('+ml[0].note+')':'')):(' - no entry today (last logged '+ml[0].day+')'))+'.');}}catch(e){}
   try{var sl=await getTrackerLogs('sleep',7);if(sl.length){var sa=Math.round(sl.reduce(function(s,x){return s+x.value;},0)/sl.length);var scur=sl[0].day===localDay();lines.push('Sleep: avg '+sa+' over last '+sl.length+' day(s)'+(scur?(' - LAST NIGHT '+sl[0].value):(' - not logged today (last on '+sl[0].day+')'))+'.');}}catch(e){}
@@ -3993,7 +3750,6 @@ async function aiSend(){
       'Forge organises their life into Time, Money, Food, Fitness, Home and Personal. '+
       'Be concise, warm and practical \u2014 a few short sentences unless they ask for more. '+
       'Use the data snapshot below to answer specifically about THEM, and proactively spot useful connections (an upcoming countdown, an overdue car date, a meal plan that needs a shopping list). '+
-      'If a FUTURE ME profile is present, treat it as their north star: gently favour suggestions and actions that compound toward it, and flag when something pulls away from it. '+
       'Never invent data you weren\u2019t given.'+
       '\n\nACTIONS \u2014 you can DO things, not just answer. If the user asks you to add, create, plan or save something, perform it by appending ONE fenced block at the very END of your reply:\n```forge\n[ {"type":"add_task","title":"Call dentist"} ]\n```\n'+
       'Allowed types ONLY: add_task{title,note?}, add_reminder{title,note?}, add_goal{title}, add_note{title}, add_shopping{items:[..]}, set_dinner{day,meal}, plan_week_dinners{meals:{Mon:"..",Tue:".."}}, add_countdown{name,date:"YYYY-MM-DD"}, add_to_list{tab,title,note?}. '+
