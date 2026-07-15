@@ -193,6 +193,14 @@ button:focus-visible,[onclick]:focus-visible{outline:2px solid var(--accent);out
 .btx-chip{flex-shrink:0;display:flex;align-items:center;gap:7px;border:1.5px solid var(--line);background:var(--surface-2);border-radius:999px;padding:9px 14px;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .15s,background .15s,transform .12s;}
 .btx-chip:active{transform:scale(.95);}
 .btx-chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);}
+.btx-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+.btx-head h3{margin:0;}
+.btx-x{width:34px;height:34px;border-radius:50%;border:none;background:var(--surface-3);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.btx-lbl{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:12px 2px 0;}
+.btx-dates{display:flex;gap:8px;padding:10px 2px 2px;}
+.btx-dpick{position:relative;overflow:hidden;display:flex;align-items:center;gap:6px;}
+.btx-dpick input{position:absolute;inset:0;opacity:0;width:100%;}
+.btx-save{width:100%;margin-top:14px;padding:15px;font-size:15.5px;}
 .acc-card .ctitle{margin-bottom:4px;}
 .acc-row{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line);}
 .acc-row:last-of-type{border-bottom:none;}
@@ -217,15 +225,15 @@ button:focus-visible,[onclick]:focus-visible{outline:2px solid var(--accent);out
 .fx-chip span{font-size:11px;color:var(--sub);font-weight:600;display:block;}
 .fx-chip b{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;display:block;margin-top:2px;}
 /* rates converter */
-.rate-row{display:flex;gap:10px;align-items:center;margin:8px 0;}
-.rate-amt{flex:1;border:1.5px solid var(--line);background:var(--surface-2);border-radius:13px;padding:14px 16px;font-family:'Sora',sans-serif;font-size:24px;font-weight:800;color:var(--ink);outline:none;font-variant-numeric:tabular-nums;}
+.rate-row{display:flex;gap:10px;align-items:center;margin:8px 0;min-width:0;}
+.rate-amt{flex:1;min-width:0;width:100%;border:1.5px solid var(--line);background:var(--surface-2);border-radius:13px;padding:14px 16px;font-family:'Sora',sans-serif;font-size:24px;font-weight:800;color:var(--ink);outline:none;font-variant-numeric:tabular-nums;}
 .rate-amt:focus{border-color:var(--accent);}
-.rate-out{flex:1;border:1.5px solid var(--line);background:var(--surface);border-radius:13px;padding:14px 16px;font-family:'Sora',sans-serif;font-size:24px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.rate-sel{border:1.5px solid var(--line);background:var(--surface-2);border-radius:13px;padding:14px 12px;font-family:inherit;font-size:15px;font-weight:700;color:var(--ink);outline:none;-webkit-appearance:none;appearance:none;flex-shrink:0;min-width:96px;}
+.rate-out{flex:1;min-width:0;border:1.5px solid var(--line);background:var(--surface);border-radius:13px;padding:14px 16px;font-family:'Sora',sans-serif;font-size:24px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rate-sel{border:1.5px solid var(--line);background:var(--surface-2);border-radius:13px;padding:14px 10px;font-family:inherit;font-size:15px;font-weight:700;color:var(--ink);outline:none;-webkit-appearance:none;appearance:none;flex:0 0 auto;max-width:96px;}
 .rate-swap{display:flex;justify-content:center;margin:-2px 0;}
 .rate-swap button{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;transform:rotate(90deg);transition:transform .3s;}
 .rate-swap button:active{transform:rotate(270deg) scale(.9);}
-.rate-note{font-size:12.5px;color:var(--sub);font-weight:600;text-align:center;margin-top:10px;font-variant-numeric:tabular-nums;}
+.rate-note{font-size:12.5px;color:var(--sub);font-weight:600;text-align:center;margin-top:10px;font-variant-numeric:tabular-nums;white-space:normal;line-height:1.5;overflow-wrap:anywhere;}
 .rate-trow{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);}
 .rate-trow:last-child{border-bottom:none;}
 .rate-tsym{width:38px;height:38px;border-radius:11px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0;}
@@ -418,7 +426,8 @@ button:focus-visible,[onclick]:focus-visible{outline:2px solid var(--accent);out
 .keypad,.key{touch-action:manipulation;}
 .key.blank{background:transparent;border:none;box-shadow:none;cursor:default;}
 .key.fn{font-size:clamp(12px,3.4vw,14px);letter-spacing:.02em;color:var(--sub);background:transparent;border:none;box-shadow:none;font-weight:600;}
-.pin-face{display:flex;align-items:center;gap:8px;margin:0 auto;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-family:inherit;font-weight:700;font-size:14px;padding:11px 20px;border-radius:14px;cursor:pointer;box-shadow:var(--shadow);}
+.pin-wrap{padding-bottom:84px;}
+.pin-face{display:flex;align-items:center;gap:8px;margin:2px auto 0;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-family:inherit;font-weight:700;font-size:14px;padding:11px 20px;border-radius:14px;cursor:pointer;box-shadow:var(--shadow);}
 .pin-alt{position:absolute;bottom:calc(30px + env(safe-area-inset-bottom,0px));left:0;right:0;margin:0 auto;font-size:14px;color:var(--accent);letter-spacing:.01em;background:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;z-index:4;}
 .pin-back{position:absolute;top:calc(20px + env(safe-area-inset-top,0px));left:20px;width:40px;height:40px;border-radius:50%;background:rgba(15,23,42,.05);border:none;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:4;}
 /* ============ SIGNUP ============ */
@@ -546,12 +555,14 @@ button:focus-visible,[onclick]:focus-visible{outline:2px solid var(--accent);out
 /* ---------- Apple-Intelligence-style animated gradient ring ---------- */
 .glow-ring{position:relative;}
 .glow-ring{isolation:isolate;}
-.glow-ring::before{content:'';position:absolute;inset:-3px;border-radius:inherit;padding:3px;background:conic-gradient(from 0deg,#7C5CFF,#2F6BFF,#22D3EE,#10B981,#F59E0B,#EC4899,#7C5CFF);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;animation:ringHue 4.5s steps(54) infinite;pointer-events:none;filter:saturate(1.4);}
+.glow-ring::before{content:'';position:absolute;inset:-3px;border-radius:inherit;padding:3px;background:conic-gradient(from var(--ga,0deg),#7C5CFF,#2F6BFF,#22D3EE,#10B981,#F59E0B,#EC4899,#7C5CFF);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;animation:gaSpin 3.5s linear infinite;pointer-events:none;filter:saturate(1.4);}
 .glow-ring::after{content:'';position:absolute;inset:-8px;border-radius:inherit;z-index:-1;pointer-events:none;box-shadow:0 0 22px -2px rgba(124,92,255,.35),0 8px 26px -6px rgba(47,107,255,.32),0 0 30px -8px rgba(16,185,129,.25);}
+@property --ga{syntax:'<angle>';inherits:false;initial-value:0deg;}
+@keyframes gaSpin{to{--ga:360deg;}}
 @keyframes ringHue{to{filter:hue-rotate(360deg);}}
 @keyframes ringHueS{to{filter:hue-rotate(360deg);}}
 /* AI mode: animated ring tracing the whole iPhone screen (body-level, device-shaped) */
-#aiEdge{position:fixed;top:0;left:0;right:0;bottom:0;z-index:500;pointer-events:none;padding:4px;border-radius:max(38px,env(safe-area-inset-bottom,0px));background:conic-gradient(from 0deg,#7C5CFF,#2F6BFF,#22D3EE,#10B981,#F59E0B,#EC4899,#7C5CFF);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:0;filter:blur(1.2px) saturate(1.3);animation:ringHue 6s steps(72) infinite;transition:opacity .55s ease;}
+#aiEdge{position:fixed;top:0;left:0;right:0;bottom:0;z-index:500;pointer-events:none;padding:4px;border-radius:max(38px,env(safe-area-inset-bottom,0px));background:conic-gradient(from var(--ga,0deg),#7C5CFF,#2F6BFF,#22D3EE,#10B981,#F59E0B,#EC4899,#7C5CFF);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:0;filter:blur(1.2px) saturate(1.3);animation:gaSpin 5s linear infinite;transition:opacity .55s ease;}
 #aiEdge.on{opacity:.85;}
 /* ---------- Today at a glance bubbles ---------- */
 .today-strip{grid-column:1 / -1;display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 6px;scrollbar-width:none;scroll-snap-type:x proximity;}
@@ -700,7 +711,7 @@ svg{display:block;}
 .navi.on{color:var(--accent)}
 .navi.on svg{animation:navPop .4s var(--e-spring);}
 @keyframes navPop{0%{transform:scale(1);}45%{transform:scale(1.22);}100%{transform:scale(1);}}
-#navInd{position:absolute;top:0;left:calc(var(--nx,0) * 25%);width:25%;height:3px;pointer-events:none;transition:left .45s var(--e-spring);display:flex;justify-content:center;}
+#navInd{position:absolute;top:0;left:calc(var(--nx,0) * 20%);width:20%;height:3px;pointer-events:none;transition:left .45s var(--e-spring);display:flex;justify-content:center;}
 #navInd::after{content:'';width:34px;height:3px;border-radius:0 0 4px 4px;background:var(--accent);}
 .navi:active{opacity:.55}
 .navi svg{width:23px;height:23px;display:block}
@@ -1389,7 +1400,7 @@ function subscribeTabs(){
 function addTab(id){var a=enabledTabs();if(a.indexOf(id)<0){a.push(id);setEnabledTabs(a);}refreshScreen();toast('Added ✓');}
 function removeTab(id){setEnabledTabs(enabledTabs().filter(function(x){return x!==id;}));refreshScreen();toast('Removed');}
 const ADDABLE={work:'task',reminders:'reminder',goals:'habit',notes:'note',documents:'document',shopping:'item',subs:'subscription',workouts:'workout',recipes:'recipe',mood:'note',sleep:'entry',water:'log',meds:'medication',projects:'project',journal:'entry',books:'book',movies:'title',study:'topic',wishlist:'wish',gifts:'gift',pets:'pet',home2:'job',habits:'habit',fitness:'workout',health:'entry'};
-function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
+function tabTitle(id){if(/^cat_/.test(id)){var cc=catById(id);if(cc)return{label:cc.label,sub:cc.sub};}var sp={today:{label:'Today',sub:'Your day at a glance'},users:{label:'People',sub:'Manage users'},tabs:{label:'Customise',sub:'Add or remove tabs'},owner:{label:'Dashboard',sub:'Your app at a glance'},settings:{label:'Settings',sub:'Make Forge yours'}};if(sp[id])return sp[id];var c=catalogById(id);if(c)return{label:c.label,sub:c.sub};return{label:id,sub:''};}
 
 // ============================================================
 // AUTH SCREENS (PIN + signup) — rendered into #stage-overlay layers
@@ -1765,17 +1776,71 @@ function renderHeader(tabId){
   var dot='<div id="syncDot" class="sync-dot"></div>';
   if(!tabId){
     var nm=currentUser?currentUser.name:'You';
-    hdr.innerHTML='<div class="logo" onclick="replaySplash()" title="Refresh"><img src="'+ICON_SRC+'" alt="F"/></div>'+
+    hdr.innerHTML='<div class="logo" onclick="goHome()" title="Home"><img src="'+ICON_SRC+'" alt="F"/></div>'+
       '<div class="htext"><h1>Forge</h1></div>'+dot+
       '<div class="pill" onclick="openAccount()">'+avatarHTML(nm,26,currentUser?currentUser.avatar_url:null)+'<span class="nm">'+esc(nm.split(' ')[0])+'</span></div>';
   }else{
     var tt=tabTitle(tabId);
     hdr.innerHTML='<div class="back" onclick="back()">'+icon('back',22)+'</div>'+
       '<div class="htext"><h1 class="serif">'+esc(tt.label)+'</h1><span>'+esc(tt.sub)+'</span></div>'+dot+
-      '<div class="logo sm" onclick="replaySplash()" title="Refresh"><img src="'+ICON_SRC+'" alt="F"/></div>';
+      '<div class="logo sm" onclick="goHome()" title="Home"><img src="'+ICON_SRC+'" alt="F"/></div>';
   }
 }
 function goHome(){go(null);}
+async function renderSettings(){
+  var hasBio=currentUser&&lsGet(bioKey(currentUser.id));
+  var name=currentUser&&currentUser.name?currentUser.name:'You';
+  var appearance='<div class="card"><div class="ctitle">Appearance</div>'+
+    '<div class="row" onclick="openCurrencyPicker()" style="cursor:pointer"><div class="chip sm" style="--tc:#10B981">'+icon('wallet',16,2.2)+'</div><div style="flex:1"><div class="rt">Currency</div><div class="rs">'+esc(getCurrency().name)+'</div></div><span class="rs" style="font-weight:700">'+esc(getCurrency().code)+'</span></div>'+
+  '</div>';
+  var security='<div class="card"><div class="ctitle">Security</div>'+
+    '<div class="row"><div class="chip sm" style="--tc:#8B5CF6">'+icon('shield',16,2.2)+'</div><div style="flex:1"><div class="rt">Face ID unlock</div><div class="rs">'+(hasBio?'Enabled on this device':'Unlock without your PIN')+'</div></div><button class="tbtn '+(hasBio?'rm':'add')+'" onclick="setFaceID('+(hasBio?'false':'true')+')">'+(hasBio?'Disable':'Enable')+'</button></div>'+
+    '<div class="row" onclick="lockForge()" style="cursor:pointer"><div class="chip sm" style="--tc:#8B5CF6">'+icon('padlock',16,2.2)+'</div><div style="flex:1"><div class="rt">Lock Forge now</div><div class="rs">Back to the PIN screen</div></div><span class="cal-agchev">'+icon('chev',13,2.4)+'</span></div>'+
+  '</div>';
+  var app='<div class="card"><div class="ctitle">App</div>'+
+    '<div class="row" onclick="sendFeedbackSheet()" style="cursor:pointer"><div class="chip sm" style="--tc:#3E78FF">'+icon('send',16,2.2)+'</div><div style="flex:1"><div class="rt">Send feedback</div><div class="rs">Ideas & bugs land on Harvey\u2019s dashboard</div></div><span class="cal-agchev">'+icon('chev',13,2.4)+'</span></div>'+
+    '<div class="row" onclick="clearLocalCache()" style="cursor:pointer"><div class="chip sm" style="--tc:#3E78FF">'+icon('trash',16,2.2)+'</div><div style="flex:1"><div class="rt">Clear cached data</div><div class="rs">Refetch everything from the cloud</div></div><span class="cal-agchev">'+icon('chev',13,2.4)+'</span></div>'+
+    '<div class="row" onclick="replaySplash()" style="cursor:pointer"><div class="chip sm" style="--tc:#3E78FF">'+icon('spark',16,2.2)+'</div><div style="flex:1"><div class="rt">Restart Forge</div><div class="rs">Full reload with the splash</div></div><span class="cal-agchev">'+icon('chev',13,2.4)+'</span></div>'+
+  '</div>';
+  var about='<div class="card"><div class="ctitle">About</div>'+
+    '<div class="row"><div class="chip sm">'+icon('users',16,2.2)+'</div><div style="flex:1"><div class="rt">'+esc(name)+'</div><div class="rs">Signed in on this device</div></div></div>'+
+    '<div class="row"><div class="chip sm">'+icon('grid',16,2.2)+'</div><div style="flex:1"><div class="rt">Forge</div><div class="rs">PWA \u00B7 harveybetts.github.io</div></div></div>'+
+  '</div>';
+  return '<div class="stack">'+appearance+security+app+about+'</div>';
+}
+async function setFaceID(on){
+  if(on){
+    if(!await bioAvailable()){toast('Face ID isn\u2019t available on this device');return;}
+    var ok=await bioRegister();
+    toast(ok?'Face ID enabled \u2713':'Couldn\u2019t enable Face ID');
+  }else{
+    lsDel(bioKey(currentUser.id));toast('Face ID disabled');
+  }
+  await refreshScreen();
+}
+function lockForge(){manageAiEdge(null);showPinUnlock();}
+function sendFeedbackSheet(){
+  var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
+  o.innerHTML='<div class="sheet" onclick="event.stopPropagation()"><h3 style="margin-bottom:8px">Send feedback</h3><p style="margin-bottom:10px">What should Forge do better?</p>'+
+    '<textarea id="fbTxt" placeholder="I\u2019d love it if\u2026" autocomplete="off" autocorrect="off" spellcheck="false" style="width:100%;min-height:96px;border:1px solid var(--line);background:var(--surface-2);border-radius:13px;padding:12px 14px;font-family:inherit;font-size:16px;color:var(--ink);outline:none;resize:none"></textarea>'+
+    '<div class="btnrow"><button class="btn btn-ghost" onclick="closeOverlay()">Cancel</button><button class="btn btn-primary" onclick="sendFeedbackGo()">Send</button></div></div>';
+  document.getElementById('app').appendChild(o);
+  setTimeout(function(){var t=document.getElementById('fbTxt');if(t)t.focus();},150);
+}
+async function sendFeedbackGo(){
+  var t=document.getElementById('fbTxt');var v=t?t.value.trim():'';
+  if(!v){if(t)t.focus();return;}
+  try{await saveRequestDB(v.slice(0,400));closeOverlay();toast('Sent \u2014 thanks! \u2713');}
+  catch(e){toast('Couldn\u2019t send \u2014 try again');}
+}
+async function clearLocalCache(){
+  try{
+    var kill=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf('forge.cache.')===0)kill.push(k);}
+    kill.forEach(function(k){lsDel(k);});
+  }catch(e){}
+  _finInvalidateAll();_itemsMem={};_budInvalidate();_brainCache.t=0;try{calInvalidate();}catch(e){}
+  toast('Cache cleared \u2713');await refreshScreen();
+}
 // Tapping the logo replays the navy splash (icon grow-in) then reloads, like a refresh.
 function replaySplash(){
   if(document.getElementById('intro'))return; // already showing
@@ -1822,6 +1887,7 @@ async function buildBriefing(){
 }
 function refreshBriefing(){
   renderTodayStrip();
+  setTimeout(function(){var b=document.getElementById('brainCards');if(b&&b.querySelector('.sk-pill'))b.innerHTML='';},6000);
   buildBriefing().then(function(t){
     if(!t)return;                              // nothing to show → keep current text
     lsSet('forge.brief',t);
@@ -1854,13 +1920,12 @@ function homeHTML(){
   function lifecard(id,ic,name,sub,em,col){var cs=col?(' style="background:'+col+'1A;color:'+col+';border-color:'+col+'55"'):'';return '<div class="lifecard'+(em?' on':'')+'" onclick="zoomTo(this,\''+id+'\')"><div class="lifecard-chip'+(em?' accent':'')+'"'+cs+'>'+icon(ic,20,2.2)+'</div><div class="lifecard-name serif">'+name+'</div><div class="lifecard-sub">'+sub+'</div><span class="lifecard-go">'+icon('chev',15,2.4)+'</span></div>';}
   var life='';
   for(var i=0;i<CATS.length;i++){var c=CATS[i];life+=lifecard('cat_'+c.id,c.icon,esc(c.label),esc(c.sub),false,c.chip);}
-  var ai=lifecard('ai','spark','Forge AI','Ask about your world',true).replace('lifecard on','lifecard on glow-ring');
   var owner=isOwner()?lifecard('owner','grid','Dashboard','Owner overview'):'';
   return '<div class="home-grid hgv" id="homeGrid">'+hero
     +'<div class="today-strip" id="todayStrip"></div>'
     +'<div class="brain-wrap" id="brainCards"><div class="sk-pill"></div><div class="sk-pill sk2"></div></div>'
     +lbl('Your life')+'<div class="life-wrap">'+life+'</div>'
-    +lbl('Quick')+'<div class="life-wrap">'+ai+owner+'</div>'
+    +(owner?lbl('Quick')+'<div class="life-wrap">'+owner+'</div>':'')
     +'</div>';
 }
 // Render the top deterministic insights into Home's brain strip (async, non-blocking).
@@ -1869,7 +1934,8 @@ async function renderBrainCards(){
   var host=document.getElementById('brainCards');if(!host)return;
   try{
     var ins=await brainInsights();
-    if(!ins||!ins.length){host.innerHTML='';return;}
+    ins=(ins||[]).filter(function(x){return x&&x.text;});
+    if(!ins.length){host.innerHTML='';return;}
     var top=ins.slice(0,4);
     host.innerHTML=top.map(function(x,i){
       var act=x.act?('<div class="brain-card-act"><button onclick="__brainAct('+i+')">'+esc(x.act.label)+'</button></div>'):'';
@@ -1898,17 +1964,18 @@ async function loadAndRender(tab,el){var html=await renderTab(tab);if(el&&el.par
 
 function mountNav(){
   if(document.getElementById('bottomNav'))return;
-  var items=[['__home__','home','Home'],['calendar','calendar','Calendar'],['ai','spark','Forge AI'],['tabs','grid','Customise']];
+  var items=[['__home__','home','Home'],['calendar','calendar','Calendar'],['ai','spark','Forge AI'],['tabs','grid','Customise'],['settings','wrench','Settings']];
   var nav=document.createElement('nav');nav.id='bottomNav';
   nav.innerHTML='<div id="navInd"></div>'+items.map(function(it){var oc=it[0]==='__home__'?'go(null)':("go('"+it[0]+"')");return '<button class="navi" data-nav="'+it[0]+'" onclick="'+oc+'">'+icon(it[1],23,2)+'<span>'+it[2]+'</span></button>';}).join('');
   document.getElementById('app').appendChild(nav);
   requestAnimationFrame(function(){nav.classList.add('show');});
 }
-var NAV_ORDER={'__home__':0,'calendar':1,'ai':2,'tabs':3};
-function navIndex(tab){var key=(tab===null||tab===undefined)?'__home__':(tab==='calendar'?'calendar':(tab==='ai'?'ai':(tab==='tabs'?'tabs':null)));return key===null?null:NAV_ORDER[key];}
+var NAV_ORDER={'__home__':0,'calendar':1,'ai':2,'tabs':3,'settings':4};
+var NAV_MAX=4;
+function navIndex(tab){var key=(tab===null||tab===undefined)?'__home__':(tab==='calendar'?'calendar':(tab==='ai'?'ai':(tab==='tabs'?'tabs':(tab==='settings'?'settings':null))));return key===null?null:NAV_ORDER[key];}
 function updateNav(tab){
   var nav=document.getElementById('bottomNav');if(!nav)return;
-  var key=(tab===null)?'__home__':(tab==='calendar'?'calendar':(tab==='ai'?'ai':(tab==='tabs'?'tabs':null)));
+  var key=(tab===null)?'__home__':(tab==='calendar'?'calendar':(tab==='ai'?'ai':(tab==='tabs'?'tabs':(tab==='settings'?'settings':null))));
   if(key===null)return;   // drilled/content screens: keep the current root highlighted, indicator stays put
   var bs=nav.querySelectorAll('.navi');var idx=0;
   for(var i=0;i<bs.length;i++){var on=bs[i].getAttribute('data-nav')===key;bs[i].classList.toggle('on',on);if(on)idx=i;}
@@ -2080,6 +2147,23 @@ function closeOverlay(){
   o.classList.add('out');
   setTimeout(function(){if(o.parentNode)o.parentNode.removeChild(o);},300);
 }
+// Swiping along the bottom bar itself pages between tabs
+(function(){
+  var nx=0,ny=0,ok=false;
+  document.addEventListener('touchstart',function(e){
+    ok=false;var t=e.touches[0];
+    if(!t.target.closest||!t.target.closest('#bottomNav'))return;
+    nx=t.clientX;ny=t.clientY;ok=true;
+  },{passive:true});
+  document.addEventListener('touchend',function(e){
+    if(!ok)return;ok=false;
+    var t=e.changedTouches[0];var dx=t.clientX-nx,dy=t.clientY-ny;
+    if(Math.abs(dx)<44||Math.abs(dx)<Math.abs(dy)*1.4)return;
+    var idx=navIndex(activeTab);if(idx==null)idx=0;
+    var ni=idx+(dx<0?1:-1);if(ni<0||ni>NAV_MAX||ni===idx)return;
+    go(ni===0?null:(ni===1?'calendar':(ni===2?'ai':(ni===3?'tabs':'settings'))));
+  },{passive:true});
+})();
 // iOS large-title cue: header hairline appears only once the screen is scrolled
 document.addEventListener('scroll',function(e){
   if(!current||e.target!==current.el)return;
@@ -2090,7 +2174,7 @@ document.addEventListener('scroll',function(e){
 (function(){
   var sx=0,sy=0,t0=0,eligible=false,decided=false,dragging=false;
   var cur=null,nei=null,dir=0,fromIdx=0,toIdx=0,W=0,lastX=0,lastT=0,vx=0;
-  function idxToTab(i){return i===0?null:(i===1?'calendar':(i===2?'ai':'tabs'));}
+  function idxToTab(i){return i===0?null:(i===1?'calendar':(i===2?'ai':(i===3?'tabs':'settings')));}
   function hscrollable(el){
     while(el&&el!==document.body){
       try{var cs=getComputedStyle(el);if((cs.overflowX==='auto'||cs.overflowX==='scroll')&&el.scrollWidth>el.clientWidth+4)return true;}catch(e){}
@@ -2127,7 +2211,7 @@ document.addEventListener('scroll',function(e){
       W=window.innerWidth;
       cur=current?current.el:null;if(!cur){reset();return;}
       cur.classList.add('dragging');cur.style.transition='none';
-      if(toIdx>=0&&toIdx<=3){
+      if(toIdx>=0&&toIdx<=NAV_MAX){
         nei=buildScreen(idxToTab(toIdx));
         nei.classList.add('dragging','tab-peek','show');
         nei.style.transition='none';
@@ -2337,6 +2421,7 @@ async function renderTab(tab){
   if(tab==='fin_networth')return renderNetWorth();
   if(tab==='fin_goals')return renderFinGoals();
   if(tab==='fin_subs')return renderSubscriptions();
+  if(tab==='settings')return renderSettings();
   if(tab==='shifts')return renderShifts();
   if(tab==='fin_budget_cat')return '<div class="stack"><div class="card"><div class="rs">Loading…</div></div></div>';
   if(tab==='countdown')return renderCountdown();
@@ -2800,6 +2885,21 @@ function calSaveScroll(){if(calView==='day'||calView==='week'){var sc=document.q
 function calWeekHasToday(c){var dow=(c.getDay()+6)%7;var mon=new Date(c.getFullYear(),c.getMonth(),c.getDate()-dow);var t=new Date();t.setHours(0,0,0,0);return t>=mon&&t<new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+7);}
 function calAfterRender(){
   if(activeTab!=='calendar')return;
+  // swipe on the view segment cycles Month ⇄ Week ⇄ Day ⇄ Agenda
+  var seg=(current&&current.el?current.el:document).querySelector('.cal-seg');
+  if(seg&&!seg._swipe){
+    seg._swipe=true;
+    var sx=0,sy=0;
+    seg.addEventListener('touchstart',function(e){var t=e.touches[0];sx=t.clientX;sy=t.clientY;},{passive:true});
+    seg.addEventListener('touchend',function(e){
+      var t=e.changedTouches[0];var dx=t.clientX-sx,dy=t.clientY-sy;
+      if(Math.abs(dx)<40||Math.abs(dx)<Math.abs(dy)*1.4)return;
+      var order=['month','week','day','agenda'];
+      var i=order.indexOf(calView);if(i<0)return;
+      var ni=i+(dx<0?1:-1);if(ni<0||ni>order.length-1)return;
+      calSetView(order[ni]);
+    },{passive:true});
+  }
   var sc=document.querySelector('.cal-scroll');if(!sc)return;
   var reveal=function(){sc.classList.add('cal-scroll-ready');};
   if(_calKeepScroll!=null){sc.scrollTop=_calKeepScroll;_calKeepScroll=null;reveal();return;}
@@ -2998,7 +3098,7 @@ function calCSS(){return ''+
 '#calBody{position:relative;overflow:hidden;will-change:transform,opacity}'+
 '#calBody.cal-settled .cal-mc,#calBody.cal-settled .cal-adpill{animation:none!important}'+
 '.cal-track{display:flex;will-change:transform;touch-action:pan-y}'+
-'.cal-pane{flex:none;min-width:0;display:flex;flex-direction:column;min-height:0;overflow:hidden}'+
+'.cal-pane{flex:none;min-width:0;display:flex;flex-direction:column;min-height:0;overflow:hidden;contain:layout paint;transform:translateZ(0)}'+
 '.cal-zin{animation:calZin .55s cubic-bezier(.22,.61,.36,1)}.cal-zout{animation:calZout .55s cubic-bezier(.22,.61,.36,1)}.cal-next{animation:calNx .45s cubic-bezier(.22,.61,.36,1)}.cal-prev{animation:calPv .45s cubic-bezier(.22,.61,.36,1)}.cal-fade{animation:calFd .35s ease}.cal-pop{animation:calPp .42s cubic-bezier(.22,.61,.36,1)}'+
 '.cal-seg{display:flex;background:var(--surface-3);border-radius:13px;padding:3px;gap:2px;margin-bottom:4px}'+
 '.cal-seg button{flex:1;border:none;background:none;font-family:inherit;font-weight:600;font-size:13px;color:var(--sub);padding:8px 0;border-radius:10px;cursor:pointer;transition:color .15s}'+
@@ -3763,23 +3863,37 @@ async function budCopyPrev(){
 }
 // Global transaction entry — big amount, tap a category chip, done.
 var _btxCat=null;
+var _btxDate=null;
 function budTxnSheet(){
   budCompute(budCurMonth()).then(function(d){
     if(!d.cats.length){toast('Add a category first');return;}
-    _btxCat=null;
+    _btxCat=null;_btxDate=calISO(new Date());
+    var yd=new Date();yd.setDate(yd.getDate()-1);var yISO=calISO(yd);
     var chips=d.groups.map(function(g){return g.cats.map(function(c){
       return '<button class="btx-chip" id="btx_'+c.id+'" onclick="budTxnPick(\''+c.id+'\')">'+esc(c.icon)+' '+esc(c.name)+'</button>';
     }).join('');}).join('');
     var o=document.createElement('div');o.className='overlay';o.id='ovl';o.onclick=closeOverlay;
-    o.innerHTML='<div class="sheet" onclick="event.stopPropagation()"><h3 style="text-align:center;margin-bottom:2px">Add transaction</h3>'+
+    o.innerHTML='<div class="sheet" onclick="event.stopPropagation()">'+
+      '<div class="btx-head"><h3>Add transaction</h3><button class="btx-x" onclick="closeOverlay()">'+icon('x',15,2.6)+'</button></div>'+
       '<div class="btx-amt"><span>'+curSym()+'</span><input id="btxAmt" inputmode="decimal" placeholder="0" autocomplete="off" oninput="budTxnValid()"/></div>'+
-      '<div style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:8px 2px 0">Category</div>'+
+      '<div class="btx-lbl">Date</div>'+
+      '<div class="btx-dates">'+
+        '<button class="btx-chip on" id="btxD_today" onclick="budTxnDate(\''+calISO(new Date())+'\',this)">Today</button>'+
+        '<button class="btx-chip" id="btxD_yest" onclick="budTxnDate(\''+yISO+'\',this)">Yesterday</button>'+
+        '<label class="btx-chip btx-dpick" id="btxD_pick">'+icon('calendar',13,2.4)+'<input type="date" value="'+calISO(new Date())+'" max="'+calISO(new Date())+'" onchange="budTxnDate(this.value,document.getElementById(\'btxD_pick\'))"/></label>'+
+      '</div>'+
+      '<div class="btx-lbl">Category</div>'+
       '<div class="btx-chips">'+chips+'</div>'+
       '<input id="btxNote" placeholder="Note (optional, e.g. Tesco)" autocomplete="off" autocorrect="off" spellcheck="false"/>'+
-      '<div class="btnrow"><button class="btn btn-ghost" onclick="closeOverlay()">Cancel</button><button class="btn btn-primary" id="btxSave" disabled style="opacity:.4" onclick="budTxnSave()">Add</button></div></div>';
+      '<button class="btn btn-primary btx-save" id="btxSave" disabled style="opacity:.4" onclick="budTxnSave()">Add transaction</button></div>';
     document.getElementById('app').appendChild(o);
     setTimeout(function(){var a=document.getElementById('btxAmt');if(a)a.focus();},150);
   });
+}
+function budTxnDate(iso,el){
+  _btxDate=iso;
+  ['btxD_today','btxD_yest','btxD_pick'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('on');});
+  if(el)el.classList.add('on');
 }
 function budTxnPick(id){
   _btxCat=id;
@@ -3795,7 +3909,7 @@ function budTxnValid(){
 async function budTxnSave(){
   var a=document.getElementById('btxAmt'),n=document.getElementById('btxNote');
   var amt=a?parseFloat(a.value):0;if(!amt||isNaN(amt)||!_btxCat)return;
-  var ok=await budAddTxn(budCurMonth(),_btxCat,amt,n?n.value.trim():'',localDay());
+  var ok=await budAddTxn(budCurMonth(),_btxCat,amt,n?n.value.trim():'',_btxDate||localDay());
   if(ok){closeOverlay();toast('Added '+money(amt)+' \u2713');await refreshScreen();}
 }
 function budNavMonth(delta){_budMonth=budShiftMonth(budCurMonth(),delta);refreshScreen();}
@@ -4663,21 +4777,34 @@ function aiKbInit(){
 }
 function aiScrollEnd(){setTimeout(function(){var t=document.getElementById('aiThread');if(t&&t.lastElementChild)t.lastElementChild.scrollIntoView({block:'end'});if(current&&current.el)current.el.scrollTop=current.el.scrollHeight;},80);}
 // --- Dictation (Web Speech API, Safari-prefixed) ---
-function aiMicSupported(){return !!(window.SpeechRecognition||window.webkitSpeechRecognition);}
+function aiMicSupported(){
+  if(!(window.SpeechRecognition||window.webkitSpeechRecognition))return false;
+  // iOS standalone PWAs don't get working speech recognition — the keyboard's own
+  // dictation mic is the reliable route there, so we hide our button.
+  var ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
+  if(ios&&navigator.standalone)return false;
+  return true;
+}
 var _rec=null;
 function aiMicToggle(){
   var btn=document.getElementById('aiMic');
-  if(_rec){try{_rec.stop();}catch(e){}_rec=null;if(btn)btn.classList.remove('rec');return;}
+  if(_rec){try{_rec.stop();}catch(e){}_recClear();return;}
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){toast('Dictation isn\u2019t available on this device');return;}
   try{
     _rec=new SR();_rec.lang=navigator.language||'en-GB';_rec.interimResults=true;_rec.continuous=false;
     var base=(document.getElementById('aiInput')||{}).value||'';
-    _rec.onresult=function(ev){var txt='';for(var i=0;i<ev.results.length;i++)txt+=ev.results[i][0].transcript;var inp=document.getElementById('aiInput');if(inp)inp.value=(base?base+' ':'')+txt;};
-    _rec.onend=function(){_rec=null;var b=document.getElementById('aiMic');if(b)b.classList.remove('rec');};
-    _rec.onerror=function(){_rec=null;var b=document.getElementById('aiMic');if(b)b.classList.remove('rec');toast('Couldn\u2019t hear that \u2014 try again');};
+    var alive=false;
+    _rec.onaudiostart=function(){alive=true;};
+    _rec.onresult=function(ev){alive=true;var txt='';for(var i=0;i<ev.results.length;i++)txt+=ev.results[i][0].transcript;var inp=document.getElementById('aiInput');if(inp)inp.value=(base?base+' ':'')+txt;};
+    _rec.onend=function(){_recClear();};
+    _rec.onerror=function(){_recClear();toast('Couldn\u2019t hear that \u2014 try again');};
     _rec.start();if(btn)btn.classList.add('rec');
-  }catch(e){_rec=null;toast('Dictation isn\u2019t available on this device');}
+    // Watchdog: if the recogniser never actually starts listening, kill it instead of freezing.
+    setTimeout(function(){if(_rec&&!alive){try{_rec.stop();}catch(e){}_recClear();toast('Dictation didn\u2019t start \u2014 try the keyboard mic');}},4000);
+    setTimeout(function(){if(_rec){try{_rec.stop();}catch(e){}_recClear();}},20000);  // hard cap
+  }catch(e){_recClear();toast('Dictation isn\u2019t available on this device');}
 }
+function _recClear(){_rec=null;var b=document.getElementById('aiMic');if(b)b.classList.remove('rec');}
 function aiRepaint(){if(current&&current.tab==='ai'){var th=current.el.querySelector('#aiThread');if(th){th.innerHTML=aiThreadHTML();th.scrollTop=th.scrollHeight;}}}
 function aiQuick(btn){var i=document.getElementById('aiInput');if(i)i.value=btn.textContent;aiSend();}
 function openAIWith(seed){go('ai');setTimeout(function(){var i=document.getElementById('aiInput');if(i){i.value=seed;i.focus();}},420);}
