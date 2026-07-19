@@ -758,6 +758,57 @@ svg{display:block;}
 .zoomclone{position:fixed;z-index:60;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;will-change:transform,border-radius,opacity;transform-origin:top left;pointer-events:none;}
 .zoomclone.go{box-shadow:0 40px 90px -30px rgba(15,23,42,.35);}
 .zoomclone-inner{position:absolute;inset:0;}
+
+/* ============================================================
+   INTERACTION CRAFT LAYER — one consistent motion language for every
+   tappable surface. Two halves:
+   (a) TOUCH press feedback (applies on iPhone) — springy, tactile.
+   (b) DESKTOP hover (web/trackpad only; iOS has no pointer hover) —
+       lift + accent so the app feels alive on claude.ai / desktop too.
+   All hover transforms are scoped to (hover:hover) per the §4 hard rules;
+   the reduced-motion block below still overrides everything. */
+
+/* (a) Touch press — snappier, more tactile than a flat opacity dip. */
+.navi svg{transition:transform .2s var(--e-spring);}
+.navi:active{opacity:1;}
+.navi:active svg{transform:scale(.84);}
+.fab{transition:transform .2s var(--e-spring),box-shadow .2s,filter .2s;}
+.fab:active{transform:scale(.9);}
+.btn{transition:transform .16s var(--e-out),filter .16s,box-shadow .2s;}
+.tbtn.add:active{filter:brightness(.94);}
+
+/* (b) Desktop hover — the "alive on web" pass. */
+@media (hover:hover) and (pointer:fine){
+  .navi{transition:color .18s;}
+  .navi:hover{color:var(--sub);}
+  .navi:hover svg{transform:translateY(-2px);}
+  .navi.on:hover{color:var(--accent);}
+
+  .btn:hover{filter:brightness(1.04);transform:translateY(-1px);}
+  .btn-primary:hover{box-shadow:0 12px 26px -12px color-mix(in srgb,var(--accent) 70%,transparent);}
+  .btn-ghost:hover{border-color:var(--hair);background:var(--surface-2);}
+  .tbtn:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--accent);transform:translateY(-1px);}
+  .tbtn.add:hover{color:var(--accent-ink);filter:brightness(1.05);transform:translateY(-1px);}
+  .reqbtn:hover{border-color:var(--accent);color:var(--accent);}
+
+  .fab:hover{transform:translateY(-2px);box-shadow:0 20px 40px -12px color-mix(in srgb,var(--accent) 78%,transparent);}
+  .back:hover{background:var(--surface-2);}
+  .pill:hover{border-color:var(--hair);background:var(--surface-3);}
+  .logo:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg);}
+
+  .card[onclick]{transition:transform .18s var(--e-out),box-shadow .2s,border-color .2s;}
+  .card[onclick]:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:var(--hair);}
+  .row[onclick]:hover{background:var(--surface-2);}
+
+  /* Category tiles on a category screen (.tile) already lift; nudge the
+     icon chip + give the label an accent tick so hover reads clearly. */
+  .tile:hover .chip{transform:scale(1.06);}
+  .tile .chip{transition:transform .22s var(--e-spring);}
+
+  /* Home life cards: deepen the existing hover with an accent name shift. */
+  .lifecard:hover .lifecard-name{color:var(--accent);}
+}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
 }
@@ -3180,7 +3231,9 @@ function catScreenHTML(cid){
   var c=catById(cid);
   if(!c)return '<div class="stack"><div class="card"><div class="rs">Unknown section</div></div></div>';
   var en=enabledTabs();
-  var onTabs=c.tabs.filter(function(t){return en.indexOf(t)>=0&&catalogById(t);});
+  // 'calendar' in the Time category is rendered by the dedicated calTile below,
+  // so exclude it here or it renders twice (once as the fixed tile, once in the loop).
+  var onTabs=c.tabs.filter(function(t){return en.indexOf(t)>=0&&catalogById(t)&&!(c.id==='time'&&t==='calendar');});
   var tiles=onTabs.map(function(t){
     var ct=catalogById(t);
     return '<div class="tile" onclick="go(\''+t+'\',false,\'cat_'+c.id+'\')"><div class="chip" style="--tc:'+c.chip+'">'+icon(ct.icon||t,21,2.2)+'</div><div><div class="t">'+esc(ct.label)+'</div><div class="s">'+esc(ct.sub)+'</div></div></div>';
