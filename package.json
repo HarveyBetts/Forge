@@ -1,0 +1,23 @@
+{
+  "name": "forge",
+  "version": "1.0.0",
+  "description": "Forge — single-file vanilla PWA life-organiser",
+  "private": true,
+  "scripts": {
+    "pretest": "node test_forge.js",
+    "test": "playwright test",
+    "test:node": "node test_forge.js",
+    "test:pw": "playwright test",
+    "test:ui": "playwright test --ui"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:41729/git/HarveyBetts/Forge"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  }
+}

@@ -1,0 +1,12 @@
+# Node / Playwright tooling
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# Extracted-for-linting copy of the inline app script (regenerated on demand)
+forge_main.js
+
+# Local screenshot artifacts from the Playwright suite
+tests/__screenshots__/
