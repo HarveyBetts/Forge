@@ -808,7 +808,31 @@ svg{display:block;}
 
   /* Home life cards: deepen the existing hover with an accent name shift. */
   .lifecard:hover .lifecard-name{color:var(--accent);}
+  .cust-head:hover .cust-head-name{color:var(--accent);}
 }
+
+/* ---- Customise: collapsible category sections + iOS toggle switches ---- */
+.cust-hint{color:var(--sub);font-size:13px;line-height:1.5;margin:2px 2px 14px;}
+.cust-sec{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);margin-bottom:11px;overflow:hidden;transition:box-shadow .2s,border-color .2s;}
+.cust-sec.open{box-shadow:var(--shadow-lg);}
+.cust-head{display:flex;align-items:center;gap:13px;width:100%;padding:15px 16px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;transition:background .15s;}
+.cust-head:active{background:var(--surface-2);}
+.cust-head-tx{flex:1;min-width:0;}
+.cust-head-name{font-size:16px;font-weight:700;color:var(--ink);letter-spacing:-.01em;transition:color .18s;}
+.cust-head-sub{font-size:12.5px;color:var(--sub);margin-top:2px;}
+.cust-chev{color:var(--faint);transition:transform .3s var(--e-out);display:flex;flex-shrink:0;}
+.cust-sec.open .cust-chev{transform:rotate(90deg);}
+.cust-body{max-height:0;overflow:hidden;transition:max-height .34s var(--e-out);}
+.cust-sec.open .cust-body{max-height:1400px;}
+.cust-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid var(--line);}
+.cust-row .rt{font-size:14.5px;font-weight:600;color:var(--ink);}
+.cust-row .rs{font-size:12px;color:var(--sub);margin-top:1px;}
+.tgl{width:46px;height:28px;border-radius:16px;background:var(--line);border:none;position:relative;cursor:pointer;transition:background .24s var(--e-out);flex-shrink:0;padding:0;}
+.tgl::after{content:'';position:absolute;top:2.5px;left:2.5px;width:23px;height:23px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(15,23,42,.28);transition:transform .26s var(--e-spring);}
+.tgl.on{background:var(--accent);}
+.tgl.on::after{transform:translateX(18px);}
+.tgl:active::after{width:27px;}
+@media (hover:hover) and (pointer:fine){.tgl:hover{filter:brightness(.97);}}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
@@ -3272,23 +3296,32 @@ function catAddPick(cid,t){
   refreshScreen();          // update the category grid behind it
   toast('Added ✓');
 }
+var _custOpen={};   // which Customise categories are expanded (preserved across refreshScreen)
+function custToggle(cid){_custOpen[cid]=!_custOpen[cid];var el=document.getElementById('cust-'+cid);if(el)el.classList.toggle('open',!!_custOpen[cid]);}
 async function renderTabManager(){
   var en=enabledTabs();
-  var groups=CATS.map(function(c){
-    var rows=c.tabs.map(function(id){
-      var t=catalogById(id);if(!t)return '';
-      var on=en.indexOf(id)>=0;
-      return '<div class="trow"><div class="chip sm" style="--tc:'+c.chip+'">'+icon(t.icon||id,16,2.2)+'</div><div style="flex:1"><div class="rt">'+esc(t.label)+'</div><div class="rs">'+esc(t.sub)+'</div></div>'+
-        (on?'<button class="tbtn rm" onclick="removeTab(\''+id+'\')">Remove</button>':'<button class="tbtn add" onclick="addTab(\''+id+'\')">Add</button>')+'</div>';
+  function secHTML(cid,chip,ic,label,ids){
+    var real=ids.filter(function(id){return catalogById(id);});
+    var onCount=real.filter(function(id){return en.indexOf(id)>=0;}).length;
+    var open=!!_custOpen[cid];
+    var rows=real.map(function(id){
+      var t=catalogById(id);var on=en.indexOf(id)>=0;var cs=chip?(' style="--tc:'+chip+'"'):'';
+      return '<div class="cust-row"><div class="chip sm"'+cs+'>'+icon(t.icon||id,16,2.2)+'</div>'+
+        '<div style="flex:1;min-width:0"><div class="rt">'+esc(t.label)+'</div><div class="rs">'+esc(t.sub)+'</div></div>'+
+        '<button class="tgl'+(on?' on':'')+'" aria-label="'+(on?'Remove ':'Add ')+esc(t.label)+'" onclick="'+(on?'removeTab':'addTab')+'(\''+id+'\')"></button></div>';
     }).join('');
-    return '<div class="card"><div class="ctitle">'+esc(c.label)+'</div>'+rows+'</div>';
-  }).join('');
-  var other=CATALOG().filter(function(t){return !catOf(t.id)&&t.id!=='subs'&&t.id!=='finances';});   // e.g. Forge AI (subs+finances live inside Money now)
-  if(other.length){
-    var orows=other.map(function(t){var on=en.indexOf(t.id)>=0;return '<div class="trow"><div class="chip sm">'+icon(t.icon||t.id,16,2.2)+'</div><div style="flex:1"><div class="rt">'+esc(t.label)+'</div><div class="rs">'+esc(t.sub)+'</div></div>'+(on?'<button class="tbtn rm" onclick="removeTab(\''+t.id+'\')">Remove</button>':'<button class="tbtn add" onclick="addTab(\''+t.id+'\')">Add</button>')+'</div>';}).join('');
-    groups+='<div class="card"><div class="ctitle">Assistant</div>'+orows+'</div>';
+    var cs=chip?(' style="--tc:'+chip+'"'):'';
+    return '<div class="cust-sec'+(open?' open':'')+'" id="cust-'+cid+'">'+
+      '<button class="cust-head" onclick="custToggle(\''+cid+'\')"><div class="chip sm"'+cs+'>'+icon(ic,16,2.2)+'</div>'+
+      '<div class="cust-head-tx"><div class="cust-head-name">'+esc(label)+'</div><div class="cust-head-sub">'+onCount+' of '+real.length+' added</div></div>'+
+      '<span class="cust-chev">'+icon('chev',16,2.4)+'</span></button>'+
+      '<div class="cust-body">'+rows+'</div></div>';
   }
-  return '<div class="stack">'+groups+'</div>';
+  var secs=CATS.map(function(c){return secHTML(c.id,c.chip,c.icon,c.label,c.tabs);}).join('');
+  var other=CATALOG().filter(function(t){return !catOf(t.id)&&t.id!=='subs'&&t.id!=='finances';});   // e.g. Forge AI (subs+finances live inside Money now)
+  if(other.length){ secs+=secHTML('_assistant','','spark','Assistant',other.map(function(t){return t.id;})); }
+  var hint='<div class="cust-hint">Tap a category to expand it, then switch sections on or off. Your Home updates instantly.</div>';
+  return '<div class="stack cust-wrap">'+hint+secs+'</div>';
 }
 
 // ---------- USERS ----------
