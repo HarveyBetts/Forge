@@ -392,8 +392,10 @@ button:focus-visible,[onclick]:focus-visible{outline:2px solid var(--accent);out
 .intro-stage{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;}
 .intro-logowrap{position:relative;display:flex;align-items:center;justify-content:center;}
 /* single radial bloom behind the mark — blooms once as the icon lands, then holds */
-.intro-glow{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(60,120,255,.42),rgba(60,120,255,.1) 46%,transparent 70%);opacity:0;transform:scale(.5);animation:glowBloom 1.2s cubic-bezier(.22,.61,.36,1) .25s forwards;}
+.intro-glow{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(60,120,255,.42),rgba(60,120,255,.1) 46%,transparent 70%);opacity:0;transform:scale(.5);animation:glowBloom 1.2s cubic-bezier(.22,.61,.36,1) .25s forwards, glowBreathe 3.6s ease-in-out 1.5s infinite;}
 @keyframes glowBloom{0%{opacity:0;transform:scale(.5);}55%{opacity:.62;}100%{opacity:.45;transform:scale(1);}}
+/* Gentle breathing so the splash never looks frozen while auth resolves. */
+@keyframes glowBreathe{0%,100%{opacity:.4;transform:scale(1);}50%{opacity:.6;transform:scale(1.08);}}
 /* THE hero move: icon starts tiny and soft, grows into place with one spring overshoot */
 .intro-mark{position:relative;z-index:1;width:124px;height:124px;border-radius:30px;overflow:hidden;opacity:0;transform:scale(.7);will-change:transform,opacity;animation:markGrow .85s cubic-bezier(.22,.61,.36,1) .1s forwards;box-shadow:0 30px 70px -18px rgba(24,48,130,.7);}
 .intro-mark img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -1973,7 +1975,7 @@ function homeHTML(){
   var owner=isOwner()?lifecard('owner','grid','Dashboard','Owner overview'):'';
   return '<div class="home-grid hgv" id="homeGrid">'+hero
     +'<div class="today-strip" id="todayStrip"></div>'
-    +'<div class="brain-wrap" id="brainCards"><div class="sk-pill"></div><div class="sk-pill sk2"></div></div>'
+    +'<div class="brain-wrap" id="brainCards"></div>'
     +lbl('Your life')+'<div class="life-wrap">'+life+'</div>'
     +(owner?lbl('Quick')+'<div class="life-wrap">'+owner+'</div>':'')
     +'</div>';
@@ -2044,6 +2046,9 @@ function go(tab,instant,parent){
   var navSlide=null;
   if(fromIdx!=null&&toIdx!=null&&fromIdx!==toIdx){navSlide=(toIdx>fromIdx)?'right':'left';}
   var stage=document.getElementById('stage');
+  // Defensive: strip any lingering/stale screens so an old one (e.g. calendar)
+  // can never freeze behind the new screen if a prior transition didn't clean up.
+  if(stage&&current&&current.el){for(var _s=stage.children.length-1;_s>=0;_s--){if(stage.children[_s]!==current.el)stage.children[_s].remove();}}
   var oldEl=current?current.el:null;
   var newEl=buildScreen(tab);
   newEl.classList.add('anim-in');setTimeout(function(){newEl.classList.remove('anim-in');},700);
@@ -5020,27 +5025,40 @@ document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&['+',
   // Build the home screen UNDER the intro so there's no flash when intro lifts.
   // But we must NOT show home until authed — so we only mount the intro now,
   // and reveal PIN exactly as the intro lifts (fixes glitch #13).
+  // Resolve auth IMMEDIATELY so the network round-trip overlaps the ~1.65s splash
+  // animation instead of stalling on a frozen splash after it finishes. Returns a
+  // descriptor of which screen to show; the splash lifts once it's ready.
+  var authReady=(async function(){
+    try{
+      if(/type=recovery/.test(location.hash)) return {act:'reset'};
+      var sres=await sb.auth.getSession();
+      var session=sres&&sres.data&&sres.data.session;
+      if(session){
+        var prof=await resolveProfile();
+        if(prof){ currentUser={id:prof.id,name:prof.name,role:prof.role,avatar_url:prof.avatar_url};
+          return {act: lsGet(pinKey(prof.id))?'pin':'setpin'}; }
+        return {act:'login'};
+      }
+      return {act: fromInvite?'signup':'login'};
+    }catch(e){ return {act:'login'}; }
+  })();
+  // Anti-hang insurance: if the network never answers, don't freeze the splash forever.
+  var authOrTimeout=Promise.race([authReady, new Promise(function(r){setTimeout(function(){r({act:'login'});},9000);})]);
+
   setTimeout(async function(){
     var intro=document.getElementById('intro');
-    var fromInvite=/(?:[?&#])invite/.test(location.search+location.hash);
-    try{
-      if(/type=recovery/.test(location.hash)){ showResetPassword(); }
-      else {
-        var sres=await sb.auth.getSession();
-        var session=sres&&sres.data&&sres.data.session;
-        if(session){
-          var prof=await resolveProfile();
-          if(prof){ currentUser={id:prof.id,name:prof.name,role:prof.role,avatar_url:prof.avatar_url};
-            if(lsGet(pinKey(prof.id))){ showPinUnlock(); } else { showSetPin(false); } }
-          else { showAuthLogin(); }
-        } else if(fromInvite){ showAuthSignup(); }
-        else { showAuthLogin(); }
-      }
-    }catch(e){ showAuthLogin(); }
+    var r; try{ r=await authOrTimeout; }catch(e){ r={act:'login'}; }
+    switch(r&&r.act){
+      case 'reset':  showResetPassword(); break;
+      case 'pin':    showPinUnlock();     break;
+      case 'setpin': showSetPin(false);   break;
+      case 'signup': showAuthSignup();    break;
+      default:       showAuthLogin();
+    }
     try{document.documentElement.style.background='#F3F5F8';document.body.style.background='#F3F5F8';}catch(e){}
     intro.classList.add('hide');
     setTimeout(function(){if(intro&&intro.parentNode)intro.parentNode.removeChild(intro);},720);
-  },1650); // tight, confident splash — icon settles, wordmark rises, lifts (no lingering)
+  },1650); // splash: icon settles, wordmark rises, lifts — auth resolved in parallel above
 })();
 
 (function(){
