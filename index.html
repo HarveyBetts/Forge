@@ -834,6 +834,29 @@ svg{display:block;}
 .tgl:active::after{width:27px;}
 @media (hover:hover) and (pointer:fine){.tgl:hover{filter:brightness(.97);}}
 
+/* ---- Settings: profile header + grouped cards + consistent rows ---- */
+.set-wrap{padding-bottom:22px;}
+.set-profile{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:15px 16px;cursor:pointer;margin-bottom:20px;transition:transform .16s var(--e-out),box-shadow .2s,border-color .2s;}
+.set-profile:active{transform:scale(.99);}
+.set-profile-name{font-size:19px;font-weight:700;color:var(--ink);letter-spacing:-.015em;}
+.set-group{margin-bottom:18px;}
+.set-lbl{font-size:11.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:0 4px 8px;}
+.set-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;}
+.set-row{display:flex;align-items:center;gap:13px;padding:14px 15px;cursor:pointer;transition:background .15s;}
+.set-row+.set-row{border-top:1px solid var(--line);}
+.set-row.static{cursor:default;}
+.set-row:not(.static):active{background:var(--surface-2);}
+.set-tx{flex:1;min-width:0;}
+.set-tx .rt{font-size:15.5px;font-weight:600;color:var(--ink);}
+.set-tx .rs{font-size:12.5px;color:var(--sub);margin-top:2px;line-height:1.4;}
+.set-val{font-size:13px;font-weight:600;color:var(--sub);white-space:nowrap;}
+.set-chev{color:var(--faint);flex-shrink:0;display:flex;transition:transform .18s var(--e-out);}
+.set-out{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;padding:15px;border-radius:15px;border:1px solid var(--line);background:var(--surface);color:var(--danger);font-family:inherit;font-weight:700;font-size:15px;cursor:pointer;box-shadow:var(--shadow);transition:transform .15s,background .15s;margin:2px 0 16px;}
+.set-out:active{transform:scale(.99);background:var(--surface-2);}
+.set-out svg{color:var(--danger);}
+.set-foot{text-align:center;color:var(--faint);font-size:12px;letter-spacing:.02em;padding:2px 0 8px;}
+@media (hover:hover) and (pointer:fine){.set-row:not(.static):hover{background:var(--surface-2);}.set-row:not(.static):hover .set-chev{transform:translateX(2px);color:var(--sub);}.set-profile:hover{box-shadow:var(--shadow-lg);border-color:var(--hair);}.set-out:hover{background:var(--surface-2);}}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
 }
@@ -1866,23 +1889,28 @@ function goHome(){go(null);}
 async function renderSettings(){
   var hasBio=currentUser&&lsGet(bioKey(currentUser.id));
   var name=currentUser&&currentUser.name?currentUser.name:'You';
-  var appearance='<div class="card"><div class="ctitle">Appearance</div>'+
-    '<div class="row" onclick="openCurrencyPicker()" style="cursor:pointer"><div class="chip sm" style="--tc:#10B981">'+icon('wallet',16,2.2)+'</div><div style="flex:1"><div class="rt">Currency</div><div class="rs">'+esc(getCurrency().name)+'</div></div><span class="rs" style="font-weight:700">'+esc(getCurrency().code)+'</span></div>'+
-  '</div>';
-  var security='<div class="card"><div class="ctitle">Security</div>'+
-    '<div class="row"><div class="chip sm" style="--tc:#8B5CF6">'+icon('shield',16,2.2)+'</div><div style="flex:1"><div class="rt">Face ID unlock</div><div class="rs">'+(hasBio?'Enabled on this device':'Unlock without your PIN')+'</div></div><button class="tbtn '+(hasBio?'rm':'add')+'" onclick="setFaceID('+(hasBio?'false':'true')+')">'+(hasBio?'Disable':'Enable')+'</button></div>'+
-    '<div class="row" onclick="lockForge()" style="cursor:pointer"><div class="chip sm" style="--tc:#8B5CF6">'+icon('padlock',16,2.2)+'</div><div style="flex:1"><div class="rt">Lock Forge now</div><div class="rs">Back to the PIN screen</div></div><span class="cal-agchev">'+icon('chev',13,2.4)+'</span></div>'+
-  '</div>';
-  var app='<div class="card"><div class="ctitle">App</div>'+
-    '<div class="row" onclick="sendFeedbackSheet()" style="cursor:pointer"><div class="chip sm" style="--tc:#3E78FF">'+icon('send',16,2.2)+'</div><div style="flex:1"><div class="rt">Send feedback</div><div class="rs">Ideas & bugs land on Harvey\u2019s dashboard</div></div><span class="cal-agchev">'+icon('chev',13,2.4)+'</span></div>'+
-    '<div class="row" onclick="clearLocalCache()" style="cursor:pointer"><div class="chip sm" style="--tc:#3E78FF">'+icon('trash',16,2.2)+'</div><div style="flex:1"><div class="rt">Clear cached data</div><div class="rs">Refetch everything from the cloud</div></div><span class="cal-agchev">'+icon('chev',13,2.4)+'</span></div>'+
-    '<div class="row" onclick="replaySplash()" style="cursor:pointer"><div class="chip sm" style="--tc:#3E78FF">'+icon('spark',16,2.2)+'</div><div style="flex:1"><div class="rt">Restart Forge</div><div class="rs">Full reload with the splash</div></div><span class="cal-agchev">'+icon('chev',13,2.4)+'</span></div>'+
-  '</div>';
-  var about='<div class="card"><div class="ctitle">About</div>'+
-    '<div class="row"><div class="chip sm">'+icon('users',16,2.2)+'</div><div style="flex:1"><div class="rt">'+esc(name)+'</div><div class="rs">Signed in on this device</div></div></div>'+
-    '<div class="row"><div class="chip sm">'+icon('grid',16,2.2)+'</div><div style="flex:1"><div class="rt">Forge</div><div class="rs">PWA \u00B7 harveybetts.github.io</div></div></div>'+
-  '</div>';
-  return '<div class="stack">'+appearance+security+app+about+'</div>';
+  function navRow(oc,tc,ic,t,s){return '<div class="set-row" onclick="'+oc+'"><div class="chip sm"'+(tc?' style="--tc:'+tc+'"':'')+'>'+icon(ic,16,2.2)+'</div><div class="set-tx"><div class="rt">'+t+'</div><div class="rs">'+s+'</div></div><span class="set-chev">'+icon('chev',15,2.4)+'</span></div>';}
+  // Profile header \u2014 anchors the screen (native Settings pattern).
+  var profile='<div class="set-profile" onclick="openAccount()">'+avatarHTML(name,52,currentUser?currentUser.avatar_url:null)+
+    '<div class="set-tx"><div class="set-profile-name serif">'+esc(name)+'</div><div class="rs">Signed in on this device \u00B7 tap to edit</div></div><span class="set-chev">'+icon('chev',15,2.4)+'</span></div>';
+  var appearance='<div class="set-group"><div class="set-lbl">Appearance</div><div class="set-card">'+
+    navRow('openCurrencyPicker()','#10B981','wallet','Currency','<span class="set-val">'+esc(getCurrency().name)+' \u00B7 '+esc(getCurrency().code)+'</span>')+
+  '</div></div>';
+  var security='<div class="set-group"><div class="set-lbl">Security</div><div class="set-card">'+
+    '<div class="set-row"><div class="chip sm" style="--tc:#8B5CF6">'+icon('shield',16,2.2)+'</div><div class="set-tx"><div class="rt">Face ID unlock</div><div class="rs">'+(hasBio?'Enabled on this device':'Unlock without your PIN')+'</div></div><button class="tgl'+(hasBio?' on':'')+'" aria-label="Face ID unlock" onclick="setFaceID('+(hasBio?'false':'true')+')"></button></div>'+
+    navRow('lockForge()','#8B5CF6','padlock','Lock Forge now','Back to the PIN screen')+
+  '</div></div>';
+  var app='<div class="set-group"><div class="set-lbl">App</div><div class="set-card">'+
+    navRow('sendFeedbackSheet()','#3E78FF','send','Send feedback','Ideas &amp; bugs land on Harvey\u2019s dashboard')+
+    navRow('clearLocalCache()','#3E78FF','trash','Clear cached data','Refetch everything from the cloud')+
+    navRow('replaySplash()','#3E78FF','spark','Restart Forge','Full reload with the splash')+
+  '</div></div>';
+  var about='<div class="set-group"><div class="set-lbl">About</div><div class="set-card">'+
+    '<div class="set-row static"><div class="chip sm">'+icon('grid',16,2.2)+'</div><div class="set-tx"><div class="rt">Forge</div><div class="rs">Personal life OS \u00B7 harveybetts.github.io</div></div></div>'+
+  '</div></div>';
+  var out='<button class="set-out" onclick="logout()">'+icon('padlock',16,2.2)+'<span>Log out</span></button>';
+  var foot='<div class="set-foot">Forge \u2014 build your life</div>';
+  return '<div class="stack set-wrap">'+profile+appearance+security+app+about+out+foot+'</div>';
 }
 async function setFaceID(on){
   if(on){
