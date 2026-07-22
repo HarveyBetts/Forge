@@ -3892,6 +3892,7 @@ async function renderBudget(){
 }
 async function renderBudgetMain(){
   var month=budCurMonth();
+  budPrefetch(budShiftMonth(month,1));budPrefetch(budShiftMonth(month,-1)); // warm neighbours so date nav is instant
   var d=await budCompute(month);
   var unit=budPeriodWord();
   var heroClass=d.toAssign>0.5?'pos':(d.toAssign<-0.5?'neg':'zero');
@@ -4030,7 +4031,17 @@ async function budTxnSave(){
   var ok=await budAddTxn(budCurMonth(),_btxCat,amt,n?n.value.trim():'',_btxDate||localDay());
   if(ok){closeOverlay();toast('Added '+money(amt)+' \u2713');await refreshScreen();}
 }
-function budNavMonth(delta){_budMonth=budShiftMonth(budCurMonth(),delta);refreshScreen();}
+// Fire-and-forget warm the per-period caches so switching to a date is instant.
+function budPrefetch(month){if(!month||!currentUser)return;try{budGetAssign(month);budGetTxns(month);budGetIncome(month);}catch(e){}}
+var _budNavBusy=false;
+function budNavMonth(delta){_budMonth=budShiftMonth(budCurMonth(),delta);budNavRun();}
+async function budNavRun(){
+  if(_budNavBusy)return;                 // a render is in flight — it re-checks the target when done
+  _budNavBusy=true;
+  var rendered;
+  do{ rendered=budCurMonth(); await refreshScreen(); } while(rendered!==budCurMonth()); // coalesce rapid taps to the newest
+  _budNavBusy=false;
+}
 function budRedoSetup(){if(!confirm('Redo your budget setup? Your current categories will be replaced when you save the new one.'))return;startBudgetWizard();}
 function budEditIncome(){
   var month=budCurMonth();
