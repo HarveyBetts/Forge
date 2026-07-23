@@ -392,7 +392,7 @@ button:focus-visible,[onclick]:focus-visible{outline:2px solid var(--accent);out
 .intro-stage{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;}
 .intro-logowrap{position:relative;display:flex;align-items:center;justify-content:center;}
 /* single radial bloom behind the mark — blooms once as the icon lands, then holds */
-.intro-glow{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(60,120,255,.42),rgba(60,120,255,.1) 46%,transparent 70%);opacity:0;transform:scale(.5);animation:glowBloom 1.2s cubic-bezier(.22,.61,.36,1) .25s forwards, glowBreathe 3.6s ease-in-out 1.5s infinite;}
+.intro-glow{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(60,120,255,.42),rgba(60,120,255,.1) 46%,transparent 70%);opacity:0;transform:scale(.5);animation:glowBloom 1.9s cubic-bezier(.22,.61,.36,1) .2s forwards, glowBreathe 4.2s ease-in-out 2s infinite;}
 @keyframes glowBloom{0%{opacity:0;transform:scale(.5);}55%{opacity:.62;}100%{opacity:.45;transform:scale(1);}}
 /* Gentle breathing so the splash never looks frozen while auth resolves. */
 @keyframes glowBreathe{0%,100%{opacity:.4;transform:scale(1);}50%{opacity:.6;transform:scale(1.08);}}
@@ -400,20 +400,20 @@ button:focus-visible,[onclick]:focus-visible{outline:2px solid var(--accent);out
 /* Assembly reveal — the blue squircle scales in, then the 4 blades of the
    mark fly in and lock into place, staggered. Feels crafted, not canned. */
 .intro-mark{position:relative;z-index:1;width:124px;height:124px;}
-.im-bg{position:absolute;inset:0;border-radius:30px;background:linear-gradient(140deg,#3A7DFD,#2161ED);box-shadow:0 30px 70px -18px rgba(24,48,130,.72);opacity:0;transform:scale(.72);will-change:transform,opacity;animation:imBgIn .6s cubic-bezier(.22,.61,.36,1) .05s forwards;}
-.im-blade{position:absolute;inset:0;width:100%;height:100%;opacity:0;transform-origin:50% 50%;will-change:transform,opacity;animation:bladeSpin .6s cubic-bezier(.2,.8,.32,1.02) forwards;}
-.im-blade.b0{--r0:-30deg;animation-delay:.30s;}
-.im-blade.b1{--r0:-38deg;animation-delay:.41s;}
-.im-blade.b2{--r0:-25deg;animation-delay:.52s;}
-.im-blade.b3{--r0:-34deg;animation-delay:.63s;}
+.im-bg{position:absolute;inset:0;border-radius:30px;background:linear-gradient(140deg,#3A7DFD,#2161ED);box-shadow:0 30px 70px -18px rgba(24,48,130,.72);opacity:0;transform:scale(.72);will-change:transform,opacity;animation:imBgIn .85s cubic-bezier(.22,.61,.36,1) .12s forwards;}
+.im-blade{position:absolute;inset:0;width:100%;height:100%;opacity:0;transform-origin:50% 50%;will-change:transform,opacity;animation:bladeSpin .95s cubic-bezier(.22,.61,.36,1) forwards;}
+.im-blade.b0{--r0:-28deg;animation-delay:.55s;}
+.im-blade.b1{--r0:-34deg;animation-delay:.82s;}
+.im-blade.b2{--r0:-24deg;animation-delay:1.09s;}
+.im-blade.b3{--r0:-31deg;animation-delay:1.36s;}
 @keyframes imBgIn{to{opacity:1;transform:scale(1);}}
 /* Each blade swings in around the icon centre and scales up — the mark winds together like a pinwheel. */
-@keyframes bladeSpin{0%{opacity:0;transform:rotate(var(--r0)) scale(.52);}55%{opacity:1;}100%{opacity:1;transform:rotate(0) scale(1);}}
+@keyframes bladeSpin{0%{opacity:0;transform:rotate(var(--r0)) scale(.6);}55%{opacity:1;}100%{opacity:1;transform:rotate(0) scale(1);}}
 .intro-sheen{display:none;}
 /* wordmark: a single clean rise + fade — no per-letter blur theatrics */
-.intro-word{margin-top:34px;font-family:'Sora',sans-serif;font-size:34px;font-weight:700;letter-spacing:.34em;padding-left:.34em;color:#fff;position:relative;z-index:3;text-align:center;opacity:0;transform:translateY(12px);animation:wordRise .7s cubic-bezier(.22,.61,.36,1) .5s forwards;}
+.intro-word{margin-top:34px;font-family:'Sora',sans-serif;font-size:34px;font-weight:700;letter-spacing:.34em;padding-left:.34em;color:#fff;position:relative;z-index:3;text-align:center;opacity:0;transform:translateY(12px);animation:wordRise .85s cubic-bezier(.22,.61,.36,1) 1.55s forwards;}
 @keyframes wordRise{0%{opacity:0;transform:translateY(12px);}100%{opacity:1;transform:translateY(0);}}
-.intro-tag{margin-top:16px;font-size:10.5px;letter-spacing:.46em;padding-left:.46em;color:#7FA8FF;text-transform:uppercase;font-weight:600;opacity:0;transform:translateY(8px);animation:tagRise .7s cubic-bezier(.22,.61,.36,1) .74s forwards;position:relative;z-index:3;}
+.intro-tag{margin-top:16px;font-size:10.5px;letter-spacing:.46em;padding-left:.46em;color:#7FA8FF;text-transform:uppercase;font-weight:600;opacity:0;transform:translateY(8px);animation:tagRise .85s cubic-bezier(.22,.61,.36,1) 1.8s forwards;position:relative;z-index:3;}
 @keyframes tagRise{0%{opacity:0;transform:translateY(8px);}100%{opacity:1;transform:translateY(0);}}
 /* ============ PIN ============ */
 .pin-wrap{width:100%;max-width:312px;display:flex;flex-direction:column;align-items:center;position:relative;z-index:3;padding:0 22px;animation:fade .8s ease .15s backwards;}
@@ -827,10 +827,12 @@ svg{display:block;}
 .cust-head-tx{flex:1;min-width:0;}
 .cust-head-name{font-size:16px;font-weight:700;color:var(--ink);letter-spacing:-.01em;transition:color .18s;}
 .cust-head-sub{font-size:12.5px;color:var(--sub);margin-top:2px;}
-.cust-chev{color:var(--faint);transition:transform .3s var(--e-out);display:flex;flex-shrink:0;}
+.cust-chev{color:var(--faint);transition:transform .5s cubic-bezier(.33,0,.12,1);display:flex;flex-shrink:0;}
 .cust-sec.open .cust-chev{transform:rotate(90deg);}
-.cust-body{max-height:0;overflow:hidden;transition:max-height .34s var(--e-out);}
-.cust-sec.open .cust-body{max-height:1400px;}
+/* grid-rows 0fr->1fr animates to the exact content height — correctly paced, no early pop. */
+.cust-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .5s cubic-bezier(.33,0,.12,1);}
+.cust-body-inner{overflow:hidden;}
+.cust-sec.open .cust-body{grid-template-rows:1fr;}
 .cust-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid var(--line);}
 .cust-row .rt{font-size:14.5px;font-weight:600;color:var(--ink);}
 .cust-row .rs{font-size:12px;color:var(--sub);margin-top:1px;}
@@ -3350,7 +3352,7 @@ async function renderTabManager(){
       '<button class="cust-head" onclick="custToggle(\''+cid+'\')"><div class="chip sm"'+cs+'>'+icon(ic,16,2.2)+'</div>'+
       '<div class="cust-head-tx"><div class="cust-head-name">'+esc(label)+'</div><div class="cust-head-sub">'+onCount+' of '+real.length+' added</div></div>'+
       '<span class="cust-chev">'+icon('chev',16,2.4)+'</span></button>'+
-      '<div class="cust-body">'+rows+'</div></div>';
+      '<div class="cust-body"><div class="cust-body-inner">'+rows+'</div></div></div>';
   }
   var secs=CATS.map(function(c){return secHTML(c.id,c.chip,c.icon,c.label,c.tabs);}).join('');
   var other=CATALOG().filter(function(t){return !catOf(t.id)&&t.id!=='subs'&&t.id!=='finances';});   // e.g. Forge AI (subs+finances live inside Money now)
@@ -5137,7 +5139,7 @@ document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&['+',
     try{document.documentElement.style.background='#F3F5F8';document.body.style.background='#F3F5F8';}catch(e){}
     intro.classList.add('hide');
     setTimeout(function(){if(intro&&intro.parentNode)intro.parentNode.removeChild(intro);},720);
-  },1850); // splash: blades assemble, wordmark rises, lifts — auth resolved in parallel above
+  },2750); // splash: blades assemble (slower, deliberate), wordmark rises, lifts — auth resolved in parallel above
 })();
 
 (function(){
