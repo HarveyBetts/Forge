@@ -756,8 +756,8 @@ svg{display:block;}
 /* Desktop hover — real pointers only, so touch devices don't get stuck states */
 @media(hover:hover) and (pointer:fine){
   .lifecard{transition:transform .24s cubic-bezier(.2,.8,.2,1),border-color .24s,box-shadow .24s;}
-  .lifecard:hover{transform:translateY(-4px);box-shadow:0 22px 44px -22px rgba(15,23,42,.30),0 4px 12px -6px rgba(15,23,42,.12);border-color:rgba(47,107,255,.32);}
-  .lifecard:hover .lifecard-go{transform:translateX(3px);opacity:1;color:var(--accent);}
+  .lifecard:hover{transform:translateY(-4px);box-shadow:0 22px 44px -22px rgba(15,23,42,.30),0 4px 12px -6px rgba(15,23,42,.12);border-color:rgba(15,23,42,.12);}
+  .lifecard:hover .lifecard-go{transform:translateX(3px);opacity:.85;}
   .lifecard:hover .lifecard-chip{transform:scale(1.04);}
   .lifecard-chip{transition:transform .24s cubic-bezier(.2,.8,.2,1);}
   .lifecard:active{transform:translateY(-1px) scale(.99);}
@@ -814,8 +814,6 @@ svg{display:block;}
   .tile .chip{transition:transform .22s var(--e-spring);}
 
   /* Home life cards: deepen the existing hover with an accent name shift. */
-  .lifecard:hover .lifecard-name{color:var(--accent);}
-  .cust-head:hover .cust-head-name{color:var(--accent);}
 }
 
 /* ---- Customise: collapsible category sections + iOS toggle switches ---- */
